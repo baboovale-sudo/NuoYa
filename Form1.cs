@@ -20,7 +20,7 @@ namespace OLA
         {
             // 1. 注册码配置 (请在此处修改你的注册码)
             public const string UserCode = "d841c28403974a56b31a74856542b6b7";
-            public const string SoftCode = "c8285fc70089468f82cb927fee5fdf25";
+            public const string SoftCode = "c8285fc70089468f82cb927fee5fdf35";
             public const string Key = "OLA";
 
             // 2. 窗口绑定参数 (修改此处可全局生效)
