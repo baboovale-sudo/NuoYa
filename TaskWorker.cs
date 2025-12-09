@@ -4,7 +4,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Generic;
-using OLAPlug; // 确保引用了 SDK 命名空间
+using OLAPlug;
 
 namespace OLA
 {
@@ -15,7 +15,6 @@ namespace OLA
         public string EmulatorClass { get; set; }
         public string EmulatorBasePath { get; set; }
 
-        // 🔥 新增：包名属性 (默认值防止为空)
         public string PackageName { get; set; } = "com.syyx.nuoya.idle";
 
         public List<string> TaskList { get; set; } = new List<string>();
@@ -33,7 +32,6 @@ namespace OLA
         public Action<int, string, string>? StatusCallback;
         public Action<int, string>? ExceptionCallback;
 
-        // 🔥 修改构造函数：增加 packageName 参数
         public TaskWorker(int row, string name, string className, string path, string packageName = "")
         {
             this.RowIndex = row;
@@ -41,7 +39,6 @@ namespace OLA
             this.EmulatorClass = className;
             this.EmulatorBasePath = path;
 
-            // 如果传入了包名就更新，没传就用默认值
             if (!string.IsNullOrEmpty(packageName))
             {
                 this.PackageName = packageName;
@@ -186,15 +183,13 @@ namespace OLA
                 return;
             }
 
-            // 🔥 初始化任务执行类
-            // 传入 EnsureGameRunning 方法，以便在任务中随时拉起游戏
             var gameTask = new GameTask(
                 _ola!,
                 currentHwnd,
                 (msg) => LogCallback?.Invoke(msg),
                 (status, hwnd) => UpdateStatus(status, hwnd),
                 () => CheckLoopState(token),
-                () => EnsureGameRunning() // 传入启动逻辑
+                () => EnsureGameRunning()
             );
 
             foreach (var taskName in TaskList)
@@ -202,7 +197,7 @@ namespace OLA
                 CheckPauseState(token);
                 if (RunState == 4) break;
 
-                UpdateStatus($"执行中-{taskName}", currentHwnd.ToString());
+                // 已移除通用的状态更新，仅保留日志
                 LogCallback?.Invoke($"👉 开始执行: {taskName}");
 
                 try
@@ -245,7 +240,6 @@ namespace OLA
             token.ThrowIfCancellationRequested();
         }
 
-        // 🔥 核心方法：确保游戏运行 (使用动态包名 PackageName)
         private void EnsureGameRunning()
         {
             if (EmulatorName.Contains("雷电"))
@@ -268,7 +262,6 @@ namespace OLA
 
                     ProcessStartInfo psi = new ProcessStartInfo();
                     psi.FileName = cmdExe;
-                    // 🔥 使用 launchex 和 this.PackageName 启动/置顶游戏
                     psi.Arguments = $"launchex --index {indexStr} --packagename {this.PackageName}";
                     psi.UseShellExecute = false;
                     psi.CreateNoWindow = true;
@@ -302,13 +295,18 @@ namespace OLA
             try
             {
                 string cmdExe = "";
-                string args = ""; string indexStr = "0";
-                if (EmulatorName.Contains("-")) { string[] parts = EmulatorName.Split('-'); indexStr = parts[parts.Length - 1]; }
+                string args = "";
+                string indexStr = "0";
+
+                if (EmulatorName.Contains("-"))
+                {
+                    string[] parts = EmulatorName.Split('-');
+                    indexStr = parts[parts.Length - 1];
+                }
 
                 if (EmulatorName.Contains("雷电"))
                 {
                     cmdExe = Path.Combine(EmulatorBasePath, "ldconsole.exe");
-                    // 启动时也带上包名 (launchex)
                     args = $"launchex --index {indexStr} --packagename {this.PackageName}";
                 }
                 else if (EmulatorName.Contains("MuMu"))
@@ -319,9 +317,15 @@ namespace OLA
                     if (!File.Exists(cmdExe)) cmdExe = Path.Combine(EmulatorBasePath, "MuMuManager.exe");
                     args = $"player launch {indexStr}";
                 }
+
                 if (!File.Exists(cmdExe)) return false;
+
                 ProcessStartInfo psi = new ProcessStartInfo();
-                psi.FileName = cmdExe; psi.Arguments = args; psi.UseShellExecute = false; psi.CreateNoWindow = true;
+                psi.FileName = cmdExe;
+                psi.Arguments = args;
+                psi.UseShellExecute = false;
+                psi.CreateNoWindow = true;
+
                 Process.Start(psi);
                 return true;
             }
@@ -333,9 +337,20 @@ namespace OLA
             try
             {
                 string cmdExe = "";
-                string args = ""; string indexStr = "0";
-                if (EmulatorName.Contains("-")) { string[] parts = EmulatorName.Split('-'); indexStr = parts[parts.Length - 1]; }
-                if (EmulatorName.Contains("雷电")) { cmdExe = Path.Combine(EmulatorBasePath, "ldconsole.exe"); args = $"quit --index {indexStr}"; }
+                string args = "";
+                string indexStr = "0";
+
+                if (EmulatorName.Contains("-"))
+                {
+                    string[] parts = EmulatorName.Split('-');
+                    indexStr = parts[parts.Length - 1];
+                }
+
+                if (EmulatorName.Contains("雷电"))
+                {
+                    cmdExe = Path.Combine(EmulatorBasePath, "ldconsole.exe");
+                    args = $"quit --index {indexStr}";
+                }
                 else if (EmulatorName.Contains("MuMu"))
                 {
                     string parentDir = Directory.GetParent(EmulatorBasePath)?.FullName ?? "";
@@ -344,7 +359,11 @@ namespace OLA
                     if (!File.Exists(cmdExe)) cmdExe = Path.Combine(EmulatorBasePath, "MuMuManager.exe");
                     args = $"player shutdown {indexStr}";
                 }
-                if (File.Exists(cmdExe)) { Process.Start(new ProcessStartInfo { FileName = cmdExe, Arguments = args, UseShellExecute = false, CreateNoWindow = true }); }
+
+                if (File.Exists(cmdExe))
+                {
+                    Process.Start(new ProcessStartInfo { FileName = cmdExe, Arguments = args, UseShellExecute = false, CreateNoWindow = true });
+                }
             }
             catch { }
         }

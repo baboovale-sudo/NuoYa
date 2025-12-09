@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Threading;
-using OLAPlug; // 引用插件命名空间
+using OLAPlug;
 
 namespace OLA
 {
@@ -9,12 +9,10 @@ namespace OLA
         private OLAPlugServer _ola;
         private long _hwnd;
 
-        // 回调函数
         private Action<string> _log;
         private Action<string, string> _updateStatus;
         private Func<bool> _checkIsStopped;
 
-        // 启动游戏的回调
         private Action _ensureGameStarted;
 
         public GameTask(OLAPlugServer ola, long hwnd, Action<string> log, Action<string, string> updateStatus, Func<bool> checkIsStopped, Action ensureGameStarted)
@@ -27,9 +25,6 @@ namespace OLA
             _ensureGameStarted = ensureGameStarted;
         }
 
-        /// <summary>
-        /// 任务分发入口
-        /// </summary>
         public void Execute(string taskName)
         {
             switch (taskName)
@@ -56,46 +51,23 @@ namespace OLA
             }
         }
 
-        // ==========================================
-        // ⬇️ 任务逻辑 (无数据库版本)
-        // ==========================================
-
         private void MainQuest()
         {
             _updateStatus?.Invoke("启动/检查游戏", _hwnd.ToString());
-            _ensureGameStarted?.Invoke(); // 确保游戏启动
+            _ensureGameStarted?.Invoke();
 
             if (!SmartSleep(5000)) return;
 
-            _updateStatus?.Invoke("执行主线中...", _hwnd.ToString());
+            _updateStatus?.Invoke("主线升级...", _hwnd.ToString());
 
             while (true)
             {
-                if (!SmartSleep(1000)) return; // 检测停止信号
+                if (!SmartSleep(1000)) return;
 
-                // ----------------------------------------------------
-                // 在这里写您的找图/找字逻辑 (使用本地路径或直接找字)
-                // ----------------------------------------------------
-
-                // 示例 1: 找字 (无需数据库，直接识别)
+                // 示例:
                 // int x, y;
-                // int ret = _ola.FindStr(0, 0, 1280, 720, "跳过剧情", "ffffff-000000", "本地字库名", 0.9, out x, out y);
-                // if (ret != -1)
-                // {
-                //     _updateStatus?.Invoke("点击跳过", _hwnd.ToString());
-                //     _ola.MoveTo(x, y);
-                //     _ola.LeftClick();
-                // }
+                // if (_ola.FindStr(..., out x, out y) != -1) ...
 
-                // 示例 2: 找图 (使用本地图片路径)
-                // var result = _ola.MatchImageFromPath("screen", @"D:\Images\finish.bmp", 0.9, 0, 0, 1.0);
-                // if (result.MatchState)
-                // {
-                //     // 点击...
-                //     break; // 任务完成跳出
-                // }
-
-                // 占位符，防止编译警告
                 if (false) break;
             }
 
@@ -108,15 +80,15 @@ namespace OLA
             while (true)
             {
                 if (!SmartSleep(1000)) return;
-
                 // 逻辑...
-
                 if (false) break;
             }
         }
 
         private void AutoSign()
         {
+            _updateStatus?.Invoke("自动签到中...", _hwnd.ToString());
+
             if (!SmartSleep(2000)) return;
             _updateStatus?.Invoke("点击签到", _hwnd.ToString());
             // _ola.LeftClick(); 
@@ -124,6 +96,8 @@ namespace OLA
 
         private void SideQuest()
         {
+            _updateStatus?.Invoke("支线任务...", _hwnd.ToString());
+
             while (true)
             {
                 if (!SmartSleep(1000)) return;
@@ -140,9 +114,6 @@ namespace OLA
             }
         }
 
-        // ==========================================
-        // 🛠️ 辅助方法
-        // ==========================================
         private bool SmartSleep(int ms)
         {
             int slice = 100;
