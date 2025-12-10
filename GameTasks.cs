@@ -162,7 +162,7 @@ namespace OLA
             {
                 if (!SmartSleep(1000)) return;
 
-                // 1. 退出条件
+                // 1. 异常退出条件：等级不足
                 var im = _ola.MatchWindowsFromPath(0, 0, 960, 540, "等级不足.bmp", 0.85, 0, 0, 1.0);
                 if (im != null && im.MatchState)
                 {
@@ -171,78 +171,165 @@ namespace OLA
                     break;
                 }
 
+                // =======================================================================
+                // 🔥 加点小循环：抓住入口，死磕到底
+                // =======================================================================
 
-                //加点完毕在属性页面显示0  ---关闭
-                if (TryClickColorPoint("514,116,a37b20|514,118,a17a21|519,115,856621|563,22,d1dbe3|839,23,d1dde7", 940, 23, 500)) continue;
-                //加点等待确认---确认
-                if (TryClickColorPoint("413,282,89774c|427,181,9bc925|561,180,e9e9e3", 480, 396, 500)) continue;
-                //加点完在加点页面直接关闭
-                if (TryClickColorPoint("427,179,a1cf26|432,179,a1cd26|432,183,a1cf26|475,400,efefe7|598,135,939387|559,21,d9e5ef|945,15,979787", 940, 21, 500)) continue;
-                //领取奖励
-                if (TryClickColorPoint("835,477,fdfdfb|801,485,f9f9f7|785,481,f3f5f3|784,475,dbdddf", 810, 477, 500)) continue;
-                //对话关闭
-                if (TryClickColorPoint("461,458,f7b164|619,459,f7b164|631,462,e3a15a|905,521,f9f9f7", 908, 518, 500)) continue;
-                //可分配点数
-                if (TryClickColorPoint("707,359,fbe3c7|684,446,d1d1cf|648,444,c7c7c3|651,449,cdcdc7", 669, 448, 500)) continue;
-                //角色属性
-                if (TryClickColorPoint("469,146,a7a7a7|473,239,8d8d8b|659,18,919187|935,17,939387", 553, 117, 500)) continue;
-                //推荐加点
-                if (TryClickColorPoint("414,178,bfbdb7|579,175,e5e5df|587,179,efefe7|591,179,efefe7|442,133,d1dde7", 573, 177, 500)) continue;
-                //智能推荐选择
-                if (TryClickColorPoint("579,90,c5a55c|379,90,c3a35a|755,183,e1dfd7|785,185,e1dfd7", 760, 189, 500)) continue;
-                //加点等待确认---确认
-                if (TryClickColorPoint("413,282,89774c|427,181,9bc925|561,180,e9e9e3", 480, 396, 500)) continue;
+                // 技能加点分配小循环
+                if (TryClickColorPoint("684,446,d1d1cf|669,449,c7c7bf|648,444,c7c7c3|651,449,cdcdc7|707,362,edd9b3", 668, 447, 500))
+                {        
+                    SmartSleep(1000); // 稍微等一下界面打开
+
+                    // 进入加点专用小循环 🔄
+                    // 进入加点专用小循环 🔄
+                    while (true)
+                    {
+                        if (_checkIsStopped()) return;
+                        //在属性页面但是可用加点为0---点击退出
+                        if (TryClickColorPoint("514,116,a37b20|520,116,8d6d21|520,117,916f21|840,22,d7e1eb", 939, 22, 500)) break;
+                        // 1. 【退出条件】智力+敏捷+力量+体力都没有可用加点---点击退出
+                        if (TryClickColorPoint("410,209,1c1d23|412,245,1d1f26|410,282,1f2228|418,319,20232a|427,181,9bc925|432,179,a1cd26", 940, 22, 500)) continue;
+                        // 调整点数页面---智力判断---确认
+                        if (TryClickColorPoint("410,282,917e52|417,282,85724a|427,180,9fcd26|432,180,95c125|497,147,9ba5ab", 477, 397, 500)) continue;
+                        // 调整点数页面---敏捷判断---确认
+                        if (TryClickColorPoint("412,245,978156|418,245,8f7a4e|427,180,9fcd26|432,180,95c125|497,147,9ba5ab", 477, 397, 500)) continue;
+                        // 调整点数页面---力量判断---确认
+                        if (TryClickColorPoint("410,209,957f54|418,209,8f7a4e|427,180,9fcd26|432,180,95c125|497,147,9ba5ab", 477, 397, 500)) continue;
+                        // 调整点数页面---体力判断---确认
+                        if (TryClickColorPoint("419,319,8f784a|410,319,937f52|427,180,9fcd26|432,180,95c125|497,147,9ba5ab", 477, 397, 500)) continue;
+                        // 调整点数页面---点击推荐加点
+                        if (TryClickColorPoint("544,209,b7a372|547,280,9f875a|568,178,e9e9e3|491,133,d1dde7|490,399,efefe7", 577, 179, 500)) continue;
+                        // 首次选择有职业主攻方向推荐---智法
+                        if (TryClickColorPoint("250,203,f17c01|273,355,ef7b01|579,90,c5a55c|379,90,c3a35a|739,190,e1dfd7", 760, 189, 500)) continue;
+                        //存在加点---点击
+                        if (TryClickColorPoint("554,116,a78f60|563,22,d1dbe3|840,23,d1dde7|469,146,a7a7a7", 554, 117, 500)) continue;
+                        // 3. 【防空转】
+                        SmartSleep(1000);
+                    }
+                }
+                // =======================================================================
 
 
-                //新手礼包套装---购买
-                if (TryClickColorPoint("764,120,f7d58f|784,120,f9d78f|765,117,ddbf83|753,87,ffffff|399,479,c1c3c3", 881, 116, 500)) continue;
+                // 主线任务使用新手套装---点击使用 
+                if (TryClickColorPoint("855,162,451511|833,157,42120e|856,153,78231e|536,478,fd6e52|397,474,fbf3af", 841, 160, 500))
+                {
+                    SmartSleep(1000); // 稍微等一下界面打开
+                    while (true)
+                    {
+                        if (_checkIsStopped()) return;
+                        // 主线任务使用新手套装---确认打开  
+                        if (TryClickColorPoint("508,159,19bb1e|484,161,18c71d|510,399,e3e5e7|549,398,6d87a7|827,19,e9e3d7", 503, 396, 1000)) continue;
+                        ClickPoint(713, 99); // 1
+                        SmartSleep (1000);
+                        ClickPoint(558, 455);
+                        SmartSleep(500);
+                        ClickPoint(779, 104); // 2
+                        SmartSleep(1000);
+                        ClickPoint(558, 455);
+                        SmartSleep(500);
+                        ClickPoint(841, 101); // 3
+                        SmartSleep(1000);
+                        ClickPoint(558, 455);
+                        SmartSleep(500);
+                        ClickPoint(909, 105); // 4
+                        SmartSleep(1000);
+                        ClickPoint(558, 455);
+                        SmartSleep(500);
+                        ClickPoint(715, 167); // 5
+                        SmartSleep(1000);
+                        ClickPoint(558, 455);
+                        SmartSleep(500);
+                        ClickPoint(778, 168); // 6
+                        SmartSleep(1000);
+                        ClickPoint(558, 455);
+                        SmartSleep(500);
+                        ClickPoint(843, 170); // 7
+                        SmartSleep(1000);
+                        ClickPoint(558, 455);
+                        SmartSleep(500);
+                        ClickPoint(908, 164); // 8
+                        SmartSleep(1000);
+                        ClickPoint(558, 455);
+                        SmartSleep(500);
+                        ClickPoint(716, 225); // 9
+                        SmartSleep(1000);
+                        ClickPoint(558, 455);
+                        SmartSleep(500);
+                        ClickPoint(779, 223); // 10
+                        SmartSleep(1000);
+                        ClickPoint(558, 455);
+                        SmartSleep(500);
+                        ClickPoint(843, 226); // 11
+                        SmartSleep(1000);
+                        ClickPoint(558, 455);
+                        SmartSleep(500);
+                        ClickPoint(907, 225); // 12
+                        SmartSleep(1000);
+                        ClickPoint(558, 455);
+                        SmartSleep(500);
+                        ClickPoint(712, 291); // 13
+                        SmartSleep(1000);
+                        ClickPoint(558, 455);
+                        SmartSleep(500);
+                        ClickPoint(778, 289); // 14
+                        SmartSleep(1000);
+                        ClickPoint(558, 455);
+                        SmartSleep(500);
+                        ClickPoint(845, 289); // 15
+                        SmartSleep(1000);
+                        ClickPoint(558, 455);
+                        SmartSleep(500);
+                        ClickPoint(907, 288); // 16
+                        SmartSleep(1000);
+                        ClickPoint(558, 455);
+                        SmartSleep(500);
+                        ClickPoint(942, 20); //退出背包
+                        SmartSleep(1000);
+                        break;
+                     
+                    }
+                }
+                // =======================================================================
 
 
 
 
 
+                // --- 原有的其他主线逻辑 ---
 
 
 
 
 
+                // 通用新手奖励引导---奖励领取    
+                if (TryClickColorPoint("776,21,32435c|794,12,efe1d3|793,30,e1d9cf|819,12,f3e7db|783,475,e9ebeb|783,484,edefef|837,485,efefef|934,18,919187", 810, 478, 500)) continue;
 
 
+                // 购买新手宝箱---奖励领取    
+                if (TryClickColorPoint("783,430,d90505|841,430,0000e3|759,72,fbfbfb|786,70,f3f3f3|934,16,959587", 810, 477, 500)) continue;
+                // 检测是否购买成功---关闭页面
+                if (TryClickColorPoint("546,159,c3b76a|547,161,811702|534,155,561711|560,191,859db3|387,470,b3b5b7", 942, 18, 500)) continue;
+                // 购买新手套装循环----点击购买
+                if (TryClickColorPoint("762,117,d5b97f|764,124,dbbf83|764,120,f7d58f|784,120,f9d78f|743,80,ededeb", 878, 113, 500)) continue;
+                // 属性点的使用奖励---领取
+                if (TryClickColorPoint("841,430,0000e3|780,428,f10000|802,70,fdfdfb|801,22,ede7db|828,20,ede7db", 810, 478, 500)) continue;
+                // 领取新手福利---领取
+                if (TryClickColorPoint("424,403,62e303|424,436,6cf903|466,459,f7b164|775,511,b92e2c|905,520,edefef", 910, 519, 500)) continue;
+                // 领取奖励
+                if (TryClickColorPoint("819,13,ede7db|827,476,efefef|790,480,f1f3f3|824,437,dbdbdb", 807, 478, 500)) continue;
 
-
-
-                // ================== 【主线】找图示例 ==================
+                // 找图/找色移动
                 if (TryClickImage(557, 166, 669, 204, "新手启程礼.bmp", 575, 359, 500)) continue;
                 if (TryClickImage(0, 0, 960, 540, "立即启动.bmp", 478, 395, 3000)) continue;
                 if (TryClickImage(445, 476, 516, 498, "开始游戏.bmp", 481, 485, 3000)) continue;
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                // ================== 【主线】找色示例 ==================
-                // 解释：如果(100,200)是黄色 且 (105,202)也是黄色 -> 点击(100,200) -> 等待2秒
-                //通用主线1
-                if (TryClickColorPoint("41,115,bd972c|41,109,bb952c|41,107,bf972c", 97, 111, 2000)) continue;
-                //通用主线2
-                if(TryClickColorPoint("41,115,bd972c|41,112,bd972c|41,110,bf972c", 89, 111, 2000)) continue;
-
+                // 通用主线点击
+                if (TryClickColorPoint("41,115,bd972c|41,113,bd972c|41,110,bf972c", 100, 111, 2000)) continue;
+               
             }
 
             _updateStatus?.Invoke("主线任务结束", _hwnd.ToString());
         }
-
         private void DailyActive()
         {
             _updateStatus?.Invoke("准备日常...", _hwnd.ToString());

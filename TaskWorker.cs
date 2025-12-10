@@ -66,10 +66,13 @@ namespace OLA
 
         public void Pause()
         {
+            // 这里更新了状态为“已暂停”
             if (RunState == 1) { RunState = 2; UpdateStatus("已暂停", ""); }
         }
+
         public void Resume()
         {
+            // 这里只是改了内部状态，没有通知UI，问题就在这，但我们在CheckPauseState里修
             if (RunState == 2) { RunState = 3; }
         }
 
@@ -188,13 +191,15 @@ namespace OLA
                 currentHwnd,
                 (msg) => LogCallback?.Invoke(msg),
                 (status, hwnd) => UpdateStatus(status, hwnd),
-                () => CheckLoopState(token),
+                // 🔥 修改点1：传递 currentHwnd 给 CheckLoopState
+                () => CheckLoopState(token, currentHwnd),
                 () => EnsureGameRunning()
             );
 
             foreach (var taskName in TaskList)
             {
-                CheckPauseState(token);
+                // 🔥 修改点2：传递 currentHwnd 给 CheckPauseState
+                CheckPauseState(token, currentHwnd);
                 if (RunState == 4) break;
 
                 // 已移除通用的状态更新，仅保留日志
@@ -222,21 +227,32 @@ namespace OLA
             }
         }
 
-        private bool CheckLoopState(CancellationToken token)
+        // 🔥 修改点3：增加 hwnd 参数，并透传给 CheckPauseState
+        private bool CheckLoopState(CancellationToken token, long hwnd)
         {
             if (token.IsCancellationRequested) return true;
-            CheckPauseState(token);
+            CheckPauseState(token, hwnd);
             return RunState == 4;
         }
 
-        private void CheckPauseState(CancellationToken token)
+        // 🔥 修改点4：增加 hwnd 参数，并在恢复时更新状态
+        private void CheckPauseState(CancellationToken token, long hwnd)
         {
+            bool wasPaused = false;
             while (RunState == 2)
             {
+                wasPaused = true;
                 token.ThrowIfCancellationRequested();
                 Thread.Sleep(500);
             }
             if (RunState == 3) { RunState = 1; }
+
+            // 如果刚才暂停过，现在恢复了，强制刷一下状态为“运行中”
+            if (wasPaused)
+            {
+                UpdateStatus("运行中", hwnd.ToString());
+            }
+
             token.ThrowIfCancellationRequested();
         }
 
