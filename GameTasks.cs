@@ -90,8 +90,18 @@ namespace OLA
         {
             int rndX = x + _rnd.Next(-range, range + 1);
             int rndY = y + _rnd.Next(-range, range + 1);
+
             _ola.MoveTo(rndX, rndY);
-            _ola.LeftClick();
+
+            // 1. 移动后停顿一下（模拟人眼定位，比如 10~30毫秒）
+            Thread.Sleep(_rnd.Next(10, 30));
+
+            _ola.LeftDown(); // 按下
+
+            // 2. 按下和抬起之间停顿一下（模拟点击力度，比如 50~100毫秒）
+            Thread.Sleep(_rnd.Next(50, 200));
+
+            _ola.LeftUp();   // 抬起
         }
 
         private bool SmartSleep(int ms)
