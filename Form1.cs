@@ -640,7 +640,7 @@ namespace OLA
             string nameLower = emulatorName.ToLower();
             if (nameLower.Contains("雷电"))
             {
-                string res = Deep_Search_D_Drive("LDPlayer64");
+                string res = Deep_Search_D_Drive("LDPlayer9");
                 if (!string.IsNullOrEmpty(res)) return res;
                 return Deep_Search_D_Drive("LDPlayer");
             }

@@ -288,7 +288,7 @@
             lujing_shuru.Name = "lujing_shuru";
             lujing_shuru.Size = new Size(121, 23);
             lujing_shuru.TabIndex = 8;
-            lujing_shuru.Text = "D:\\leidian\\LDPlayer64";
+            lujing_shuru.Text = "D:\\leidian\\LDPlayer9";
             // 
             // qufu_xuanze
             // 
