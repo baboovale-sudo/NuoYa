@@ -171,14 +171,73 @@ namespace OLA
                     break;
                 }
 
+
+                //加点完毕在属性页面显示0  ---关闭
+                if (TryClickColorPoint("514,116,a37b20|514,118,a17a21|519,115,856621|563,22,d1dbe3|839,23,d1dde7", 940, 23, 500)) continue;
+                //加点等待确认---确认
+                if (TryClickColorPoint("413,282,89774c|427,181,9bc925|561,180,e9e9e3", 480, 396, 500)) continue;
+                //加点完在加点页面直接关闭
+                if (TryClickColorPoint("427,179,a1cf26|432,179,a1cd26|432,183,a1cf26|475,400,efefe7|598,135,939387|559,21,d9e5ef|945,15,979787", 940, 21, 500)) continue;
+                //领取奖励
+                if (TryClickColorPoint("835,477,fdfdfb|801,485,f9f9f7|785,481,f3f5f3|784,475,dbdddf", 810, 477, 500)) continue;
+                //对话关闭
+                if (TryClickColorPoint("461,458,f7b164|619,459,f7b164|631,462,e3a15a|905,521,f9f9f7", 908, 518, 500)) continue;
+                //可分配点数
+                if (TryClickColorPoint("707,359,fbe3c7|684,446,d1d1cf|648,444,c7c7c3|651,449,cdcdc7", 669, 448, 500)) continue;
+                //角色属性
+                if (TryClickColorPoint("469,146,a7a7a7|473,239,8d8d8b|659,18,919187|935,17,939387", 553, 117, 500)) continue;
+                //推荐加点
+                if (TryClickColorPoint("414,178,bfbdb7|579,175,e5e5df|587,179,efefe7|591,179,efefe7|442,133,d1dde7", 573, 177, 500)) continue;
+                //智能推荐选择
+                if (TryClickColorPoint("579,90,c5a55c|379,90,c3a35a|755,183,e1dfd7|785,185,e1dfd7", 760, 189, 500)) continue;
+                //加点等待确认---确认
+                if (TryClickColorPoint("413,282,89774c|427,181,9bc925|561,180,e9e9e3", 480, 396, 500)) continue;
+
+
+                //新手礼包套装---购买
+                if (TryClickColorPoint("764,120,f7d58f|784,120,f9d78f|765,117,ddbf83|753,87,ffffff|399,479,c1c3c3", 881, 116, 500)) continue;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 // ================== 【主线】找图示例 ==================
                 if (TryClickImage(557, 166, 669, 204, "新手启程礼.bmp", 575, 359, 500)) continue;
                 if (TryClickImage(0, 0, 960, 540, "立即启动.bmp", 478, 395, 3000)) continue;
                 if (TryClickImage(445, 476, 516, 498, "开始游戏.bmp", 481, 485, 3000)) continue;
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 // ================== 【主线】找色示例 ==================
                 // 解释：如果(100,200)是黄色 且 (105,202)也是黄色 -> 点击(100,200) -> 等待2秒
-                if (TryClickColorPoint("100,200,FFFF00|105,202,FFFF00", 100, 200, 2000)) continue;
+                //通用主线1
+                if (TryClickColorPoint("41,115,bd972c|41,109,bb952c|41,107,bf972c", 97, 111, 2000)) continue;
+                //通用主线2
+                if(TryClickColorPoint("41,115,bd972c|41,112,bd972c|41,110,bf972c", 89, 111, 2000)) continue;
+
             }
 
             _updateStatus?.Invoke("主线任务结束", _hwnd.ToString());
