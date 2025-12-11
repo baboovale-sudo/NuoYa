@@ -94,7 +94,7 @@ namespace OLA
             _ola.MoveTo(rndX, rndY);
 
             // 1. 移动后停顿一下（模拟人眼定位，比如 10~30毫秒）
-            Thread.Sleep(_rnd.Next(10, 30));
+            Thread.Sleep(_rnd.Next(30, 100));
 
             _ola.LeftDown(); // 按下
 
@@ -186,7 +186,8 @@ namespace OLA
                 // =======================================================================
 
                 // 技能加点分配小循环
-                if (TryClickColorPoint("684,446,d1d1cf|669,449,c7c7bf|648,444,c7c7c3|651,449,cdcdc7|707,362,edd9b3", 668, 447, 500))
+                // if (TryClickColorPoint("684,446,d1d1cf|669,449,c7c7bf|648,444,c7c7c3|651,449,cdcdc7|707,362,edd9b3", 668, 447, 500))
+                if (TryClickImage(641, 442, 694, 457, "立即加点.bmp", 666, 449, 500)) 
                 {        
                     SmartSleep(1000); // 稍微等一下界面打开
 
@@ -314,6 +315,8 @@ namespace OLA
                 // 通用新手奖励引导---奖励领取    
                 if (TryClickColorPoint("776,21,32435c|794,12,efe1d3|793,30,e1d9cf|819,12,f3e7db|783,475,e9ebeb|783,484,edefef|837,485,efefef|934,18,919187", 810, 478, 500)) continue;
 
+                // 通用新手奖励引导1---奖励领取    
+                if (TryClickColorPoint("807,475,ffffff|805,482,f7f7f7|794,13,f1e7db|819,12,f3e7db|933,16,959587", 807, 477, 500)) continue;
 
                 // 购买新手宝箱---奖励领取    
                 if (TryClickColorPoint("783,430,d90505|841,430,0000e3|759,72,fbfbfb|786,70,f3f3f3|934,16,959587", 810, 477, 500)) continue;
@@ -335,7 +338,7 @@ namespace OLA
 
                 // 通用主线点击
                 if (TryClickColorPoint("41,115,bd972c|41,113,bd972c|41,110,bf972c", 100, 111, 2000)) continue;
-               
+                if (TryClickColorPoint("235,174,dfd5a3|156,207,fff3bf|73,126,f1e7b7|759,184,b5afa3", 782, 476, 2000)) continue;
             }
 
             _updateStatus?.Invoke("主线任务结束", _hwnd.ToString());
