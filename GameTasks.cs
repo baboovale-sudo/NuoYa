@@ -21,7 +21,7 @@ namespace OLA
         private Random _rnd = new Random();
 
         // ==========================================
-        // 🛠️ 辅助方法区 (找图 + 找色 封装)
+        // 🛠️ 辅助方法区 (找图 + 找色 + 找字封装)
         // ==========================================
 
         /// <summary>
@@ -85,6 +85,60 @@ namespace OLA
             SmartSleep(delay);
             return true;
         }
+
+        // ==========================================================
+        // 🔥🔥🔥 新增：拼音封装的找字方法 (Start) 🔥🔥🔥
+        // ==========================================================
+
+        /// <summary>
+        /// [方式1] 找字 -> 直接点击该字 (利用FindStr带出的x,y坐标)
+        /// 参数：范围(x1,y1,x2,y2) -> 文字 -> 颜色 -> 延迟
+        /// </summary>
+        private bool ZhaoZiDianZi(int x1, int y1, int x2, int y2, string text, string color, int delay)
+        {
+            int x, y;
+            // 默认字库 "无尽黑暗.txt"，相似度 0.8
+            // FindStr 返回 1 (或非-1) 代表找到了，同时 out x, out y 会带出坐标
+            if (_ola.FindStr(x1, y1, x2, y2, text, color, "无尽黑暗.txt", 0.8, out x, out y) != -1)
+            {
+                _log?.Invoke($"🔠 找到[{text}] -> 坐标({x},{y}) -> 直接点击");
+                ClickPoint(x, y);
+                SmartSleep(delay);
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// [方式2] 找字 -> 点击指定坐标 (不管字在哪，都点你设定的位置)
+        /// 参数：范围 -> 文字 -> 颜色 -> 指定点击X -> 指定点击Y -> 延迟
+        /// </summary>
+        private bool ZhaoZiDianZhiDing(int x1, int y1, int x2, int y2, string text, string color, int clickX, int clickY, int delay)
+        {
+            int x, y;
+            if (_ola.FindStr(x1, y1, x2, y2, text, color, "无尽黑暗.txt", 0.8, out x, out y) != -1)
+            {
+                _log?.Invoke($"🔠 找到[{text}] -> 点击指定位置({clickX},{clickY})");
+                ClickPoint(clickX, clickY);
+                SmartSleep(delay);
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// [辅助] 区域识字 (只识别内容，不点击，用于判断状态)
+        /// 参数：范围 -> 颜色
+        /// </summary>
+        private string QuYuShiZi(int x1, int y1, int x2, int y2, string color)
+        {
+            string text = _ola.OcrFromDict(x1, y1, x2, y2, color, "无尽黑暗.txt", 0.8);
+            return text ?? "";
+        }
+
+        // ==========================================================
+        // 🔥🔥🔥 新增：拼音封装的找字方法 (End) 🔥🔥🔥
+        // ==========================================================
 
         private void ClickPoint(int x, int y, int range = 5)
         {
@@ -180,6 +234,32 @@ namespace OLA
                     SmartSleep(1000);
                     break;
                 }
+                // =======================================================================
+                // 🔥🔥🔥 新增找字功能示例 (开始) 🔥🔥🔥
+                // =======================================================================
+
+                // 1. 【找字并点击该字】 
+                // 含义：在全屏找 "开始游戏"，找到了直接点击文字位置，延迟2秒(2000毫秒)
+                //  if (ZhaoZiDianZi(0, 0, 1280, 720, "开始游戏", "ffffff-202020", 2000))
+                //  {
+                // continue;
+                // }
+
+                // 2. 【找字并点击指定位置】
+                // 含义：找 "任务完成"，找到了不点文字，而是点击固定坐标 (900, 225)
+                //  if (ZhaoZiDianZhiDing(0, 0, 1280, 720, "任务完成", "ffffff-101010", 900, 225, 1000)) continue;
+
+                // 3. 【区域识字】(判断状态)
+                // 含义：识别 (800,200) 到 (950,250) 区域的文字
+                //  string status = QuYuShiZi(800, 200, 950, 250, "ffffff-202020");
+                //  if (status.Contains("未完成"))
+                // {
+                // 这里写你的逻辑...
+                // 比如: ZhaoZiDianZi(..., "去打怪", ...);
+                // }
+                // =======================================================================
+                // 🔥🔥🔥 新增找字功能示例 (结束) 🔥🔥🔥
+                // =======================================================================
 
                 // =======================================================================
                 // 🔥 加点小循环：抓住入口，死磕到底
@@ -187,8 +267,8 @@ namespace OLA
 
                 // 技能加点分配小循环
                 // if (TryClickColorPoint("684,446,d1d1cf|669,449,c7c7bf|648,444,c7c7c3|651,449,cdcdc7|707,362,edd9b3", 668, 447, 500))
-                if (TryClickImage(641, 442, 694, 457, "立即加点.bmp", 666, 449, 500)) 
-                {        
+                if (TryClickImage(641, 442, 694, 457, "立即加点.bmp", 666, 449, 500))
+                {
                     SmartSleep(1000); // 稍微等一下界面打开
 
                     // 进入加点专用小循环 🔄
@@ -231,7 +311,7 @@ namespace OLA
                         // 主线任务使用新手套装---确认打开  
                         if (TryClickColorPoint("508,159,19bb1e|484,161,18c71d|510,399,e3e5e7|549,398,6d87a7|827,19,e9e3d7", 503, 396, 1000)) continue;
                         ClickPoint(713, 99); // 1
-                        SmartSleep (1000);
+                        SmartSleep(1000);
                         ClickPoint(558, 455);
                         SmartSleep(500);
                         ClickPoint(779, 104); // 2
@@ -297,22 +377,49 @@ namespace OLA
                         ClickPoint(942, 20); //退出背包
                         SmartSleep(1000);
                         break;
-                     
+
                     }
                 }
                 // =======================================================================
 
 
-
-
-
                 // --- 原有的其他主线逻辑 ---
 
+                // 等级不足
+                if (ZhaoZiDianZhiDing(108, 100, 142, 125, "30级", "1bc520-505050", 872, 84, 1000)) 
+
+                SmartSleep(1000); // 稍微等一下界面打开
+                while (true)
+                {
+                    if (_checkIsStopped()) return;
+
+                    if (TryClickColorPoint("807,475,ffffff|805,482,f7f7f7|794,13,f1e7db|819,12,f3e7db|933,16,959587", 807, 477, 500)) break;
+                    if (ZhaoZiDianZhiDing(263, 56, 340, 94, "冰风谷", "e3dbcb-303030", 766, 477, 2000)) continue;
+                }
+
+
+                    
 
 
 
 
-                // 通用新手奖励引导---奖励领取    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    // 通用新手奖励引导---奖励领取    
                 if (TryClickColorPoint("776,21,32435c|794,12,efe1d3|793,30,e1d9cf|819,12,f3e7db|783,475,e9ebeb|783,484,edefef|837,485,efefef|934,18,919187", 810, 478, 500)) continue;
 
                 // 通用新手奖励引导1---奖励领取    
@@ -397,7 +504,7 @@ namespace OLA
                 SmartSleep(2000);
                 _updateStatus?.Invoke("点击签到按钮", _hwnd.ToString());
                 int cx, cy;
-                if (_ola.FindStr(0, 0, 1280, 720, "签到", "ffffff-202020", "font", 0.8, out cx, out cy) != -1)
+                if (_ola.FindStr(0, 0, 1280, 720, "签到", "ffffff-202020", "无尽黑暗.txt", 0.8, out cx, out cy) != -1)
                 {
                     ClickPoint(cx, cy);
                     SmartSleep(1000);
