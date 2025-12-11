@@ -406,8 +406,13 @@ namespace OLA
                                 StatusCallback = (r, status, hwnd) => UpdateRowStatus(r, status, hwnd),
                                 ExceptionCallback = (r, msg) => UpdateRowException(r, msg),
 
-                                // 🔥🔥🔥 这里设置为空，界面就不会显示日志刷屏了 🔥🔥🔥
-                                LogCallback = (msg) => { }
+                                // 🔥🔥🔥 修改点：年月日 + 精确时间 + 模拟器名称 🔥🔥🔥
+                                // 输出示例：[2025-01-01 12:30:05] [雷电模拟器-1] 正在运行...
+                                LogCallback = (msg) =>
+                                {
+                                    string timeStr = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                                    System.Diagnostics.Debug.WriteLine($"[{timeStr}] [{item.name}] {msg}");
+                                }
                             };
                             workers[item.index] = worker;
                         }

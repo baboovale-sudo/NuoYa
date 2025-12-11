@@ -5,7 +5,7 @@ namespace OLAPlug
 {
     public static class OLAPlugDLLHelper
     {
-        public const string DLL = "OLAPlug-1205_x64.dll"; //支持修改DLL名称为任意值,只要跟文件对应好就行 比如abc.cdf。
+        public const string DLL = "OLA.dll"; //支持修改DLL名称为任意值,只要跟文件对应好就行 比如abc.cdf。
         //public const string DLL = "OLAPlug_x86.dll"; //支持修改DLL名称为任意值,只要跟文件对应好就行 比如abc.cdf。
 
         /// <summary>
@@ -162,6 +162,12 @@ namespace OLAPlug
         public static extern int SetDefaultEncode(int inputEncoding, int outputEncoding);
 
         [DllImport(DLL)]
+        public static extern int GetLastError();
+
+        [DllImport(DLL)]
+        public static extern long GetLastErrorString();
+
+        [DllImport(DLL)]
         public static extern int GetRandomNumber(long instance, int min, int max);
 
         [DllImport(DLL)]
@@ -244,6 +250,12 @@ namespace OLAPlug
 
         [DllImport(DLL)]
         public static extern long Disassemble(long instance, string asmCode, long baseAddr, int arch, int mode, int showType);
+
+        [DllImport(DLL)]
+        public static extern long Login(string userCode, string softCode, string featureList, string softVersion, string dealerCode);
+
+        [DllImport(DLL)]
+        public static extern long Activate(string userCode, string softCode, string softVersion, string dealerCode, string licenseKey);
 
         [DllImport(DLL)]
         public static extern int DrawGuiCleanup(long instance);
@@ -396,9 +408,6 @@ namespace OLAPlug
         public static extern int RemoveAllowPID(long instance, long pid);
 
         [DllImport(DLL)]
-        public static extern int InjectDll(long instance, long pid, string dll_path, int mode);
-
-        [DllImport(DLL)]
         public static extern int FakeProcess(long instance, long pid, long fake_pid);
 
         [DllImport(DLL)]
@@ -531,6 +540,12 @@ namespace OLAPlug
         public static extern long ReadBytesFromFile(long instance, string filePath, int offset, long size);
 
         [DllImport(DLL)]
+        public static extern int WriteBytesToFile(long instance, string filePath, long dataAddr, int dataSize);
+
+        [DllImport(DLL)]
+        public static extern int WriteStringToFile(long instance, string filePath, string data, int encoding);
+
+        [DllImport(DLL)]
         public static extern int StartHotkeyHook(long instance);
 
         [DllImport(DLL)]
@@ -565,6 +580,15 @@ namespace OLAPlug
 
         [DllImport(DLL)]
         public static extern int UnregisterMouseDrag(long instance);
+
+        [DllImport(DLL)]
+        public static extern int Inject(long instance, long hwnd, string dll_path, int type, int bypassGuard);
+
+        [DllImport(DLL)]
+        public static extern int InjectFromUrl(long instance, long hwnd, string url, int type, int bypassGuard);
+
+        [DllImport(DLL)]
+        public static extern int InjectFromBuffer(long instance, long hwnd, long bufferAddr, int bufferSize, int type, int bypassGuard);
 
         [DllImport(DLL)]
         public static extern long JsonCreateObject();
@@ -621,13 +645,13 @@ namespace OLAPlug
         public static extern int JsonClear(long obj);
 
         [DllImport(DLL)]
-        public static extern int ParseMatchImageJson(string str, out int matchState, out int x, out int y, out double matchVal, out double angle, out int index);
+        public static extern int ParseMatchImageJson(string str, out int matchState, out int x, out int y, out int width, out int height, out double matchVal, out double angle, out int index);
 
         [DllImport(DLL)]
         public static extern int GetMatchImageAllCount(string str);
 
         [DllImport(DLL)]
-        public static extern int ParseMatchImageAllJson(string str, int parseIndex, out int matchState, out int x, out int y, out double matchVal, out double angle, out int index);
+        public static extern int ParseMatchImageAllJson(string str, int parseIndex, out int matchState, out int x, out int y, out int width, out int height, out double matchVal, out double angle, out int index);
 
         [DllImport(DLL)]
         public static extern int GetResultCount(string resultStr);
@@ -1320,6 +1344,78 @@ namespace OLAPlug
         public static extern int ImageStitchFree(long instance, long imageStitch);
 
         [DllImport(DLL)]
+        public static extern long RegistryOpenKey(long instance, int rootKey, string subKey);
+
+        [DllImport(DLL)]
+        public static extern long RegistryCreateKey(long instance, int rootKey, string subKey);
+
+        [DllImport(DLL)]
+        public static extern int RegistryCloseKey(long instance, long key);
+
+        [DllImport(DLL)]
+        public static extern int RegistryKeyExists(long instance, int rootKey, string subKey);
+
+        [DllImport(DLL)]
+        public static extern int RegistryDeleteKey(long instance, int rootKey, string subKey, int recursive);
+
+        [DllImport(DLL)]
+        public static extern int RegistrySetString(long instance, long key, string valueName, string value);
+
+        [DllImport(DLL)]
+        public static extern long RegistryGetString(long instance, long key, string valueName);
+
+        [DllImport(DLL)]
+        public static extern int RegistrySetDword(long instance, long key, string valueName, int value);
+
+        [DllImport(DLL)]
+        public static extern int RegistryGetDword(long instance, long key, string valueName);
+
+        [DllImport(DLL)]
+        public static extern int RegistrySetQword(long instance, long key, string valueName, long value);
+
+        [DllImport(DLL)]
+        public static extern long RegistryGetQword(long instance, long key, string valueName);
+
+        [DllImport(DLL)]
+        public static extern int RegistryDeleteValue(long instance, long key, string valueName);
+
+        [DllImport(DLL)]
+        public static extern long RegistryEnumSubKeys(long instance, long key);
+
+        [DllImport(DLL)]
+        public static extern long RegistryEnumValues(long instance, long key);
+
+        [DllImport(DLL)]
+        public static extern int RegistrySetEnvironmentVariable(long instance, string name, string value, int systemWide);
+
+        [DllImport(DLL)]
+        public static extern long RegistryGetEnvironmentVariable(long instance, string name, int systemWide);
+
+        [DllImport(DLL)]
+        public static extern long RegistryGetUserRegistryPath(long instance);
+
+        [DllImport(DLL)]
+        public static extern long RegistryGetSystemRegistryPath(long instance);
+
+        [DllImport(DLL)]
+        public static extern int RegistryBackupToFile(long instance, int rootKey, string subKey, string filePath);
+
+        [DllImport(DLL)]
+        public static extern int RegistryRestoreFromFile(long instance, string filePath);
+
+        [DllImport(DLL)]
+        public static extern long RegistryCompareKeys(long instance, int rootKey1, string subKey1, int rootKey2, string subKey2);
+
+        [DllImport(DLL)]
+        public static extern long RegistrySearchKeys(long instance, int rootKey, string searchPath, string searchPattern, int recursive);
+
+        [DllImport(DLL)]
+        public static extern long RegistryGetInstalledSoftware(long instance);
+
+        [DllImport(DLL)]
+        public static extern long RegistryGetWindowsVersion(long instance);
+
+        [DllImport(DLL)]
         public static extern long CreateDatabase(long instance, string dbName, string password);
 
         [DllImport(DLL)]
@@ -1722,16 +1818,16 @@ namespace OLAPlug
         public static extern int CreateChildProcess(long instance, string applicationName, string commandLine, string currentDirectory, int showType, int parentProcessId);
 
         [DllImport(DLL)]
-        public static extern long YoloV5(long instance, int x1, int y1, int x2, int y2);
+        public static extern long YoloLoadModel(long instance, string modelPath, string outputPath, string names_label, string password, int modelType, int inferenceType, int inferenceDevice);
 
         [DllImport(DLL)]
-        public static extern long YoloLoadModel(long instance, string modelPath, string password, int modelType, int inferenceType, int inferenceDevice);
+        public static extern int YoloReleaseModel(long instance, long modelHandle);
 
         [DllImport(DLL)]
         public static extern long YoloLoadModelMemory(long instance, long memoryAddr, int size, int modelType, int inferenceType, int inferenceDevice);
 
         [DllImport(DLL)]
-        public static extern int YoloReleaseModel(long instance, long modelHandle);
+        public static extern long YoloInfer(long instance, long handle, long imagePtr);
 
         [DllImport(DLL)]
         public static extern int YoloIsModelValid(long instance, long modelHandle);
