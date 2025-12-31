@@ -432,7 +432,7 @@
             Controls.Add(moniqi_liebiao);
             FormBorderStyle = FormBorderStyle.FixedSingle;
             Name = "Form1";
-            Text = "Form1";
+            Text = "武林外传_模拟器";
             Load += Form1_Load;
             ((System.ComponentModel.ISupportInitialize)moniqi_liebiao).EndInit();
             tabControl1.ResumeLayout(false);
