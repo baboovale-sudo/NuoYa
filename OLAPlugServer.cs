@@ -262,6 +262,21 @@ namespace OLAPlug
         }
 
         /// <summary>
+        /// 获取插件信息
+        /// </summary>
+        /// <param name="type">信息类型
+        ///<br/> 1: 精简版信息
+        ///<br/> 2: 完整版信息
+        /// </param>
+        /// <returns>插件信息</returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. DLL调用返回字符串指针地址，需要调用 FreeStringPtr 接口释放内存。
+        /// </remarks>
+        public string GetPlugInfo(int type){
+            return PtrToStringUTF8(OLAPlugDLLHelper.GetPlugInfo(type));
+        }
+
+        /// <summary>
         /// 设置全局路径。建议使用 SetConfig 接口。
         /// </summary>
         /// <param name="path">要设置的路径值</param>
@@ -356,6 +371,7 @@ namespace OLAPlug
         ///<br/> dx.mouse.input.lock.api2: 防止前台鼠标移动
         ///<br/> dx.mouse.input.lock.api3: 防止前台鼠标移动
         ///<br/> dx.mouse.raw.input.active: 配合dx.mouse.raw.input使用
+        ///<br/> dx.mouse.vmware: 虚拟机鼠标穿透模式,目前只支持vm16,仅限高级版使用
         /// </param>
         /// <param name="keypad">键盘仿真模式
         ///<br/> normal: 正常模式，平常我们用的前台键盘模式
@@ -366,6 +382,7 @@ namespace OLAPlug
         ///<br/> dx.keypad.api: 通过封锁系统API来模拟dx键盘输入
         ///<br/> dx.keypad.raw.input: 特定窗口键盘操作支持
         ///<br/> dx.keypad.raw.input.active: 配合dx.keypad.raw.input使用
+        ///<br/> dx.keypad.vmware: 虚拟机键盘穿透模式,目前只支持vm16,仅限高级版使用
         /// </param>
         /// <param name="mode">模式设定
         ///<br/> 0: 推荐模式，此模式比较通用，而且后台效果是最好的
@@ -419,6 +436,7 @@ namespace OLAPlug
         ///<br/> dx.mouse.input.lock.api2: 防止前台鼠标移动
         ///<br/> dx.mouse.input.lock.api3: 防止前台鼠标移动
         ///<br/> dx.mouse.raw.input.active: 配合dx.mouse.raw.input使用
+        ///<br/> dx.mouse.vmware: 虚拟机鼠标穿透模式,目前只支持vm16,仅限高级版使用
         /// </param>
         /// <param name="keypad">键盘仿真模式
         ///<br/> normal: 正常模式，平常我们用的前台键盘模式
@@ -429,8 +447,14 @@ namespace OLAPlug
         ///<br/> dx.keypad.api: 通过封锁系统API来模拟dx键盘输入
         ///<br/> dx.keypad.raw.input: 特定窗口键盘操作支持
         ///<br/> dx.keypad.raw.input.active: 配合dx.keypad.raw.input使用
+        ///<br/> dx.keypad.vmware: 虚拟机键盘穿透模式,目前只支持vm16,仅限高级版使用
         /// </param>
-        /// <param name="pubstr"></param>
+        /// <param name="pubstr">通用绑定模式（暂未启用）
+        ///<br/> dx.public.graphic.revert: 翻转DX截图的图像结果
+        ///<br/> dx.public.active.api: 自动定时发送激活命令
+        ///<br/> dx.public.active.api2: 自动定时发送激活命令2
+        ///<br/> ola.bypass.guard: 绑定失败的时候可以尝试打开
+        /// </param>
         /// <param name="mode">模式设定
         ///<br/> 0: 推荐模式，此模式比较通用，而且后台效果是最好的
         ///<br/> 1: 远程线程注入
@@ -708,6 +732,35 @@ namespace OLAPlug
         /// </remarks>
         public string GetLastErrorString(){
             return PtrToStringUTF8(OLAPlugDLLHelper.GetLastErrorString());
+        }
+
+        /// <summary>
+        /// 隐藏指定模块
+        /// </summary>
+        /// <param name="moduleName">模块名称</param>
+        /// <returns>隐藏上下文</returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 隐藏模块可能会导致未知的问题,请谨慎使用
+        /// <br/>2. 隐藏上下文需要调用 UnhideModule 接口释放
+        /// </remarks>
+        public long HideModule(string moduleName){
+            return OLAPlugDLLHelper.HideModule(OLAObject, moduleName);
+        }
+
+        /// <summary>
+        /// 恢复指定模块
+        /// </summary>
+        /// <param name="ctx">隐藏上下文</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 隐藏上下文需要调用 HideModule 接口生成，并且不能重复释放
+        /// <br/>2. 释放后，模块将恢复显示
+        /// </remarks>
+        public int UnhideModule(long ctx){
+            return OLAPlugDLLHelper.UnhideModule(OLAObject, ctx);
         }
 
         /// <summary>
@@ -1184,8 +1237,8 @@ namespace OLAPlug
         /// 执行汇编指令
         /// </summary>
         /// <param name="hwnd">窗口句柄</param>
-        /// <param name="asmStr"></param>
-        /// <param name="type">执行类型,取值如下:
+        /// <param name="asmStr">汇编语言字符串,大小写均可以。比如 "mov eax,1" 也支持输入机器码</param>
+        /// <param name="type">执行类型
         ///<br/> 0: 在本进程中执行(创建线程),hwnd无效
         ///<br/> 1: 在hwnd指定进程内执行(创建远程线程)
         ///<br/> 2: 在已注入绑定的目标进程创建线程执行(需排队)
@@ -1194,7 +1247,7 @@ namespace OLAPlug
         ///<br/> 5: 在hwnd指定进程内执行(APC注入)
         ///<br/> 6: 直接在hwnd所在线程执行
         /// </param>
-        /// <param name="baseAddr"></param>
+        /// <param name="baseAddr">汇编指令所在的地址,如果为0则自动分配内存</param>
         /// <returns>32位进程返回EAX，64位进程返回RAX，执行失败返回0</returns>
         /// <remarks>注意事项: 
         /// <br/>1. 使用此函数需要谨慎，错误的汇编指令可能导致程序崩溃
@@ -1301,7 +1354,10 @@ namespace OLAPlug
         /// <summary>
         /// 释放绘制系统资源并清理所有对象
         /// </summary>
-        /// <returns>操作结果，0 失败，1 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int DrawGuiCleanup(){
             return OLAPlugDLLHelper.DrawGuiCleanup(OLAObject);
         }
@@ -1310,7 +1366,10 @@ namespace OLAPlug
         /// 启用或禁用绘制系统
         /// </summary>
         /// <param name="active">1 启用，0 禁用</param>
-        /// <returns>操作结果，0 失败，1 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int DrawGuiSetGuiActive(int active){
             return OLAPlugDLLHelper.DrawGuiSetGuiActive(OLAObject, active);
         }
@@ -1327,7 +1386,10 @@ namespace OLAPlug
         /// 设置绘制窗口是否可穿透点击
         /// </summary>
         /// <param name="enabled">1 可穿透，0 不可穿透</param>
-        /// <returns>操作结果，0 失败，1 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int DrawGuiSetGuiClickThrough(int enabled){
             return OLAPlugDLLHelper.DrawGuiSetGuiClickThrough(OLAObject, enabled);
         }
@@ -1335,7 +1397,10 @@ namespace OLAPlug
         /// <summary>
         /// 查询绘制窗口是否设置为可穿透
         /// </summary>
-        /// <returns>状态，0 否，1 是</returns>
+        /// <returns>状态
+        ///<br/>0: 否
+        ///<br/>1: 是
+        /// </returns>
         public int DrawGuiIsGuiClickThrough(){
             return OLAPlugDLLHelper.DrawGuiIsGuiClickThrough(OLAObject);
         }
@@ -1463,7 +1528,10 @@ namespace OLAPlug
         /// <param name="handle">对象句柄</param>
         /// <param name="x">左上角X</param>
         /// <param name="y">左上角Y</param>
-        /// <returns>操作结果，0 失败，1 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int DrawGuiSetPosition(long handle, int x, int y){
             return OLAPlugDLLHelper.DrawGuiSetPosition(OLAObject, handle, x, y);
         }
@@ -1474,7 +1542,10 @@ namespace OLAPlug
         /// <param name="handle">对象句柄</param>
         /// <param name="width">宽度</param>
         /// <param name="height">高度</param>
-        /// <returns>操作结果，0 失败，1 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int DrawGuiSetSize(long handle, int width, int height){
             return OLAPlugDLLHelper.DrawGuiSetSize(OLAObject, handle, width, height);
         }
@@ -1487,7 +1558,10 @@ namespace OLAPlug
         /// <param name="g">绿色分量（0-255）</param>
         /// <param name="b">蓝色分量（0-255）</param>
         /// <param name="a">透明度（0-255）</param>
-        /// <returns>操作结果，0 失败，1 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int DrawGuiSetColor(long handle, int r, int g, int b, int a){
             return OLAPlugDLLHelper.DrawGuiSetColor(OLAObject, handle, r, g, b, a);
         }
@@ -1497,7 +1571,10 @@ namespace OLAPlug
         /// </summary>
         /// <param name="handle">对象句柄</param>
         /// <param name="alpha">透明度（0-255）</param>
-        /// <returns>操作结果，0 失败，1 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int DrawGuiSetAlpha(long handle, int alpha){
             return OLAPlugDLLHelper.DrawGuiSetAlpha(OLAObject, handle, alpha);
         }
@@ -1507,7 +1584,10 @@ namespace OLAPlug
         /// </summary>
         /// <param name="handle">对象句柄</param>
         /// <param name="mode">绘制模式，见DrawMode</param>
-        /// <returns>操作结果，0 失败，1 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int DrawGuiSetDrawMode(long handle, int mode){
             return OLAPlugDLLHelper.DrawGuiSetDrawMode(OLAObject, handle, mode);
         }
@@ -1517,7 +1597,10 @@ namespace OLAPlug
         /// </summary>
         /// <param name="handle">对象句柄</param>
         /// <param name="thickness">线宽（像素）</param>
-        /// <returns>操作结果，0 失败，1 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int DrawGuiSetLineThickness(long handle, double thickness){
             return OLAPlugDLLHelper.DrawGuiSetLineThickness(OLAObject, handle, thickness);
         }
@@ -1528,7 +1611,10 @@ namespace OLAPlug
         /// <param name="handle">文本对象句柄</param>
         /// <param name="fontPath">字体文件路径（ttf/otf）</param>
         /// <param name="fontSize">字号（像素）</param>
-        /// <returns>操作结果，0 失败，1 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int DrawGuiSetFont(long handle, string fontPath, int fontSize){
             return OLAPlugDLLHelper.DrawGuiSetFont(OLAObject, handle, fontPath, fontSize);
         }
@@ -1538,7 +1624,10 @@ namespace OLAPlug
         /// </summary>
         /// <param name="handle">文本对象句柄</param>
         /// <param name="align">对齐方式，见TextAlign</param>
-        /// <returns>操作结果，0 失败，1 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int DrawGuiSetTextAlign(long handle, int align){
             return OLAPlugDLLHelper.DrawGuiSetTextAlign(OLAObject, handle, align);
         }
@@ -1548,7 +1637,10 @@ namespace OLAPlug
         /// </summary>
         /// <param name="handle">文本对象句柄</param>
         /// <param name="text">文本内容</param>
-        /// <returns>操作结果，0 失败，1 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int DrawGuiSetText(long handle, string text){
             return OLAPlugDLLHelper.DrawGuiSetText(OLAObject, handle, text);
         }
@@ -1558,7 +1650,10 @@ namespace OLAPlug
         /// </summary>
         /// <param name="handle">窗口句柄</param>
         /// <param name="title">标题文本</param>
-        /// <returns>操作结果，0 失败，1 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int DrawGuiSetWindowTitle(long handle, string title){
             return OLAPlugDLLHelper.DrawGuiSetWindowTitle(OLAObject, handle, title);
         }
@@ -1568,7 +1663,10 @@ namespace OLAPlug
         /// </summary>
         /// <param name="handle">窗口句柄</param>
         /// <param name="style">窗口样式，见WindowStyle</param>
-        /// <returns>操作结果，0 失败，1 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int DrawGuiSetWindowStyle(long handle, int style){
             return OLAPlugDLLHelper.DrawGuiSetWindowStyle(OLAObject, handle, style);
         }
@@ -1578,7 +1676,10 @@ namespace OLAPlug
         /// </summary>
         /// <param name="handle">窗口句柄</param>
         /// <param name="topMost">1 置顶，0 取消置顶</param>
-        /// <returns>操作结果，0 失败，1 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int DrawGuiSetWindowTopMost(long handle, int topMost){
             return OLAPlugDLLHelper.DrawGuiSetWindowTopMost(OLAObject, handle, topMost);
         }
@@ -1588,7 +1689,10 @@ namespace OLAPlug
         /// </summary>
         /// <param name="handle">窗口句柄</param>
         /// <param name="alpha">透明度（0-255）</param>
-        /// <returns>操作结果，0 失败，1 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int DrawGuiSetWindowTransparency(long handle, int alpha){
             return OLAPlugDLLHelper.DrawGuiSetWindowTransparency(OLAObject, handle, alpha);
         }
@@ -1597,7 +1701,10 @@ namespace OLAPlug
         /// 删除对象
         /// </summary>
         /// <param name="handle">对象句柄</param>
-        /// <returns>操作结果，0 失败，1 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int DrawGuiDeleteObject(long handle){
             return OLAPlugDLLHelper.DrawGuiDeleteObject(OLAObject, handle);
         }
@@ -1605,7 +1712,10 @@ namespace OLAPlug
         /// <summary>
         /// 清空所有对象
         /// </summary>
-        /// <returns>操作结果，0 失败，1 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int DrawGuiClearAll(){
             return OLAPlugDLLHelper.DrawGuiClearAll(OLAObject);
         }
@@ -1615,7 +1725,10 @@ namespace OLAPlug
         /// </summary>
         /// <param name="handle">对象句柄</param>
         /// <param name="visible">1 可见，0 隐藏</param>
-        /// <returns>操作结果，0 失败，1 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int DrawGuiSetVisible(long handle, int visible){
             return OLAPlugDLLHelper.DrawGuiSetVisible(OLAObject, handle, visible);
         }
@@ -1625,7 +1738,10 @@ namespace OLAPlug
         /// </summary>
         /// <param name="handle">对象句柄</param>
         /// <param name="zOrder">Z序值，数值越大越靠前</param>
-        /// <returns>操作结果，0 失败，1 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int DrawGuiSetZOrder(long handle, int zOrder){
             return OLAPlugDLLHelper.DrawGuiSetZOrder(OLAObject, handle, zOrder);
         }
@@ -1635,7 +1751,10 @@ namespace OLAPlug
         /// </summary>
         /// <param name="handle">子对象句柄</param>
         /// <param name="parentHandle">父对象句柄</param>
-        /// <returns>操作结果，0 失败，1 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int DrawGuiSetParent(long handle, long parentHandle){
             return OLAPlugDLLHelper.DrawGuiSetParent(OLAObject, handle, parentHandle);
         }
@@ -1645,7 +1764,10 @@ namespace OLAPlug
         /// </summary>
         /// <param name="handle">按钮对象句柄</param>
         /// <param name="callback">按钮回调函数指针</param>
-        /// <returns>操作结果，0 失败，1 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int DrawGuiSetButtonCallback(long handle, DrawGuiButtonCallback callback){
             return OLAPlugDLLHelper.DrawGuiSetButtonCallback(OLAObject, handle, callback);
         }
@@ -1655,7 +1777,10 @@ namespace OLAPlug
         /// </summary>
         /// <param name="handle">目标对象句柄</param>
         /// <param name="callback">鼠标回调函数指针</param>
-        /// <returns>操作结果，0 失败，1 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int DrawGuiSetMouseCallback(long handle, DrawGuiMouseCallback callback){
             return OLAPlugDLLHelper.DrawGuiSetMouseCallback(OLAObject, handle, callback);
         }
@@ -1675,7 +1800,10 @@ namespace OLAPlug
         /// <param name="handle">对象句柄</param>
         /// <param name="x">返回左上角X（输出）</param>
         /// <param name="y">返回左上角Y（输出）</param>
-        /// <returns>操作结果，0 失败，1 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int DrawGuiGetPosition(long handle, out int x, out int y){
             return OLAPlugDLLHelper.DrawGuiGetPosition(OLAObject, handle, out x, out y);
         }
@@ -1686,7 +1814,10 @@ namespace OLAPlug
         /// <param name="handle">对象句柄</param>
         /// <param name="width">返回宽度（输出）</param>
         /// <param name="height">返回高度（输出）</param>
-        /// <returns>操作结果，0 失败，1 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int DrawGuiGetSize(long handle, out int width, out int height){
             return OLAPlugDLLHelper.DrawGuiGetSize(OLAObject, handle, out width, out height);
         }
@@ -1697,7 +1828,7 @@ namespace OLAPlug
         /// <param name="handle">对象句柄</param>
         /// <param name="x">X坐标</param>
         /// <param name="y">Y坐标</param>
-        /// <returns>结果，0 否，1 是</returns>
+        /// <returns>结果enum 0 否enum 1 是</returns>
         public int DrawGuiIsPointInObject(long handle, int x, int y){
             return OLAPlugDLLHelper.DrawGuiIsPointInObject(OLAObject, handle, x, y);
         }
@@ -1705,7 +1836,12 @@ namespace OLAPlug
         /// <summary>
         /// 设置内存读写模式
         /// </summary>
-        /// <param name="mode">内存模式 0.远程模式 1.本地模式(需要DLL注入) 2.驱动API方式读写内存 3.驱动MDL 方式读写内存</param>
+        /// <param name="mode">内存模式
+        ///<br/> 0: 远程模式
+        ///<br/> 1: 本地模式(需要DLL注入)
+        ///<br/> 2: 驱动API方式读写内存
+        ///<br/> 3: 驱动MDL方式读写内存
+        /// </param>
         /// <returns>1成功 其他失败</returns>
         public int SetMemoryMode(int mode){
             return OLAPlugDLLHelper.SetMemoryMode(OLAObject, mode);
@@ -1774,6 +1910,16 @@ namespace OLAPlug
         /// <returns>1成功 其他失败</returns>
         public int ProtectProcess(long pid, int enable){
             return OLAPlugDLLHelper.ProtectProcess(OLAObject, pid, enable);
+        }
+
+        /// <summary>
+        /// 保护进程模式2
+        /// </summary>
+        /// <param name="pid">进程ID</param>
+        /// <param name="enable">是否保护</param>
+        /// <returns>1成功 其他失败</returns>
+        public int ProtectProcess2(long pid, int enable){
+            return OLAPlugDLLHelper.ProtectProcess2(OLAObject, pid, enable);
         }
 
         /// <summary>
@@ -1860,6 +2006,256 @@ namespace OLAPlug
         /// <returns>1成功 其他失败</returns>
         public int StartSecurityGuard(){
             return OLAPlugDLLHelper.StartSecurityGuard(OLAObject);
+        }
+
+        /// <summary>
+        /// 测试文件保护驱动通信是否正常
+        /// </summary>
+        /// <returns>1成功 其他失败</returns>
+        public int ProtectFileTestDriver(){
+            return OLAPlugDLLHelper.ProtectFileTestDriver(OLAObject);
+        }
+
+        /// <summary>
+        /// 启用文件保护驱动
+        /// </summary>
+        /// <returns>1成功 其他失败</returns>
+        public int ProtectFileEnableDriver(){
+            return OLAPlugDLLHelper.ProtectFileEnableDriver(OLAObject);
+        }
+
+        /// <summary>
+        /// 禁用文件保护驱动
+        /// </summary>
+        /// <returns>1成功 其他失败</returns>
+        public int ProtectFileDisableDriver(){
+            return OLAPlugDLLHelper.ProtectFileDisableDriver(OLAObject);
+        }
+
+        /// <summary>
+        /// 启动文件系统过滤器
+        /// </summary>
+        /// <returns>1成功 其他失败</returns>
+        public int ProtectFileStartFilter(){
+            return OLAPlugDLLHelper.ProtectFileStartFilter(OLAObject);
+        }
+
+        /// <summary>
+        /// 停止文件系统过滤器
+        /// </summary>
+        /// <returns>1成功 其他失败</returns>
+        public int ProtectFileStopFilter(){
+            return OLAPlugDLLHelper.ProtectFileStopFilter(OLAObject);
+        }
+
+        /// <summary>
+        /// 添加受保护路径
+        /// </summary>
+        /// <param name="path">要保护的文件或文件夹路径</param>
+        /// <param name="mode">保护模式：0-全部拦截, 1-允许白名单, 2-拦截黑名单</param>
+        /// <param name="is_directory">是否为目录 (1-目录, 0-文件)</param>
+        /// <returns>1成功 其他失败</returns>
+        public int ProtectFileAddProtectedPath(string path, int mode, int is_directory){
+            return OLAPlugDLLHelper.ProtectFileAddProtectedPath(OLAObject, path, mode, is_directory);
+        }
+
+        /// <summary>
+        /// 移除受保护路径
+        /// </summary>
+        /// <param name="path">要移除保护的文件或文件夹路径</param>
+        /// <returns>1成功 其他失败</returns>
+        public int ProtectFileRemoveProtectedPath(string path){
+            return OLAPlugDLLHelper.ProtectFileRemoveProtectedPath(OLAObject, path);
+        }
+
+        /// <summary>
+        /// 清空所有受保护路径
+        /// </summary>
+        /// <returns>1成功 其他失败</returns>
+        public int ProtectFileClearProtectedPaths(){
+            return OLAPlugDLLHelper.ProtectFileClearProtectedPaths(OLAObject);
+        }
+
+        /// <summary>
+        /// 查询路径是否受保护
+        /// </summary>
+        /// <param name="path">要查询的文件或文件夹路径</param>
+        /// <param name="mode">输出参数，用于接收该路径的保护模式（可为NULL）</param>
+        /// <returns>1-路径受保护, 0-路径未受保护或查询失败</returns>
+        public int ProtectFileQueryProtectedPath(string path, out int mode){
+            return OLAPlugDLLHelper.ProtectFileQueryProtectedPath(OLAObject, path, out mode);
+        }
+
+        /// <summary>
+        /// 添加进程到白名单
+        /// </summary>
+        /// <param name="pid">进程ID</param>
+        /// <returns>1成功 其他失败</returns>
+        public int ProtectFileAddWhitelist(long pid){
+            return OLAPlugDLLHelper.ProtectFileAddWhitelist(OLAObject, pid);
+        }
+
+        /// <summary>
+        /// 从白名单移除进程
+        /// </summary>
+        /// <param name="pid">进程ID</param>
+        /// <returns>1成功 其他失败</returns>
+        public int ProtectFileRemoveWhitelist(long pid){
+            return OLAPlugDLLHelper.ProtectFileRemoveWhitelist(OLAObject, pid);
+        }
+
+        /// <summary>
+        /// 清空白名单
+        /// </summary>
+        /// <returns>1成功 其他失败</returns>
+        public int ProtectFileClearWhitelist(){
+            return OLAPlugDLLHelper.ProtectFileClearWhitelist(OLAObject);
+        }
+
+        /// <summary>
+        /// 查询进程是否在白名单中
+        /// </summary>
+        /// <param name="pid">进程ID</param>
+        /// <returns>1-在白名单中, 0-不在白名单中或查询失败</returns>
+        public int ProtectFileQueryWhitelist(long pid){
+            return OLAPlugDLLHelper.ProtectFileQueryWhitelist(OLAObject, pid);
+        }
+
+        /// <summary>
+        /// 添加进程到黑名单
+        /// </summary>
+        /// <param name="pid">进程ID</param>
+        /// <returns>1成功 其他失败</returns>
+        public int ProtectFileAddBlacklist(long pid){
+            return OLAPlugDLLHelper.ProtectFileAddBlacklist(OLAObject, pid);
+        }
+
+        /// <summary>
+        /// 从黑名单移除进程
+        /// </summary>
+        /// <param name="pid">进程ID</param>
+        /// <returns>1成功 其他失败</returns>
+        public int ProtectFileRemoveBlacklist(long pid){
+            return OLAPlugDLLHelper.ProtectFileRemoveBlacklist(OLAObject, pid);
+        }
+
+        /// <summary>
+        /// 清空黑名单
+        /// </summary>
+        /// <returns>1成功 其他失败</returns>
+        public int ProtectFileClearBlacklist(){
+            return OLAPlugDLLHelper.ProtectFileClearBlacklist(OLAObject);
+        }
+
+        /// <summary>
+        /// 查询进程是否在黑名单中
+        /// </summary>
+        /// <param name="pid">进程ID</param>
+        /// <returns>1-在黑名单中, 0-不在黑名单中或查询失败</returns>
+        public int ProtectFileQueryBlacklist(long pid){
+            return OLAPlugDLLHelper.ProtectFileQueryBlacklist(OLAObject, pid);
+        }
+
+        /// <summary>
+        /// 开启高级保护
+        /// </summary>
+        /// <returns>1成功 其他失败</returns>
+        public int VipProtectEnableDriver(){
+            return OLAPlugDLLHelper.VipProtectEnableDriver(OLAObject);
+        }
+
+        /// <summary>
+        /// 关闭高级保护
+        /// </summary>
+        /// <returns>1成功 其他失败</returns>
+        public int VipProtectDisableDriver(){
+            return OLAPlugDLLHelper.VipProtectDisableDriver(OLAObject);
+        }
+
+        /// <summary>
+        /// 添加保护
+        /// </summary>
+        /// <param name="pid">需要保护的进程ID</param>
+        /// <param name="path">需要保护的文件或文件夹路径</param>
+        /// <param name="mode">保护模式：1-允许白名单进程访问, 2-禁止全部访问, 3-禁止黑名单进程访问,4-允许白名单文件路径访问, 5-禁止黑名单文件路径访问</param>
+        /// <param name="permission">保护权限：位标志组合，VIP_PERMISSION_BLOCK_OPEN |VIP_PERMISSION_HIDE_INFORMATION | VIP_PERMISSION_BLOCK_MEMORY | VIP_PERMISSION_BLOCK_WINDOWS</param>
+        /// <returns>1成功 其他失败</returns>
+        public int VipProtectAddProtect(long pid, string path, int mode, int permission){
+            return OLAPlugDLLHelper.VipProtectAddProtect(OLAObject, pid, path, mode, permission);
+        }
+
+        /// <summary>
+        /// 移除保护
+        /// </summary>
+        /// <param name="pid">需要移除保护的进程ID</param>
+        /// <param name="path">需要移除保护的文件或文件夹路径</param>
+        /// <returns>1成功 其他失败</returns>
+        public int VipProtectRemoveProtect(long pid, string path){
+            return OLAPlugDLLHelper.VipProtectRemoveProtect(OLAObject, pid, path);
+        }
+
+        /// <summary>
+        /// 清空所有保护
+        /// </summary>
+        /// <returns>1成功 其他失败</returns>
+        public int VipProtectClearAll(){
+            return OLAPlugDLLHelper.VipProtectClearAll(OLAObject);
+        }
+
+        /// <summary>
+        /// 添加白名单
+        /// </summary>
+        /// <param name="pid">需要添加白名单的进程ID</param>
+        /// <param name="path">需要添加白名单的文件或文件夹路径</param>
+        /// <returns>1成功 其他失败</returns>
+        public int VipProtectAddWhitelist(long pid, string path){
+            return OLAPlugDLLHelper.VipProtectAddWhitelist(OLAObject, pid, path);
+        }
+
+        /// <summary>
+        /// 移除白名单
+        /// </summary>
+        /// <param name="pid">需要移除白名单的进程ID</param>
+        /// <param name="path">需要移除白名单的文件或文件夹路径</param>
+        /// <returns>1成功 其他失败</returns>
+        public int VipProtectRemoveWhitelist(long pid, string path){
+            return OLAPlugDLLHelper.VipProtectRemoveWhitelist(OLAObject, pid, path);
+        }
+
+        /// <summary>
+        /// 清空白名单
+        /// </summary>
+        /// <returns>1成功 其他失败</returns>
+        public int VipProtectClearWhitelist(){
+            return OLAPlugDLLHelper.VipProtectClearWhitelist(OLAObject);
+        }
+
+        /// <summary>
+        /// 添加黑名单
+        /// </summary>
+        /// <param name="pid">需要添加黑名单的进程ID</param>
+        /// <param name="path">需要添加黑名单的文件或文件夹路径</param>
+        /// <returns>1成功 其他失败</returns>
+        public int VipProtectAddBlacklist(long pid, string path){
+            return OLAPlugDLLHelper.VipProtectAddBlacklist(OLAObject, pid, path);
+        }
+
+        /// <summary>
+        /// 移除黑名单
+        /// </summary>
+        /// <param name="pid">需要移除黑名单的进程ID</param>
+        /// <param name="path">需要移除黑名单的文件或文件夹路径</param>
+        /// <returns>1成功 其他失败</returns>
+        public int VipProtectRemoveBlacklist(long pid, string path){
+            return OLAPlugDLLHelper.VipProtectRemoveBlacklist(OLAObject, pid, path);
+        }
+
+        /// <summary>
+        /// 清空黑名单
+        /// </summary>
+        /// <returns>1成功 其他失败</returns>
+        public int VipProtectClearBlacklist(){
+            return OLAPlugDLLHelper.VipProtectClearBlacklist(OLAObject);
         }
 
         /// <summary>
@@ -2008,7 +2404,10 @@ namespace OLAPlug
         ///<br/> 1: Pss
         /// </param>
         /// <param name="publicCer">公钥</param>
-        /// <returns>成功返回验证结果；1表示验证成功，0表示验证失败</returns>
+        /// <returns>验证结果
+        ///<br/>0: 验证失败
+        ///<br/>1: 验证成功
+        /// </returns>
         public int VerifySignWithRsa(string message, string signature, int shaType, int paddingType, string publicCer){
             return OLAPlugDLLHelper.VerifySignWithRsa(OLAObject, message, signature, shaType, paddingType, publicCer);
         }
@@ -2272,7 +2671,10 @@ namespace OLAPlug
         /// 创建文件夹
         /// </summary>
         /// <param name="path">文件夹路径</param>
-        /// <returns>操作结果，0 失败，1 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int CreateFolder(string path){
             return OLAPlugDLLHelper.CreateFolder(OLAObject, path);
         }
@@ -2281,7 +2683,10 @@ namespace OLAPlug
         /// 删除文件夹
         /// </summary>
         /// <param name="path">文件夹路径</param>
-        /// <returns>操作结果，0 失败，1 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int DeleteFolder(string path){
             return OLAPlugDLLHelper.DeleteFolder(OLAObject, path);
         }
@@ -2321,7 +2726,10 @@ namespace OLAPlug
         /// 创建文件
         /// </summary>
         /// <param name="path">文件路径</param>
-        /// <returns>操作结果，0 失败，1 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int CreateFile(string path){
             return OLAPlugDLLHelper.CreateFile(OLAObject, path);
         }
@@ -2330,7 +2738,10 @@ namespace OLAPlug
         /// 删除文件
         /// </summary>
         /// <param name="path">文件路径</param>
-        /// <returns>操作结果，0 失败，1 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int DeleteFile(string path){
             return OLAPlugDLLHelper.DeleteFile(OLAObject, path);
         }
@@ -2340,7 +2751,10 @@ namespace OLAPlug
         /// </summary>
         /// <param name="src">源文件路径</param>
         /// <param name="dst">目标文件路径</param>
-        /// <returns>操作结果，0 失败，1 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int CopyFile(string src, string dst){
             return OLAPlugDLLHelper.CopyFile(OLAObject, src, dst);
         }
@@ -2350,7 +2764,10 @@ namespace OLAPlug
         /// </summary>
         /// <param name="src">源文件路径</param>
         /// <param name="dst">目标文件路径</param>
-        /// <returns>操作结果，0 失败，1 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int MoveFile(string src, string dst){
             return OLAPlugDLLHelper.MoveFile(OLAObject, src, dst);
         }
@@ -2360,7 +2777,9 @@ namespace OLAPlug
         /// </summary>
         /// <param name="src">源文件路径</param>
         /// <param name="dst">目标文件路径</param>
-        /// <returns>操作结果，0 失败，1 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        /// </returns>
         public int RenameFile(string src, string dst){
             return OLAPlugDLLHelper.RenameFile(OLAObject, src, dst);
         }
@@ -2472,7 +2891,10 @@ namespace OLAPlug
         /// <param name="filePath">文件路径</param>
         /// <param name="dataAddr">数据地址</param>
         /// <param name="dataSize">数据大小</param>
-        /// <returns>是否成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int WriteBytesToFile(string filePath, long dataAddr, int dataSize){
             return OLAPlugDLLHelper.WriteBytesToFile(OLAObject, filePath, dataAddr, dataSize);
         }
@@ -2483,7 +2905,10 @@ namespace OLAPlug
         /// <param name="filePath">文件路径</param>
         /// <param name="data">数据</param>
         /// <param name="encoding">编码</param>
-        /// <returns>是否成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int WriteStringToFile(string filePath, string data, int encoding){
             return OLAPlugDLLHelper.WriteStringToFile(OLAObject, filePath, data, encoding);
         }
@@ -2491,10 +2916,10 @@ namespace OLAPlug
         /// <summary>
         /// 启动全局钩子
         /// </summary>
-        /// <returns>int32_t 返回1表示成功，非0表示失败</returns>
-        /// <remarks>注意事项: 
-        /// <br/>1. 此函数必须在程序启动时调用，否则无法注册热键。
-        /// </remarks>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int StartHotkeyHook(){
             return OLAPlugDLLHelper.StartHotkeyHook(OLAObject);
         }
@@ -2502,10 +2927,10 @@ namespace OLAPlug
         /// <summary>
         /// 停止全局钩子
         /// </summary>
-        /// <returns>int32_t 返回1表示成功，非0表示失败</returns>
-        /// <remarks>注意事项: 
-        /// <br/>1. 此函数用于停止之前启动的全局钩子。在程序退出前应该调用此函数以清理资源。
-        /// </remarks>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int StopHotkeyHook(){
             return OLAPlugDLLHelper.StopHotkeyHook(OLAObject);
         }
@@ -2513,12 +2938,18 @@ namespace OLAPlug
         /// <summary>
         /// 注册热键
         /// </summary>
-        /// <param name="keycode">按键代码，例如VK_F1, VK_A等</param>
-        /// <param name="modifiers">修饰键组合，使用Modifier枚举值的位或组合 例如：Modifier::CTRL | Modifier::ALT</param>
-        /// <param name="callback">回调函数，当热键被触发时调用</param>
-        /// <returns>int32_t 返回1表示成功，非0表示失败</returns>
+        /// <param name="keycode">按键码</param>
+        /// <param name="modifiers">修饰键组合，使用Modifier枚举值的位或组合，比如按下Ctrl+Alt modifiers:2+8=10enum 1 左Shift键掩码enum 2 左Ctrl键掩码enum 4 左Meta键掩码enum 8 左Alt键掩码enum 16 右Shift键掩码enum 32 右Ctrl键掩码enum 64 右Meta键掩码enum 128 右Alt键掩码</param>
+        /// <param name="callback">回调函数 int HotKeyCallback(int keycode, int modifiers) 参考接口参数定义</param>
+        /// <returns>注册监听状态
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         /// <remarks>注意事项: 
-        /// <br/>1. 注册一个全局热键，当用户按下指定的按键组合时会触发回调函数。
+        /// <br/>1. 注册键盘快捷键监听,可监听单个按键、组合键等，同一组按键只能创建一个监听
+        /// <br/>2. 注册键盘快捷键监听前需要调用StartHotkeyHook安装键盘鼠标钩子
+        /// <br/>3. 回调函数 int HotKeyCallback(int keycode, int modifiers)，参考接口参数定义，回1阻断消息传递，keycode传0可以监听所有按键信息
+        /// <br/>4. 参考windows函数 SetWindowsHookExW 实现
         /// </remarks>
         public int RegisterHotkey(int keycode, int modifiers, HotkeyCallback callback){
             return OLAPlugDLLHelper.RegisterHotkey(OLAObject, keycode, modifiers, callback);
@@ -2527,12 +2958,9 @@ namespace OLAPlug
         /// <summary>
         /// 注销热键
         /// </summary>
-        /// <param name="keycode">按键代码，必须与RegisterHotkey时使用的相同</param>
-        /// <param name="modifiers">修饰键组合，必须与RegisterHotkey时使用的相同</param>
-        /// <returns>int32_t 返回1表示成功，非0表示失败</returns>
-        /// <remarks>注意事项: 
-        /// <br/>1. 注销之前注册的热键。在程序退出前应该注销所有注册的快捷键。
-        /// </remarks>
+        /// <param name="keycode">按键码</param>
+        /// <param name="modifiers">修饰键组合，使用Modifier枚举值的位或组合，比如按下Ctrl+Alt modifiers:2+8=10enum 1 左Shift键掩码enum 2 左Ctrl键掩码enum 4 左Meta键掩码enum 8 左Alt键掩码enum 16 右Shift键掩码enum 32 右Ctrl键掩码enum 64 右Meta键掩码enum 128 右Alt键掩码</param>
+        /// <returns>卸载监听状态</returns>
         public int UnregisterHotkey(int keycode, int modifiers){
             return OLAPlugDLLHelper.UnregisterHotkey(OLAObject, keycode, modifiers);
         }
@@ -2540,12 +2968,17 @@ namespace OLAPlug
         /// <summary>
         /// 注册鼠标按钮事件
         /// </summary>
-        /// <param name="button">鼠标按钮，使用MouseButtons枚举值</param>
-        /// <param name="type">鼠标按钮类型，使用MouseButtonType枚举值</param>
-        /// <param name="callback">回调函数，当鼠标按钮事件被触发时调用</param>
-        /// <returns>int32_t 返回1表示成功，非0表示失败</returns>
+        /// <param name="button">按键类型enum 1 鼠标左键enum 2 鼠标右键enum 3 鼠标中键enum 4 拓展键1enum 5 拓展键2</param>
+        /// <param name="type">按键状态，使用Modifier枚举值的位或组合enum 0 鼠标点击enum 1 鼠标按下enum 2 鼠标释放</param>
+        /// <param name="callback">回调函数 void MouseCallback(int button,int x, int y, int clicks)</param>
+        /// <returns>注册监听状态
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         /// <remarks>注意事项: 
-        /// <br/>1. 注册一个全局鼠标按钮事件，当用户按下鼠标按钮时会触发回调函数。
+        /// <br/>1. 注册鼠标快捷键监听前需要调用StartHotkeyHook安装键盘鼠标钩子
+        /// <br/>2. 回调函数 void MouseCallback(int button,int x, int y, int clicks)button 参考参数定义x X坐标y Y坐标clicks 点击次数
+        /// <br/>3. 参考windows函数 SetWindowsHookExW 实现
         /// </remarks>
         public int RegisterMouseButton(int button, int type, MouseCallback callback){
             return OLAPlugDLLHelper.RegisterMouseButton(OLAObject, button, type, callback);
@@ -2554,12 +2987,12 @@ namespace OLAPlug
         /// <summary>
         /// 注销鼠标按钮事件
         /// </summary>
-        /// <param name="button">鼠标按钮，必须与RegisterMouseButton时使用的相同</param>
-        /// <param name="type"></param>
-        /// <returns>int32_t 返回1表示成功，非0表示失败</returns>
-        /// <remarks>注意事项: 
-        /// <br/>1. 注销之前注册的鼠标按钮事件。在程序退出前应该注销所有注册的鼠标按钮事件。
-        /// </remarks>
+        /// <param name="button">按键类型enum 1 鼠标左键enum 2 鼠标右键enum 3 鼠标中键enum 4 拓展键1enum 5 拓展键2</param>
+        /// <param name="type">按键状态，使用Modifier枚举值的位或组合enum 0 鼠标点击enum 1 鼠标按下enum 2 鼠标释放</param>
+        /// <returns>卸载监听状态
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int UnregisterMouseButton(int button, int type){
             return OLAPlugDLLHelper.UnregisterMouseButton(OLAObject, button, type);
         }
@@ -2567,10 +3000,15 @@ namespace OLAPlug
         /// <summary>
         /// 注册鼠标滚轮事件
         /// </summary>
-        /// <param name="callback">回调函数，当鼠标滚轮事件被触发时调用</param>
-        /// <returns>int32_t 返回1表示成功，非0表示失败</returns>
+        /// <param name="callback">回调函数 void MouseWheelCallback(int x, int y, int amount, int rotation)</param>
+        /// <returns>注册监听状态
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         /// <remarks>注意事项: 
-        /// <br/>1. 注册一个全局鼠标滚轮事件，当用户滚动鼠标滚轮时会触发回调函数。
+        /// <br/>1. 注册鼠标快捷键监听前需要调用StartHotkeyHook安装键盘鼠标钩子
+        /// <br/>2. 回调函数 void MouseWheelCallback(int x, int y, int amount, int rotation) 参数定义x 鼠标X坐标y 鼠标Y坐标amount 滚动量rotation 滚动方向
+        /// <br/>3. 参考windows函数 SetWindowsHookExW 实现
         /// </remarks>
         public int RegisterMouseWheel(MouseWheelCallback callback){
             return OLAPlugDLLHelper.RegisterMouseWheel(OLAObject, callback);
@@ -2579,10 +3017,10 @@ namespace OLAPlug
         /// <summary>
         /// 注销鼠标滚轮事件
         /// </summary>
-        /// <returns>int32_t 返回1表示成功，非0表示失败</returns>
-        /// <remarks>注意事项: 
-        /// <br/>1. 在程序退出前应该注销所有注册的鼠标滚轮事件。
-        /// </remarks>
+        /// <returns>卸载监听状态
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int UnregisterMouseWheel(){
             return OLAPlugDLLHelper.UnregisterMouseWheel(OLAObject);
         }
@@ -2590,10 +3028,15 @@ namespace OLAPlug
         /// <summary>
         /// 注册鼠标移动事件
         /// </summary>
-        /// <param name="callback">回调函数，当鼠标移动事件被触发时调用</param>
-        /// <returns>int32_t 返回1表示成功，非0表示失败</returns>
+        /// <param name="callback">回调函数 void MouseMoveCallback(int x, int y)</param>
+        /// <returns>注册监听状态
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         /// <remarks>注意事项: 
-        /// <br/>1. 注册一个全局鼠标移动事件，当用户移动鼠标时会触发回调函数。
+        /// <br/>1. 注册鼠标快捷键监听前需要调用StartHotkeyHook安装键盘鼠标钩子
+        /// <br/>2. 回调函数 void MouseMoveCallback(int x, int y) 参数定义x 鼠标X坐标y 鼠标Y坐标
+        /// <br/>3. 参考windows函数 SetWindowsHookExW 实现
         /// </remarks>
         public int RegisterMouseMove(MouseMoveCallback callback){
             return OLAPlugDLLHelper.RegisterMouseMove(OLAObject, callback);
@@ -2602,10 +3045,10 @@ namespace OLAPlug
         /// <summary>
         /// 注销鼠标移动事件
         /// </summary>
-        /// <returns>int32_t 返回1表示成功，非0表示失败</returns>
-        /// <remarks>注意事项: 
-        /// <br/>1. 注销之前注册的鼠标移动事件。在程序退出前应该注销所有注册的鼠标拖动事件。
-        /// </remarks>
+        /// <returns>卸载监听状态
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int UnregisterMouseMove(){
             return OLAPlugDLLHelper.UnregisterMouseMove(OLAObject);
         }
@@ -2613,10 +3056,15 @@ namespace OLAPlug
         /// <summary>
         /// 注册鼠标拖动事件
         /// </summary>
-        /// <param name="callback">回调函数，当鼠标拖动事件被触发时调用</param>
-        /// <returns>int32_t 返回1表示成功，非0表示失败</returns>
+        /// <param name="callback">回调函数 void MouseDragCallback(int x, int y)</param>
+        /// <returns>注册监听状态
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         /// <remarks>注意事项: 
-        /// <br/>1. 注册一个全局鼠标拖动事件，当用户拖动鼠标时会触发回调函数。
+        /// <br/>1. 注册鼠标快捷键监听前需要调用StartHotkeyHook安装键盘鼠标钩子
+        /// <br/>2. 回调函数 void MouseDragCallback(int x, int y) 参数定义x 鼠标X坐标y 鼠标Y坐标
+        /// <br/>3. 参考windows函数 SetWindowsHookExW 实现
         /// </remarks>
         public int RegisterMouseDrag(MouseDragCallback callback){
             return OLAPlugDLLHelper.RegisterMouseDrag(OLAObject, callback);
@@ -2625,10 +3073,10 @@ namespace OLAPlug
         /// <summary>
         /// 注销鼠标拖动事件
         /// </summary>
-        /// <returns>int32_t 返回1表示成功，非0表示失败</returns>
-        /// <remarks>注意事项: 
-        /// <br/>1. 在程序退出前应该注销所有注册的鼠标拖动事件。
-        /// </remarks>
+        /// <returns>卸载监听状态
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int UnregisterMouseDrag(){
             return OLAPlugDLLHelper.UnregisterMouseDrag(OLAObject);
         }
@@ -2637,35 +3085,111 @@ namespace OLAPlug
         /// 注入DLL
         /// </summary>
         /// <param name="hwnd">窗口句柄</param>
-        /// <param name="dll_path">dll路径</param>
-        /// <param name="type">注入类型</param>
-        /// <param name="bypassGuard">是否绕过保护</param>
-        /// <returns>是否成功</returns>
+        /// <param name="dll_path">DLL文件的完整路径</param>
+        /// <param name="type">注入类型
+        ///<br/> 1: 标准注入(CreateRemoteThread)
+        ///<br/> 2: 驱动注入模式1
+        ///<br/> 3: 驱动注入模式2
+        ///<br/> 4: 驱动注入模式
+        /// </param>
+        /// <param name="bypassGuard">是否绕过保护
+        ///<br/> 0: 不绕过
+        ///<br/> 1: 尝试绕过常见反注入保护
+        /// </param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. DLL文件必须存在且路径正确
+        /// <br/>2. 目标进程必须有足够的权限允许注入
+        /// <br/>3. 不同注入类型的成功率和兼容性可能不同
+        /// <br/>4. 标准注入(type=0)最稳定,但容易被检测
+        /// <br/>5. 手动映射注入(type=3)隐蔽性最好,但兼容性较差
+        /// <br/>6. 绕过保护选项可能无法对抗所有反注入机制
+        /// <br/>7. 注入系统进程或受保护进程需要管理员权限
+        /// <br/>8. 32位进程只能注入32位DLL,64位进程只能注入64位DLL
+        /// <br/>9. 建议在注入前确认DLL的架构与目标进程匹配
+        /// <br/>10. 注入失败可能导致目标进程崩溃,请谨慎使用
+        /// <br/>11. 某些杀毒软件可能会拦截DLL注入操作
+        /// </remarks>
         public int Inject(long hwnd, string dll_path, int type, int bypassGuard){
             return OLAPlugDLLHelper.Inject(OLAObject, hwnd, dll_path, type, bypassGuard);
         }
 
         /// <summary>
-        /// 从URL注入DLL
+        /// 从网络URL下载DLL文件并注入到指定窗口进程,支持远程注入场景。(部分模式文件会落盘)
         /// </summary>
         /// <param name="hwnd">窗口句柄</param>
-        /// <param name="url">URL</param>
-        /// <param name="type">注入类型</param>
-        /// <param name="bypassGuard">是否绕过保护</param>
-        /// <returns>是否成功</returns>
+        /// <param name="url">DLL文件的下载URL地址</param>
+        /// <param name="type">注入类型
+        ///<br/> 1: 标准注入(CreateRemoteThread)
+        ///<br/> 2: 驱动注入模式1
+        ///<br/> 3: 驱动注入模式2
+        ///<br/> 4: 驱动注入模式
+        /// </param>
+        /// <param name="bypassGuard">是否绕过保护
+        ///<br/> 0: 不绕过
+        ///<br/> 1: 尝试绕过常见反注入保护
+        /// </param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. URL必须可访问且指向有效的DLL文件
+        /// <br/>2. 需要网络连接,下载可能需要一定时间
+        /// <br/>3. 下载的DLL会临时保存到本地再进行注入
+        /// <br/>4. 建议使用HTTPS协议确保传输安全
+        /// <br/>5. 下载失败或DLL损坏会导致注入失败
+        /// <br/>6. 防火墙或杀毒软件可能会拦截下载
+        /// <br/>7. 下载的临时文件会在注入后清理
+        /// <br/>8. 目标进程必须有足够的权限允许注入
+        /// <br/>9. 不同注入类型的成功率和兼容性可能不同
+        /// <br/>10. 32位进程只能注入32位DLL,64位进程只能注入64位DLL
+        /// <br/>11. 注入系统进程或受保护进程需要管理员权限
+        /// <br/>12. 某些网络环境可能不支持直接下载可执行文件
+        /// <br/>13. 建议验证下载文件的完整性和来源安全性
+        /// </remarks>
         public int InjectFromUrl(long hwnd, string url, int type, int bypassGuard){
             return OLAPlugDLLHelper.InjectFromUrl(OLAObject, hwnd, url, type, bypassGuard);
         }
 
         /// <summary>
-        /// 从内存注入DLL
+        /// 从内存缓冲区直接注入DLL到指定窗口进程,无需落地文件,隐蔽性最强。(部分模式文件会落盘)
         /// </summary>
         /// <param name="hwnd">窗口句柄</param>
-        /// <param name="bufferAddr">内存数据地址</param>
-        /// <param name="bufferSize">内存数据大小</param>
-        /// <param name="type">注入类型</param>
-        /// <param name="bypassGuard">是否绕过保护</param>
-        /// <returns>是否成功</returns>
+        /// <param name="bufferAddr">DLL数据在内存中的起始地址</param>
+        /// <param name="bufferSize">DLL数据的大小(字节)</param>
+        /// <param name="type">注入类型
+        ///<br/> 1: 标准注入(CreateRemoteThread)
+        ///<br/> 2: 驱动注入模式1
+        ///<br/> 3: 驱动注入模式2
+        ///<br/> 4: 驱动注入模式
+        /// </param>
+        /// <param name="bypassGuard">是否绕过保护
+        ///<br/> 0: 不绕过
+        ///<br/> 1: 尝试绕过常见反注入保护
+        /// </param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. DLL数据必须完整且有效,缓冲区不能损坏
+        /// <br/>2. 内存注入无需落地文件,隐蔽性最强
+        /// <br/>3. 推荐使用手动映射注入(type=3)以获得最佳兼容性
+        /// <br/>4. 标准注入(type=0)可能无法从内存加载
+        /// <br/>5. 确保bufferAddr指向的内存在注入完成前保持有效
+        /// <br/>6. 注入完成后可以立即释放bufferAddr指向的内存
+        /// <br/>7. 目标进程必须有足够的权限允许注入
+        /// <br/>8. 32位进程只能注入32位DLL,64位进程只能注入64位DLL
+        /// <br/>9. 注入系统进程或受保护进程需要管理员权限
+        /// <br/>10. 内存注入可以有效规避部分文件监控类反注入
+        /// <br/>11. 某些杀毒软件的内存扫描仍可能检测到注入行为
+        /// <br/>12. 建议对DLL数据进行加密,在注入前解密以提高隐蔽性
+        /// <br/>13. bufferSize必须与实际DLL文件大小完全一致
+        /// </remarks>
         public int InjectFromBuffer(long hwnd, long bufferAddr, int bufferSize, int type, int bypassGuard){
             return OLAPlugDLLHelper.InjectFromBuffer(OLAObject, hwnd, bufferAddr, bufferSize, type, bypassGuard);
         }
@@ -2727,7 +3251,10 @@ namespace OLAPlug
         /// 释放JSON对象
         /// </summary>
         /// <param name="obj">要释放的JSON对象句柄</param>
-        /// <returns>成功返回1，失败返回0</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int JsonFree(long obj){
             return OLAPlugDLLHelper.JsonFree(obj);
         }
@@ -3027,7 +3554,7 @@ namespace OLAPlug
         /// <summary>
         /// 对插件部分接口的返回值进行解析,并返回result中的元素个数,针对JSON格式和,|分割的字符串
         /// </summary>
-        /// <param name="resultStr"></param>
+        /// <param name="resultStr">(字符串): 插件接口的返回值。</param>
         /// <returns>整型数: result中的元素个数。</returns>
         /// <remarks>注意事项: 
         /// <br/>1. 此函数用于对插件部分接口的返回值进行解析,并返回result中的元素个数。
@@ -3060,7 +3587,9 @@ namespace OLAPlug
         /// 按住指定的虚拟键码
         /// </summary>
         /// <param name="vk_code">按键码</param>
-        /// <returns>0 : 失败, 1 : 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败@eunm 1 成功
+        /// </returns>
         public int KeyDown(int vk_code){
             return OLAPlugDLLHelper.KeyDown(OLAObject, vk_code);
         }
@@ -3069,7 +3598,9 @@ namespace OLAPlug
         /// 弹起来虚拟键vk_code
         /// </summary>
         /// <param name="vk_code">按键码</param>
-        /// <returns>0 : 失败, 1 : 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败@eunm 1 成功
+        /// </returns>
         public int KeyUp(int vk_code){
             return OLAPlugDLLHelper.KeyUp(OLAObject, vk_code);
         }
@@ -3078,7 +3609,9 @@ namespace OLAPlug
         /// 按下指定的虚拟键码
         /// </summary>
         /// <param name="vk_code">按键码</param>
-        /// <returns>0 : 失败, 1 : 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败@eunm 1 成功
+        /// </returns>
         public int KeyPress(int vk_code){
             return OLAPlugDLLHelper.KeyPress(OLAObject, vk_code);
         }
@@ -3086,7 +3619,9 @@ namespace OLAPlug
         /// <summary>
         /// 按住鼠标左键
         /// </summary>
-        /// <returns>0 : 失败, 1 : 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败@eunm 1 成功
+        /// </returns>
         public int LeftDown(){
             return OLAPlugDLLHelper.LeftDown(OLAObject);
         }
@@ -3094,7 +3629,9 @@ namespace OLAPlug
         /// <summary>
         /// 弹起鼠标左键
         /// </summary>
-        /// <returns>0 : 失败, 1 : 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败@eunm 1 成功
+        /// </returns>
         public int LeftUp(){
             return OLAPlugDLLHelper.LeftUp(OLAObject);
         }
@@ -3104,7 +3641,9 @@ namespace OLAPlug
         /// </summary>
         /// <param name="x">目标X坐标</param>
         /// <param name="y">目标Y坐标</param>
-        /// <returns>0 : 失败, 1 : 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败@eunm 1 成功
+        /// </returns>
         public int MoveTo(int x, int y){
             return OLAPlugDLLHelper.MoveTo(OLAObject, x, y);
         }
@@ -3114,7 +3653,9 @@ namespace OLAPlug
         /// </summary>
         /// <param name="x">X坐标</param>
         /// <param name="y">Y坐标</param>
-        /// <returns>0 : 失败, 1 : 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败@eunm 1 成功
+        /// </returns>
         public int MoveToWithoutSimulator(int x, int y){
             return OLAPlugDLLHelper.MoveToWithoutSimulator(OLAObject, x, y);
         }
@@ -3122,7 +3663,9 @@ namespace OLAPlug
         /// <summary>
         /// 执行鼠标右键点击操作
         /// </summary>
-        /// <returns>0: 失败, 1: 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败@eunm 1 成功
+        /// </returns>
         /// <remarks>注意事项: 
         /// <br/>1. 此函数执行完整的右键点击操作（按下并释放）
         /// <br/>2. 如果需要单独控制按下和释放，请使用 RightDown 和 RightUp 函数
@@ -3137,7 +3680,9 @@ namespace OLAPlug
         /// <summary>
         /// 鼠标右键双击
         /// </summary>
-        /// <returns>0 : 失败, 1 : 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败@eunm 1 成功
+        /// </returns>
         public int RightDoubleClick(){
             return OLAPlugDLLHelper.RightDoubleClick(OLAObject);
         }
@@ -3145,7 +3690,9 @@ namespace OLAPlug
         /// <summary>
         /// 按住鼠标右键
         /// </summary>
-        /// <returns>0 : 失败, 1 : 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败@eunm 1 成功
+        /// </returns>
         public int RightDown(){
             return OLAPlugDLLHelper.RightDown(OLAObject);
         }
@@ -3153,7 +3700,9 @@ namespace OLAPlug
         /// <summary>
         /// 弹起鼠标右键
         /// </summary>
-        /// <returns>0 : 失败, 1 : 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败@eunm 1 成功
+        /// </returns>
         public int RightUp(){
             return OLAPlugDLLHelper.RightUp(OLAObject);
         }
@@ -3184,9 +3733,11 @@ namespace OLAPlug
         /// <summary>
         /// 根据指定的字符串序列，依次按顺序按下其中的字符
         /// </summary>
-        /// <param name="keyStr"></param>
+        /// <param name="keyStr">需要按下的字符串序列. 比如"1234","abcd","7389,1462"等</param>
         /// <param name="delay">每按下一个按键，需要延时多久。单位毫秒（ms），这个值越大，按的速度越慢</param>
-        /// <returns>0 : 失败, 1 : 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败@eunm 1 成功
+        /// </returns>
         /// <remarks>注意事项: 
         /// <br/>1. 在某些情况下，SendString和SendString2都无法输入文字时，可以考虑用这个来输入
         /// <br/>2. 但这个接口只支持"a-z 0-9 ~-=[];',./"和空格,其它字符一律不支持.(包括中国)
@@ -3200,7 +3751,9 @@ namespace OLAPlug
         /// </summary>
         /// <param name="hwnd">窗口句柄</param>
         /// <param name="str">字符串</param>
-        /// <returns>0 : 失败, 1 : 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败@eunm 1 成功
+        /// </returns>
         public int SendString(long hwnd, string str){
             return OLAPlugDLLHelper.SendString(OLAObject, hwnd, str);
         }
@@ -3216,34 +3769,43 @@ namespace OLAPlug
         ///<br/> 1: Unicode字符串
         ///<br/> 2: UTF8字符串
         /// </param>
-        /// <returns></returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int SendStringEx(long hwnd, long addr, int len, int type){
             return OLAPlugDLLHelper.SendStringEx(OLAObject, hwnd, addr, len, type);
         }
 
         /// <summary>
-        /// 按下指定的虚拟键码key_str
+        /// 按下指定的虚拟键码keyStr
         /// </summary>
-        /// <param name="keyStr"></param>
-        /// <returns>0 : 失败, 1 : 成功</returns>
+        /// <param name="keyStr">按键字符</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败@eunm 1 成功
+        /// </returns>
         public int KeyPressChar(string keyStr){
             return OLAPlugDLLHelper.KeyPressChar(OLAObject, keyStr);
         }
 
         /// <summary>
-        /// 按住指定的虚拟键码key_str
+        /// 按住指定的虚拟键码keyStr
         /// </summary>
-        /// <param name="keyStr"></param>
-        /// <returns>0 : 失败, 1 : 成功</returns>
+        /// <param name="keyStr">按键字符</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败@eunm 1 成功
+        /// </returns>
         public int KeyDownChar(string keyStr){
             return OLAPlugDLLHelper.KeyDownChar(OLAObject, keyStr);
         }
 
         /// <summary>
-        /// 弹起来虚拟键key_str
+        /// 弹起来虚拟键keyStr
         /// </summary>
-        /// <param name="keyStr"></param>
-        /// <returns>0 : 失败, 1 : 成功</returns>
+        /// <param name="keyStr">按键字符</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败@eunm 1 成功
+        /// </returns>
         public int KeyUpChar(string keyStr){
             return OLAPlugDLLHelper.KeyUpChar(OLAObject, keyStr);
         }
@@ -3253,7 +3815,9 @@ namespace OLAPlug
         /// </summary>
         /// <param name="rx">相对于上次的X偏移</param>
         /// <param name="ry">相对于上次的Y偏移</param>
-        /// <returns>0 : 失败, 1 : 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败@eunm 1 成功
+        /// </returns>
         public int MoveR(int rx, int ry){
             return OLAPlugDLLHelper.MoveR(OLAObject, rx, ry);
         }
@@ -3261,7 +3825,9 @@ namespace OLAPlug
         /// <summary>
         /// 滚轮点击
         /// </summary>
-        /// <returns>0 : 失败, 1 : 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败@eunm 1 成功
+        /// </returns>
         public int MiddleClick(){
             return OLAPlugDLLHelper.MiddleClick(OLAObject);
         }
@@ -3292,7 +3858,9 @@ namespace OLAPlug
         /// </summary>
         /// <param name="x">返回的鼠标X坐标</param>
         /// <param name="y">返回的鼠标Y坐标</param>
-        /// <returns>0 ：失败, 1 ：成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败@eunm 1 成功
+        /// </returns>
         /// <remarks>注意事项: 
         /// <br/>1. 此接口绑定后使用，获取的是相当游戏窗口的鼠标坐标
         /// </remarks>
@@ -3303,7 +3871,9 @@ namespace OLAPlug
         /// <summary>
         /// 弹起鼠标中键
         /// </summary>
-        /// <returns>0 : 失败, 1 : 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败@eunm 1 成功
+        /// </returns>
         public int MiddleUp(){
             return OLAPlugDLLHelper.MiddleUp(OLAObject);
         }
@@ -3311,7 +3881,9 @@ namespace OLAPlug
         /// <summary>
         /// 按住鼠标中键
         /// </summary>
-        /// <returns>0: 失败, 1: 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败@eunm 1 成功
+        /// </returns>
         /// <remarks>注意事项: 
         /// <br/>1. 此函数仅模拟按下中键，不会自动释放
         /// <br/>2. 如果需要释放中键，需要调用 MiddleUp 函数
@@ -3326,7 +3898,9 @@ namespace OLAPlug
         /// <summary>
         /// 滚轮双击
         /// </summary>
-        /// <returns>0 : 失败, 1 : 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败@eunm 1 成功
+        /// </returns>
         /// <remarks>注意事项: 
         /// <br/>1. 此函数执行完整的鼠标中键双击操作（按下并释放）
         /// <br/>2. 如果需要单独控制按下和释放，请使用 MiddleDown 和 MiddleUp 函数
@@ -3341,7 +3915,9 @@ namespace OLAPlug
         /// <summary>
         /// 鼠标左键点击
         /// </summary>
-        /// <returns>0 : 失败, 1 : 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败@eunm 1 成功
+        /// </returns>
         public int LeftClick(){
             return OLAPlugDLLHelper.LeftClick(OLAObject);
         }
@@ -3349,7 +3925,9 @@ namespace OLAPlug
         /// <summary>
         /// 鼠标左键双击
         /// </summary>
-        /// <returns>0 : 失败, 1 : 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败@eunm 1 成功
+        /// </returns>
         public int LeftDoubleClick(){
             return OLAPlugDLLHelper.LeftDoubleClick(OLAObject);
         }
@@ -3357,7 +3935,9 @@ namespace OLAPlug
         /// <summary>
         /// 滚轮向上滚
         /// </summary>
-        /// <returns>0 : 失败, 1 : 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败@eunm 1 成功
+        /// </returns>
         public int WheelUp(){
             return OLAPlugDLLHelper.WheelUp(OLAObject);
         }
@@ -3365,7 +3945,9 @@ namespace OLAPlug
         /// <summary>
         /// 滚轮向下滚
         /// </summary>
-        /// <returns>0 : 失败, 1 : 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败@eunm 1 成功
+        /// </returns>
         public int WheelDown(){
             return OLAPlugDLLHelper.WheelDown(OLAObject);
         }
@@ -3375,7 +3957,10 @@ namespace OLAPlug
         /// </summary>
         /// <param name="vk_code">等待的按键码</param>
         /// <param name="time_out">等待超时时间，单位毫秒</param>
-        /// <returns>0 : 超时, 1 : 指定的按键按下</returns>
+        /// <returns>等待结果
+        ///<br/>0: 超时
+        ///<br/>1: 指定的按键按下
+        /// </returns>
         public int WaitKey(int vk_code, int time_out){
             return OLAPlugDLLHelper.WaitKey(OLAObject, vk_code, time_out);
         }
@@ -3383,14 +3968,17 @@ namespace OLAPlug
         /// <summary>
         /// 设置当前系统鼠标的精确度开关
         /// </summary>
-        /// <param name="enable">0 关闭指针精确度开关. 1打开指针精确度开关. 一般推荐关闭</param>
+        /// <param name="enable">是否提高指针精确度，一般推荐关闭
+        ///<br/> 0: 关闭指针精确度开关
+        ///<br/> 1: 打开指针精确度开关
+        /// </param>
         /// <returns>设置之前的精确度开关</returns>
         public int EnableMouseAccuracy(int enable){
             return OLAPlugDLLHelper.EnableMouseAccuracy(OLAObject, enable);
         }
 
         /// <summary>
-        /// @brief 把双精度浮点数转换成二进制形式（IEEE 754标准）
+        /// 把双精度浮点数转换成二进制形式（IEEE 754标准）
         /// </summary>
         /// <param name="double_value">需要转换的double值</param>
         /// <returns>返回二进制字符串的指针</returns>
@@ -3417,8 +4005,12 @@ namespace OLAPlug
         /// 把字符串转换成二进制形式.
         /// </summary>
         /// <param name="string_value">字符串值</param>
-        /// <param name="type">类型0: 返回Ascii表达的字符串1: 返回Unicode表达的字符串2: 返回UTF8表达的字符串</param>
-        /// <returns>返回二进制字符串的指针@title 字符串转二进制 - StringToData</returns>
+        /// <param name="type">字符串返回的表达类型
+        ///<br/> 0: Ascii
+        ///<br/> 1: Unicode
+        ///<br/> 2: UTF8
+        /// </param>
+        /// <returns>返回二进制字符串的指针</returns>
         /// <remarks>注意事项: 
         /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
         /// </remarks>
@@ -3430,7 +4022,7 @@ namespace OLAPlug
         /// 把64位整数转换成32位整数.
         /// </summary>
         /// <param name="v">64位整数</param>
-        /// <returns>32位整数@title 64位整数转32位整数 - Int64ToInt32</returns>
+        /// <returns>32位整数</returns>
         public int Int64ToInt32(long v){
             return OLAPlugDLLHelper.Int64ToInt32(OLAObject, v);
         }
@@ -3439,13 +4031,13 @@ namespace OLAPlug
         /// 把32位整数转换成64位整数.
         /// </summary>
         /// <param name="v">32位整数</param>
-        /// <returns>64位整数@title 32位整数转64位整数 - Int32ToInt64</returns>
+        /// <returns>64位整数</returns>
         public long Int32ToInt64(int v){
             return OLAPlugDLLHelper.Int32ToInt64(OLAObject, v);
         }
 
         /// <summary>
-        /// 搜索指定的二进制数据,默认步长是1.默认开启多线程,默认搜索全部内存类型.如果要定制搜索,请用FindDataEx
+        /// 
         /// </summary>
         /// <param name="hwnd">窗口句柄</param>
         /// <param name="addr_range">地址范围</param>
@@ -3459,7 +4051,7 @@ namespace OLAPlug
         }
 
         /// <summary>
-        /// 搜索指定的二进制数据,默认步长是1.默认开启多线程,默认搜索全部内存类型.如果要定制搜索,请用FindDataEx
+        /// 
         /// </summary>
         /// <param name="hwnd">窗口句柄</param>
         /// <param name="addr_range">地址范围</param>
@@ -3475,7 +4067,7 @@ namespace OLAPlug
         ///<br/> 16: 搜索写时复制内存
         ///<br/> 32: 不搜索写时复制内存
         /// </param>
-        /// <returns>返回二进制字符串的指针，数据格式:字符串"addr1|addr2|addr3…|addrn" 比如"123456|ff001122|dc12366"</returns>
+        /// <returns>返回二进制字符串的指针，数据格式:字符串"addr1|addr2|addr3…|addrn"比如"123456|ff001122|dc12366"</returns>
         /// <remarks>注意事项: 
         /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
         /// </remarks>
@@ -3490,7 +4082,7 @@ namespace OLAPlug
         /// <param name="addr_range">地址范围</param>
         /// <param name="double_value_min">最小值</param>
         /// <param name="double_value_max">最大值</param>
-        /// <returns>返回二进制字符串的指针，数据格式:字符串"addr1|addr2|addr3…|addrn" 比如"123456|ff001122|dc12366"</returns>
+        /// <returns>返回二进制字符串的指针，数据格式:字符串"addr1|addr2|addr3…|addrn"比如"123456|ff001122|dc12366"</returns>
         /// <remarks>注意事项: 
         /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
         /// </remarks>
@@ -3516,7 +4108,7 @@ namespace OLAPlug
         ///<br/> 16: 搜索写时复制内存
         ///<br/> 32: 不搜索写时复制内存
         /// </param>
-        /// <returns>返回二进制字符串的指针，数据格式:字符串"addr1|addr2|addr3…|addrn" 比如"123456|ff001122|dc12366"</returns>
+        /// <returns>返回二进制字符串的指针，数据格式:字符串"addr1|addr2|addr3…|addrn"比如"123456|ff001122|dc12366"</returns>
         /// <remarks>注意事项: 
         /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
         /// </remarks>
@@ -3531,7 +4123,7 @@ namespace OLAPlug
         /// <param name="addr_range">地址范围</param>
         /// <param name="float_value_min">最小值</param>
         /// <param name="float_value_max">最大值</param>
-        /// <returns>返回二进制字符串的指针，数据格式:字符串"addr1|addr2|addr3…|addrn" 比如"123456|ff001122|dc12366"</returns>
+        /// <returns>返回二进制字符串的指针，数据格式:字符串"addr1|addr2|addr3…|addrn"比如"123456|ff001122|dc12366"</returns>
         /// <remarks>注意事项: 
         /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
         /// </remarks>
@@ -3557,7 +4149,7 @@ namespace OLAPlug
         ///<br/> 16: 搜索写时复制内存
         ///<br/> 32: 不搜索写时复制内存
         /// </param>
-        /// <returns>返回二进制字符串的指针，数据格式:字符串"addr1|addr2|addr3…|addrn" 比如"123456|ff001122|dc12366"</returns>
+        /// <returns>返回二进制字符串的指针，数据格式:字符串"addr1|addr2|addr3…|addrn"比如"123456|ff001122|dc12366"</returns>
         /// <remarks>注意事项: 
         /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
         /// </remarks>
@@ -3572,8 +4164,13 @@ namespace OLAPlug
         /// <param name="addr_range">地址范围</param>
         /// <param name="int_value_min">最小值</param>
         /// <param name="int_value_max">最大值</param>
-        /// <param name="type"></param>
-        /// <returns>返回二进制字符串的指针，数据格式:字符串"addr1|addr2|addr3…|addrn" 比如"123456|ff001122|dc12366"</returns>
+        /// <param name="type">搜索的整数类型,取值如下
+        ///<br/> 0: 32位
+        ///<br/> 1: 16 位
+        ///<br/> 2: 8位
+        ///<br/> 3: 64位
+        /// </param>
+        /// <returns>返回二进制字符串的指针，数据格式:字符串"addr1|addr2|addr3…|addrn"比如"123456|ff001122|dc12366"</returns>
         /// <remarks>注意事项: 
         /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
         /// </remarks>
@@ -3605,7 +4202,7 @@ namespace OLAPlug
         ///<br/> 16: 搜索写时复制内存
         ///<br/> 32: 不搜索写时复制内存
         /// </param>
-        /// <returns>返回二进制字符串的指针，数据格式:字符串"addr1|addr2|addr3…|addrn" 比如"123456|ff001122|dc12366"</returns>
+        /// <returns>返回二进制字符串的指针，数据格式:字符串"addr1|addr2|addr3…|addrn"比如"123456|ff001122|dc12366"</returns>
         /// <remarks>注意事项: 
         /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
         /// </remarks>
@@ -3624,7 +4221,7 @@ namespace OLAPlug
         ///<br/> 1: 返回Unicode表达的字符串
         ///<br/> 2: 返回UTF8表达的字符串
         /// </param>
-        /// <returns>返回二进制字符串的指针，数据格式:字符串"addr1|addr2|addr3…|addrn" 比如"123456|ff001122|dc12366"</returns>
+        /// <returns>返回二进制字符串的指针，数据格式:字符串"addr1|addr2|addr3…|addrn"比如"123456|ff001122|dc12366"</returns>
         /// <remarks>注意事项: 
         /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
         /// </remarks>
@@ -3654,7 +4251,7 @@ namespace OLAPlug
         ///<br/> 16: 搜索写时复制内存
         ///<br/> 32: 不搜索写时复制内存
         /// </param>
-        /// <returns>返回二进制字符串的指针，数据格式:字符串"addr1|addr2|addr3…|addrn" 比如"123456|ff001122|dc12366"</returns>
+        /// <returns>返回二进制字符串的指针，数据格式:字符串"addr1|addr2|addr3…|addrn"比如"123456|ff001122|dc12366"</returns>
         /// <remarks>注意事项: 
         /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
         /// </remarks>
@@ -3666,9 +4263,9 @@ namespace OLAPlug
         /// 读取指定地址的数据
         /// </summary>
         /// <param name="hwnd">窗口句柄</param>
-        /// <param name="addr">地址，支持CE数据格式 比如：[[[<module>+offset1]+offset2]+offset3]，<Game.exe>+1234+8+4，[<Game.exe>+1234]+8+4，[ [<Game.exe>+1234]+8 ]+4，<Game.exe>+1234，[0x12345678]+10</param>
+        /// <param name="addr">地址，支持CE数据格式比如：[[[<module>+offset1]+offset2]+offset3]，<Game.exe>+1234+8+4，[<Game.exe>+1234]+8+4，[[<Game.exe>+1234]+8 ]+4，<Game.exe>+1234，[0x12345678]+10</param>
         /// <param name="len">长度</param>
-        /// <returns>返回二进制字符串的指针，数据格式:读取到的数值,以16进制表示的字符串 每个字节以空格相隔 比如"12 34 56 78 ab cd ef"</returns>
+        /// <returns>返回二进制字符串的指针，数据格式:读取到的数值,以16进制表示的字符串 每个字节以空格相隔比如"12 34 56 78 ab cd ef"</returns>
         /// <remarks>注意事项: 
         /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
         /// </remarks>
@@ -3682,7 +4279,7 @@ namespace OLAPlug
         /// <param name="hwnd">窗口句柄</param>
         /// <param name="addr">地址</param>
         /// <param name="len">长度</param>
-        /// <returns>返回二进制字符串的指针，数据格式:读取到的数值,以16进制表示的字符串 每个字节以空格相隔 比如"12 34 56 78 ab cd ef"</returns>
+        /// <returns>返回二进制字符串的指针，数据格式:读取到的数值,以16进制表示的字符串 每个字节以空格相隔比如"12 34 56 78 ab cd ef"</returns>
         /// <remarks>注意事项: 
         /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
         /// </remarks>
@@ -3716,7 +4313,7 @@ namespace OLAPlug
         /// 读取指定地址的双精度浮点数
         /// </summary>
         /// <param name="hwnd">窗口句柄</param>
-        /// <param name="addr">地址，支持CE数据格式 比如：[[[<module>+offset1]+offset2]+offset3]，<Game.exe>+1234+8+4，[<Game.exe>+1234]+8+4，[ [<Game.exe>+1234]+8 ]+4，<Game.exe>+1234，[0x12345678]+10</param>
+        /// <param name="addr">地址，支持CE数据格式比如：[[[<module>+offset1]+offset2]+offset3]，<Game.exe>+1234+8+4，[<Game.exe>+1234]+8+4，[[<Game.exe>+1234]+8 ]+4，<Game.exe>+1234，[0x12345678]+10</param>
         /// <returns>读取到的双精度浮点数</returns>
         public double ReadDouble(long hwnd, string addr){
             return OLAPlugDLLHelper.ReadDouble(OLAObject, hwnd, addr);
@@ -3736,7 +4333,7 @@ namespace OLAPlug
         /// 读取指定地址的单精度浮点数
         /// </summary>
         /// <param name="hwnd">窗口句柄</param>
-        /// <param name="addr">地址，支持CE数据格式 比如：[[[<module>+offset1]+offset2]+offset3]，<Game.exe>+1234+8+4，[<Game.exe>+1234]+8+4，[ [<Game.exe>+1234]+8 ]+4，<Game.exe>+1234，[0x12345678]+10</param>
+        /// <param name="addr">地址，支持CE数据格式比如：[[[<module>+offset1]+offset2]+offset3]，<Game.exe>+1234+8+4，[<Game.exe>+1234]+8+4，[[<Game.exe>+1234]+8 ]+4，<Game.exe>+1234，[0x12345678]+10</param>
         /// <returns>读取到的单精度浮点数</returns>
         public float ReadFloat(long hwnd, string addr){
             return OLAPlugDLLHelper.ReadFloat(OLAObject, hwnd, addr);
@@ -3756,7 +4353,7 @@ namespace OLAPlug
         /// 读取指定地址的长整型数
         /// </summary>
         /// <param name="hwnd">窗口句柄</param>
-        /// <param name="addr">地址，支持CE数据格式 比如：[[[<module>+offset1]+offset2]+offset3]，<Game.exe>+1234+8+4，[<Game.exe>+1234]+8+4，[ [<Game.exe>+1234]+8 ]+4，<Game.exe>+1234，[0x12345678]+10</param>
+        /// <param name="addr">地址，支持CE数据格式比如：[[[<module>+offset1]+offset2]+offset3]，<Game.exe>+1234+8+4，[<Game.exe>+1234]+8+4，[[<Game.exe>+1234]+8 ]+4，<Game.exe>+1234，[0x12345678]+10</param>
         /// <param name="type">类型
         ///<br/> 0: 32位有符号
         ///<br/> 1: 16位有符号
@@ -3794,7 +4391,7 @@ namespace OLAPlug
         /// 读取指定地址的字符串
         /// </summary>
         /// <param name="hwnd">窗口句柄</param>
-        /// <param name="addr">地址，支持CE数据格式 比如：[[[<module>+offset1]+offset2]+offset3]，<Game.exe>+1234+8+4，[<Game.exe>+1234]+8+4，[ [<Game.exe>+1234]+8 ]+4，<Game.exe>+1234，[0x12345678]+10</param>
+        /// <param name="addr">地址，支持CE数据格式比如：[[[<module>+offset1]+offset2]+offset3]，<Game.exe>+1234+8+4，[<Game.exe>+1234]+8+4，[[<Game.exe>+1234]+8 ]+4，<Game.exe>+1234，[0x12345678]+10</param>
         /// <param name="type">类型  字符串类型,取值如下
         ///<br/> 0: : GBK字符串
         ///<br/> 1: : Unicode字符串
@@ -3832,9 +4429,12 @@ namespace OLAPlug
         /// 写入指定地址的数据
         /// </summary>
         /// <param name="hwnd">窗口句柄</param>
-        /// <param name="addr">地址，支持CE数据格式 比如：[[[<module>+offset1]+offset2]+offset3]，<Game.exe>+1234+8+4，[<Game.exe>+1234]+8+4，[ [<Game.exe>+1234]+8 ]+4，<Game.exe>+1234，[0x12345678]+10</param>
+        /// <param name="addr">地址，支持CE数据格式比如：[[[<module>+offset1]+offset2]+offset3]，<Game.exe>+1234+8+4，[<Game.exe>+1234]+8+4，[[<Game.exe>+1234]+8 ]+4，<Game.exe>+1234，[0x12345678]+10</param>
         /// <param name="data">数据 二进制数据，以字符串形式描述，比如"12 34 56 78 90 ab cd"</param>
-        /// <returns>成功返回1,失败返回0</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int WriteData(long hwnd, string addr, string data){
             return OLAPlugDLLHelper.WriteData(OLAObject, hwnd, addr, data);
         }
@@ -3843,10 +4443,13 @@ namespace OLAPlug
         /// 写入指定地址的数据
         /// </summary>
         /// <param name="hwnd">窗口句柄</param>
-        /// <param name="addr">地址，支持CE数据格式 比如：[[[<module>+offset1]+offset2]+offset3]，<Game.exe>+1234+8+4，[<Game.exe>+1234]+8+4，[ [<Game.exe>+1234]+8 ]+4，<Game.exe>+1234，[0x12345678]+10</param>
+        /// <param name="addr">地址，支持CE数据格式比如：[[[<module>+offset1]+offset2]+offset3]，<Game.exe>+1234+8+4，[<Game.exe>+1234]+8+4，[[<Game.exe>+1234]+8 ]+4，<Game.exe>+1234，[0x12345678]+10</param>
         /// <param name="data">字符串数据地址</param>
-        /// <param name="len"></param>
-        /// <returns>成功返回1,失败返回0</returns>
+        /// <param name="len">数据长度</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int WriteDataFromBin(long hwnd, string addr, long data, int len){
             return OLAPlugDLLHelper.WriteDataFromBin(OLAObject, hwnd, addr, data, len);
         }
@@ -3857,7 +4460,10 @@ namespace OLAPlug
         /// <param name="hwnd">窗口句柄</param>
         /// <param name="addr">地址</param>
         /// <param name="data">二进制数据，以字符串形式描述，比如"12 34 56 78 90 ab cd"</param>
-        /// <returns>成功返回1,失败返回0</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int WriteDataAddr(long hwnd, long addr, string data){
             return OLAPlugDLLHelper.WriteDataAddr(OLAObject, hwnd, addr, data);
         }
@@ -3868,8 +4474,11 @@ namespace OLAPlug
         /// <param name="hwnd">窗口句柄</param>
         /// <param name="addr">地址</param>
         /// <param name="data">数据 二进制数据，以字符串形式描述，比如"12 34 56 78 90 ab cd"</param>
-        /// <param name="len"></param>
-        /// <returns>成功返回1,失败返回0</returns>
+        /// <param name="len">数据长度</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int WriteDataAddrFromBin(long hwnd, long addr, long data, int len){
             return OLAPlugDLLHelper.WriteDataAddrFromBin(OLAObject, hwnd, addr, data, len);
         }
@@ -3878,9 +4487,12 @@ namespace OLAPlug
         /// 写入指定地址的双精度浮点数
         /// </summary>
         /// <param name="hwnd">窗口句柄</param>
-        /// <param name="addr">地址，支持CE数据格式 比如：[[[<module>+offset1]+offset2]+offset3]，<Game.exe>+1234+8+4，[<Game.exe>+1234]+8+4，[ [<Game.exe>+1234]+8 ]+4，<Game.exe>+1234，[0x12345678]+10</param>
+        /// <param name="addr">地址，支持CE数据格式比如：[[[<module>+offset1]+offset2]+offset3]，<Game.exe>+1234+8+4，[<Game.exe>+1234]+8+4，[[<Game.exe>+1234]+8 ]+4，<Game.exe>+1234，[0x12345678]+10</param>
         /// <param name="double_value">双精度浮点数</param>
-        /// <returns>成功返回1,失败返回0</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int WriteDouble(long hwnd, string addr, double double_value){
             return OLAPlugDLLHelper.WriteDouble(OLAObject, hwnd, addr, double_value);
         }
@@ -3891,7 +4503,10 @@ namespace OLAPlug
         /// <param name="hwnd">窗口句柄</param>
         /// <param name="addr">地址</param>
         /// <param name="double_value">双精度浮点数</param>
-        /// <returns>成功返回1,失败返回0</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int WriteDoubleAddr(long hwnd, long addr, double double_value){
             return OLAPlugDLLHelper.WriteDoubleAddr(OLAObject, hwnd, addr, double_value);
         }
@@ -3900,9 +4515,12 @@ namespace OLAPlug
         /// 写入指定地址的单精度浮点数
         /// </summary>
         /// <param name="hwnd">窗口句柄</param>
-        /// <param name="addr">地址，支持CE数据格式 比如：[[[<module>+offset1]+offset2]+offset3]，<Game.exe>+1234+8+4，[<Game.exe>+1234]+8+4，[ [<Game.exe>+1234]+8 ]+4，<Game.exe>+1234，[0x12345678]+10</param>
+        /// <param name="addr">地址，支持CE数据格式比如：[[[<module>+offset1]+offset2]+offset3]，<Game.exe>+1234+8+4，[<Game.exe>+1234]+8+4，[[<Game.exe>+1234]+8 ]+4，<Game.exe>+1234，[0x12345678]+10</param>
         /// <param name="float_value">单精度浮点数</param>
-        /// <returns>成功返回1,失败返回0</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int WriteFloat(long hwnd, string addr, float float_value){
             return OLAPlugDLLHelper.WriteFloat(OLAObject, hwnd, addr, float_value);
         }
@@ -3913,7 +4531,10 @@ namespace OLAPlug
         /// <param name="hwnd">窗口句柄</param>
         /// <param name="addr">地址</param>
         /// <param name="float_value">单精度浮点数</param>
-        /// <returns>成功返回1,失败返回0</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int WriteFloatAddr(long hwnd, long addr, float float_value){
             return OLAPlugDLLHelper.WriteFloatAddr(OLAObject, hwnd, addr, float_value);
         }
@@ -3922,7 +4543,7 @@ namespace OLAPlug
         /// 写入指定地址的整数
         /// </summary>
         /// <param name="hwnd">窗口句柄</param>
-        /// <param name="addr">地址，支持CE数据格式 比如：[[[<module>+offset1]+offset2]+offset3]，<Game.exe>+1234+8+4，[<Game.exe>+1234]+8+4，[ [<Game.exe>+1234]+8 ]+4，<Game.exe>+1234，[0x12345678]+10</param>
+        /// <param name="addr">地址，支持CE数据格式比如：[[[<module>+offset1]+offset2]+offset3]，<Game.exe>+1234+8+4，[<Game.exe>+1234]+8+4，[[<Game.exe>+1234]+8 ]+4，<Game.exe>+1234，[0x12345678]+10</param>
         /// <param name="type">类型
         ///<br/> 0: 32位有符号
         ///<br/> 1: 16位有符号
@@ -3933,7 +4554,10 @@ namespace OLAPlug
         ///<br/> 6: 8位无符号
         /// </param>
         /// <param name="value">要写入的整数值</param>
-        /// <returns>成功返回1,失败返回0</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int WriteInt(long hwnd, string addr, int type, long value){
             return OLAPlugDLLHelper.WriteInt(OLAObject, hwnd, addr, type, value);
         }
@@ -3953,7 +4577,10 @@ namespace OLAPlug
         ///<br/> 6: 8位无符号
         /// </param>
         /// <param name="value">要写入的整数值</param>
-        /// <returns>成功返回1,失败返回0</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int WriteIntAddr(long hwnd, long addr, int type, long value){
             return OLAPlugDLLHelper.WriteIntAddr(OLAObject, hwnd, addr, type, value);
         }
@@ -3962,14 +4589,17 @@ namespace OLAPlug
         /// 写入指定地址的字符串
         /// </summary>
         /// <param name="hwnd">窗口句柄</param>
-        /// <param name="addr">地址，支持CE数据格式 比如：[[[<module>+offset1]+offset2]+offset3]，<Game.exe>+1234+8+4，[<Game.exe>+1234]+8+4，[ [<Game.exe>+1234]+8 ]+4，<Game.exe>+1234，[0x12345678]+10</param>
+        /// <param name="addr">地址，支持CE数据格式比如：[[[<module>+offset1]+offset2]+offset3]，<Game.exe>+1234+8+4，[<Game.exe>+1234]+8+4，[[<Game.exe>+1234]+8 ]+4，<Game.exe>+1234，[0x12345678]+10</param>
         /// <param name="type">字符串类型,取值如下
         ///<br/> 0: Ascii字符串
         ///<br/> 1: Unicode字符串
         ///<br/> 2: UTF8字符串
         /// </param>
         /// <param name="value">要写入的字符串</param>
-        /// <returns>成功返回1,失败返回0</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int WriteString(long hwnd, string addr, int type, string value){
             return OLAPlugDLLHelper.WriteString(OLAObject, hwnd, addr, type, value);
         }
@@ -3985,7 +4615,10 @@ namespace OLAPlug
         ///<br/> 2: UTF8字符串
         /// </param>
         /// <param name="value">要写入的字符串</param>
-        /// <returns>成功返回1,失败返回0</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int WriteStringAddr(long hwnd, long addr, int type, string value){
             return OLAPlugDLLHelper.WriteStringAddr(OLAObject, hwnd, addr, type, value);
         }
@@ -3997,7 +4630,10 @@ namespace OLAPlug
         ///<br/> 0: 不启用
         ///<br/> 1: 启用
         /// </param>
-        /// <returns>成功返回1,失败返回0</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int SetMemoryHwndAsProcessId(int enable){
             return OLAPlugDLLHelper.SetMemoryHwndAsProcessId(OLAObject, enable);
         }
@@ -4006,7 +4642,10 @@ namespace OLAPlug
         /// 释放进程内存
         /// </summary>
         /// <param name="hwnd">窗口句柄</param>
-        /// <returns>成功返回1,失败返回0</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int FreeProcessMemory(long hwnd){
             return OLAPlugDLLHelper.FreeProcessMemory(OLAObject, hwnd);
         }
@@ -4045,7 +4684,7 @@ namespace OLAPlug
         /// <summary>
         /// 在指定的窗口所在进程分配一段内存
         /// </summary>
-        /// <param name="hwnd">窗口句柄或者进程ID. 默认是窗口句柄. 如果要指定为进程ID,需要调用SetMemoryHwndAsProcessId</param>
+        /// <param name="hwnd">窗口句柄或者进程ID. 默认是窗口句柄.如果要指定为进程ID,需要调用SetMemoryHwndAsProcessId</param>
         /// <param name="addr">预期的分配地址。如果是0表示自动分配，否则就尝试在此地址上分配内存</param>
         /// <param name="size">需要分配的内存大小</param>
         /// <param name="type">需要分配的内存类型，取值如下:
@@ -4063,7 +4702,10 @@ namespace OLAPlug
         /// </summary>
         /// <param name="hwnd">窗口句柄或者进程ID</param>
         /// <param name="addr">要释放的内存地址</param>
-        /// <returns>成功返回1,失败返回0</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int VirtualFreeEx(long hwnd, long addr){
             return OLAPlugDLLHelper.VirtualFreeEx(OLAObject, hwnd, addr);
         }
@@ -4074,15 +4716,16 @@ namespace OLAPlug
         /// <param name="hwnd">窗口句柄或者进程ID</param>
         /// <param name="addr">要修改的内存地址</param>
         /// <param name="size">需要修改的内存大小</param>
-        /// <param name="type">需要修改的内存类型，取值如下:
-        ///<br/> 0: 可读可写可执行
-        ///<br/> 1: 可读可执行，不可写
-        ///<br/> 2: 可读可写,不可执行
+        /// <param name="newProtect">需要修改的内存类型，取值如下:
+        ///<br/> 0x10: PAGE_EXECUTE 可执行
+        ///<br/> 0x20: PAGE_EXECUTE_READ 可读,可执行
+        ///<br/> 0x40: PAGE_READWRITE 可读可写,可执行
+        ///<br/> 0x80: PAGE_EXECUTE_WRITECOPY
         /// </param>
-        /// <param name="protect"></param>
+        /// <param name="oldProtect">修改前的保护属性</param>
         /// <returns>成功返回修改之前的读写属性,失败返回-1</returns>
-        public int VirtualProtectEx(long hwnd, long addr, int size, int type, int protect){
-            return OLAPlugDLLHelper.VirtualProtectEx(OLAObject, hwnd, addr, size, type, protect);
+        public int VirtualProtectEx(long hwnd, long addr, int size, int newProtect, out int oldProtect){
+            return OLAPlugDLLHelper.VirtualProtectEx(OLAObject, hwnd, addr, size, newProtect, out oldProtect);
         }
 
         /// <summary>
@@ -4091,7 +4734,10 @@ namespace OLAPlug
         /// <param name="hwnd">窗口句柄或者进程ID</param>
         /// <param name="addr">要查询的内存地址</param>
         /// <param name="pmbi">内存信息结构体指针</param>
-        /// <returns>成功返回1,失败返回0</returns>
+        /// <returns>返回二进制字符串的指针，.内容是"BaseAddress,AllocationBase,AllocationProtect,RegionSize,State,Protect,Type"数值都是10进制表达</returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
+        /// </remarks>
         public string VirtualQueryEx(long hwnd, long addr, long pmbi){
             return PtrToStringUTF8(OLAPlugDLLHelper.VirtualQueryEx(OLAObject, hwnd, addr, pmbi));
         }
@@ -4113,7 +4759,10 @@ namespace OLAPlug
         /// 关闭一个内核对象
         /// </summary>
         /// <param name="handle">要关闭的对象句柄</param>
-        /// <returns>成功返回1,失败返回0</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int CloseHandle(long handle){
             return OLAPlugDLLHelper.CloseHandle(OLAObject, handle);
         }
@@ -4148,8 +4797,8 @@ namespace OLAPlug
         /// <summary>
         /// 识别BMP数据中的文字
         /// </summary>
-        /// <param name="ptr"></param>
-        /// <param name="size">BMP图像数据大小</param>
+        /// <param name="ptr">BMP图片数据流地址</param>
+        /// <param name="size">图片大小</param>
         /// <returns>识别到的文字(二进制字符串的指针)</returns>
         /// <remarks>注意事项: 
         /// <br/>1. DLL调用返回字符串指针地址,需要调用 FreeStringPtr接口释放内存
@@ -4167,7 +4816,7 @@ namespace OLAPlug
         /// <param name="y2">右下角y坐标</param>
         /// <returns>}</returns>
         /// <remarks>注意事项: 
-        /// <br/>1. Regions集合为所有识别到的数据集 Score为识别评分,分值越高越准确, Center为识别结果中心点 Size为识别范围 Angle为识别结果角度 Vertices为识别结果的4个顶点
+        /// <br/>1. Regions集合为所有识别到的数据集 Score为识别评分,分值越高越准确, Center为识别结果中心点Size为识别范围 Angle为识别结果角度 Vertices为识别结果的4个顶点
         /// <br/>2. DLL调用返回字符串指针地址,需要调用 FreeStringPtr接口释放内存
         /// </remarks>
         public OcrResult OcrDetails(int x1, int y1, int x2, int y2){
@@ -4185,7 +4834,7 @@ namespace OLAPlug
         /// <param name="ptr">图像指针</param>
         /// <returns>}</returns>
         /// <remarks>注意事项: 
-        /// <br/>1. Regions集合为所有识别到的数据集 Score为识别评分,分值越高越准确, Center为识别结果中心点 Size为识别范围 Angle为识别结果角度 Vertices为识别结果的4个顶点
+        /// <br/>1. Regions集合为所有识别到的数据集 Score为识别评分,分值越高越准确, Center为识别结果中心点Size为识别范围 Angle为识别结果角度 Vertices为识别结果的4个顶点
         /// <br/>2. DLL调用返回字符串指针地址,需要调用 FreeStringPtr接口释放内存
         /// </remarks>
         public OcrResult OcrFromPtrDetails(long ptr){
@@ -4200,11 +4849,11 @@ namespace OLAPlug
         /// <summary>
         /// 识别BMP数据中的文字
         /// </summary>
-        /// <param name="ptr"></param>
+        /// <param name="ptr">BMP图像数据指针</param>
         /// <param name="size">BMP图像数据大小</param>
-        /// <returns>}</returns>
+        /// <returns>返回识别到的字符串</returns>
         /// <remarks>注意事项: 
-        /// <br/>1. Regions集合为所有识别到的数据集 Score为识别评分,分值越高越准确, Center为识别结果中心点 Size为识别范围 Angle为识别结果角度 Vertices为识别结果的4个顶点
+        /// <br/>1. Regions集合为所有识别到的数据集 Score为识别评分,分值越高越准确, Center为识别结果中心点Size为识别范围 Angle为识别结果角度 Vertices为识别结果的4个顶点
         /// <br/>2. DLL调用返回字符串指针地址,需要调用 FreeStringPtr接口释放内存
         /// </remarks>
         public OcrResult OcrFromBmpDataDetails(long ptr, int size){
@@ -4240,7 +4889,7 @@ namespace OLAPlug
         /// <param name="y2">右下角y坐标</param>
         /// <returns>}</returns>
         /// <remarks>注意事项: 
-        /// <br/>1. Regions集合为所有识别到的数据集 Score为识别评分,分值越高越准确, Center为识别结果中心点 Size为识别范围 Angle为识别结果角度 Vertices为识别结果的4个顶点
+        /// <br/>1. Regions集合为所有识别到的数据集 Score为识别评分,分值越高越准确, Center为识别结果中心点Size为识别范围 Angle为识别结果角度 Vertices为识别结果的4个顶点
         /// <br/>2. DLL调用返回字符串指针地址,需要调用 FreeStringPtr接口释放内存
         /// </remarks>
         public OcrResult OcrV5Details(int x1, int y1, int x2, int y2){
@@ -4270,7 +4919,7 @@ namespace OLAPlug
         /// <param name="ptr">图像指针</param>
         /// <returns>}</returns>
         /// <remarks>注意事项: 
-        /// <br/>1. Regions集合为所有识别到的数据集 Score为识别评分,分值越高越准确, Center为识别结果中心点 Size为识别范围 Angle为识别结果角度 Vertices为识别结果的4个顶点
+        /// <br/>1. Regions集合为所有识别到的数据集 Score为识别评分,分值越高越准确, Center为识别结果中心点Size为识别范围 Angle为识别结果角度 Vertices为识别结果的4个顶点
         /// <br/>2. DLL调用返回字符串指针地址,需要调用 FreeStringPtr接口释放内存
         /// </remarks>
         public OcrResult OcrV5FromPtrDetails(long ptr){
@@ -4326,7 +4975,7 @@ namespace OLAPlug
         /// <br/>36. OcrClsBatchNum (int): 分类批处理数量，默认1
         /// <br/>37. 布局相关参数
         /// <br/>38. OcrLayoutModelDir (string): 布局模型路径，默认""
-        /// <br/>39. OcrLayoutDictPath (string): 布局字典路径，默认"./ppocr/utils/dict/layout_dict/layout_publaynet_dict.txt"
+        /// <br/>39. OcrLayoutDictPath (string):布局字典路径，默认"./ppocr/utils/dict/layout_dict/layout_publaynet_dict.txt"
         /// <br/>40. OcrLayoutScoreThreshold (double): 布局评分阈值，范围0.0-1.0，默认0.5
         /// <br/>41. OcrLayoutNmsThreshold (double): 布局NMS阈值，范围0.0-1.0，默认0.5
         /// <br/>42. 表格相关参数
@@ -4334,7 +4983,7 @@ namespace OLAPlug
         /// <br/>44. OcrTableMaxLen (int): 表格最大长度，默认488
         /// <br/>45. OcrTableBatchNum (int): 表格批处理数量，默认1
         /// <br/>46. OcrMergeNoSpanStructure (bool): 是否合并无跨度结构，默认true
-        /// <br/>47. OcrTableCharDictPath (string): 表格字符字典路径，默认"./ppocr/utils/dict/table_structure_dict_ch.txt"
+        /// <br/>47. OcrTableCharDictPath (string):表格字符字典路径，默认"./ppocr/utils/dict/table_structure_dict_ch.txt"
         /// <br/>48. 前向相关参数
         /// <br/>49. OcrDet (bool): 是否使用检测，默认true
         /// <br/>50. OcrRec (bool): 是否使用识别，默认true
@@ -4393,7 +5042,7 @@ namespace OLAPlug
         /// <br/>36. OcrClsBatchNum (int): 分类批处理数量，默认1
         /// <br/>37. 布局相关参数
         /// <br/>38. OcrLayoutModelDir (string): 布局模型路径，默认""
-        /// <br/>39. OcrLayoutDictPath (string): 布局字典路径，默认"./ppocr/utils/dict/layout_dict/layout_publaynet_dict.txt"
+        /// <br/>39. OcrLayoutDictPath (string):布局字典路径，默认"./ppocr/utils/dict/layout_dict/layout_publaynet_dict.txt"
         /// <br/>40. OcrLayoutScoreThreshold (double): 布局评分阈值，范围0.0-1.0，默认0.5
         /// <br/>41. OcrLayoutNmsThreshold (double): 布局NMS阈值，范围0.0-1.0，默认0.5
         /// <br/>42. 表格相关参数
@@ -4401,7 +5050,7 @@ namespace OLAPlug
         /// <br/>44. OcrTableMaxLen (int): 表格最大长度，默认488
         /// <br/>45. OcrTableBatchNum (int): 表格批处理数量，默认1
         /// <br/>46. OcrMergeNoSpanStructure (bool): 是否合并无跨度结构，默认true
-        /// <br/>47. OcrTableCharDictPath (string): 表格字符字典路径，默认"./ppocr/utils/dict/table_structure_dict_ch.txt"
+        /// <br/>47. OcrTableCharDictPath (string):表格字符字典路径，默认"./ppocr/utils/dict/table_structure_dict_ch.txt"
         /// <br/>48. 前向相关参数
         /// <br/>49. OcrDet (bool): 是否使用检测，默认true
         /// <br/>50. OcrRec (bool): 是否使用识别，默认true
@@ -4421,7 +5070,10 @@ namespace OLAPlug
         /// </summary>
         /// <param name="key">配置键</param>
         /// <param name="value">配置值</param>
-        /// <returns>是否成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         /// <remarks>注意事项: 
         /// <br/>1. 支持所有OCR配置参数，包括：
         /// <br/>2. GPU相关参数
@@ -4461,7 +5113,7 @@ namespace OLAPlug
         /// <br/>36. OcrClsBatchNum (int): 分类批处理数量，默认1
         /// <br/>37. 布局相关参数
         /// <br/>38. OcrLayoutModelDir (string): 布局模型路径，默认""
-        /// <br/>39. OcrLayoutDictPath (string): 布局字典路径，默认"./ppocr/utils/dict/layout_dict/layout_publaynet_dict.txt"
+        /// <br/>39. OcrLayoutDictPath (string):布局字典路径，默认"./ppocr/utils/dict/layout_dict/layout_publaynet_dict.txt"
         /// <br/>40. OcrLayoutScoreThreshold (double): 布局评分阈值，范围0.0-1.0，默认0.5
         /// <br/>41. OcrLayoutNmsThreshold (double): 布局NMS阈值，范围0.0-1.0，默认0.5
         /// <br/>42. 表格相关参数
@@ -4469,7 +5121,7 @@ namespace OLAPlug
         /// <br/>44. OcrTableMaxLen (int): 表格最大长度，默认488
         /// <br/>45. OcrTableBatchNum (int): 表格批处理数量，默认1
         /// <br/>46. OcrMergeNoSpanStructure (bool): 是否合并无跨度结构，默认true
-        /// <br/>47. OcrTableCharDictPath (string): 表格字符字典路径，默认"./ppocr/utils/dict/table_structure_dict_ch.txt"
+        /// <br/>47. OcrTableCharDictPath (string):表格字符字典路径，默认"./ppocr/utils/dict/table_structure_dict_ch.txt"
         /// <br/>48. 前向相关参数
         /// <br/>49. OcrDet (bool): 是否使用检测，默认true
         /// <br/>50. OcrRec (bool): 是否使用识别，默认true
@@ -4644,12 +5296,15 @@ namespace OLAPlug
         /// <param name="x2">查找区域的右下角X坐标</param>
         /// <param name="y2">查找区域的右下角Y坐标</param>
         /// <param name="str">要查找的文字</param>
-        /// <param name="colorJson"></param>
+        /// <param name="colorJson">颜色列表的json字符串</param>
         /// <param name="dict">字典名称</param>
         /// <param name="matchVal">相似度，如0.85，最大为1</param>
         /// <param name="outX">输出参数，返回的X坐标</param>
         /// <param name="outY">输出参数，返回的Y坐标</param>
-        /// <returns>成功返回 1，失败返回 0</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int FindStr(int x1, int y1, int x2, int y2, string str, List<ColorModel> colorJson, string dict, double matchVal, out int outX, out int outY){
             return OLAPlugDLLHelper.FindStr(OLAObject, x1, y1, x2, y2, str, JsonConvert.SerializeObject(colorJson), dict, matchVal, out outX, out outY);
         }
@@ -4662,12 +5317,15 @@ namespace OLAPlug
         /// <param name="x2">查找区域的右下角X坐标</param>
         /// <param name="y2">查找区域的右下角Y坐标</param>
         /// <param name="str">要查找的文字</param>
-        /// <param name="colorJson"></param>
+        /// <param name="colorJson">颜色列表的json字符串</param>
         /// <param name="dict">字典名称</param>
         /// <param name="matchVal">相似度，如0.85，最大为1</param>
         /// <param name="outX">输出参数，返回的X坐标</param>
         /// <param name="outY">输出参数，返回的Y坐标</param>
-        /// <returns>成功返回 1，失败返回 0</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int FindStr(int x1, int y1, int x2, int y2, string str, string colorJson, string dict, double matchVal, out int outX, out int outY){
             return OLAPlugDLLHelper.FindStr(OLAObject, x1, y1, x2, y2, str, colorJson, dict, matchVal, out outX, out outY);
         }
@@ -4680,7 +5338,7 @@ namespace OLAPlug
         /// <param name="x2">查找区域的右下角X坐标</param>
         /// <param name="y2">查找区域的右下角Y坐标</param>
         /// <param name="str">要查找的文字</param>
-        /// <param name="colorJson"></param>
+        /// <param name="colorJson">颜色列表的json字符串</param>
         /// <param name="dict">字典名称</param>
         /// <param name="matchVal">相似度，如0.85，最大为1</param>
         /// <returns>y (整型数): Y坐标</returns>
@@ -4704,7 +5362,7 @@ namespace OLAPlug
         /// <param name="x2">查找区域的右下角X坐标</param>
         /// <param name="y2">查找区域的右下角Y坐标</param>
         /// <param name="str">要查找的文字</param>
-        /// <param name="colorJson"></param>
+        /// <param name="colorJson">颜色列表的json字符串</param>
         /// <param name="dict">字典名称</param>
         /// <param name="matchVal">相似度，如0.85，最大为1</param>
         /// <returns>y (整型数): Y坐标</returns>
@@ -4728,7 +5386,7 @@ namespace OLAPlug
         /// <param name="x2">右下角x坐标</param>
         /// <param name="y2">右下角y坐标</param>
         /// <param name="str">查找字符串</param>
-        /// <param name="colorJson">颜色列表的JSON字符串，格式如：[{"StartColor": "3278FA", "EndColor": "6496FF", "Type": 0}, {"StartColor": "3278FA", "EndColor": "6496FF", "Type": 1}]</param>
+        /// <param name="colorJson">颜色列表的JSON字符串，格式如：[{"StartColor": "3278FA", "EndColor": "6496FF","Type": 0}, {"StartColor": "3278FA", "EndColor": "6496FF", "Type": 1}]</param>
         /// <param name="dict">字库名称</param>
         /// <param name="matchVal">匹配值</param>
         /// <returns>]</returns>
@@ -4752,7 +5410,7 @@ namespace OLAPlug
         /// <param name="x2">右下角x坐标</param>
         /// <param name="y2">右下角y坐标</param>
         /// <param name="str">查找字符串</param>
-        /// <param name="colorJson">颜色列表的JSON字符串，格式如：[{"StartColor": "3278FA", "EndColor": "6496FF", "Type": 0}, {"StartColor": "3278FA", "EndColor": "6496FF", "Type": 1}]</param>
+        /// <param name="colorJson">颜色列表的JSON字符串，格式如：[{"StartColor": "3278FA", "EndColor": "6496FF","Type": 0}, {"StartColor": "3278FA", "EndColor": "6496FF", "Type": 1}]</param>
         /// <param name="dict">字库名称</param>
         /// <param name="matchVal">匹配值</param>
         /// <returns>]</returns>
@@ -4773,7 +5431,7 @@ namespace OLAPlug
         /// </summary>
         /// <param name="source">图片</param>
         /// <param name="str">查找字符串</param>
-        /// <param name="colorJson">颜色列表的JSON字符串，格式如：[{"StartColor": "3278FA", "EndColor": "6496FF", "Type": 0}, {"StartColor": "3278FA", "EndColor": "6496FF", "Type": 1}]</param>
+        /// <param name="colorJson">颜色列表的JSON字符串，格式如：[{"StartColor": "3278FA", "EndColor": "6496FF","Type": 0}, {"StartColor": "3278FA", "EndColor": "6496FF", "Type": 1}]</param>
         /// <param name="dict">字库名称</param>
         /// <param name="matchVal">匹配值</param>
         /// <returns>查找到的结果（格式为二进制字符串指针）</returns>
@@ -4794,7 +5452,7 @@ namespace OLAPlug
         /// </summary>
         /// <param name="source">图片</param>
         /// <param name="str">查找字符串</param>
-        /// <param name="colorJson">颜色列表的JSON字符串，格式如：[{"StartColor": "3278FA", "EndColor": "6496FF", "Type": 0}, {"StartColor": "3278FA", "EndColor": "6496FF", "Type": 1}]</param>
+        /// <param name="colorJson">颜色列表的JSON字符串，格式如：[{"StartColor": "3278FA", "EndColor": "6496FF","Type": 0}, {"StartColor": "3278FA", "EndColor": "6496FF", "Type": 1}]</param>
         /// <param name="dict">字库名称</param>
         /// <param name="matchVal">匹配值</param>
         /// <returns>查找到的结果（格式为二进制字符串指针）</returns>
@@ -4815,7 +5473,7 @@ namespace OLAPlug
         /// </summary>
         /// <param name="source">图片</param>
         /// <param name="str">查找字符串</param>
-        /// <param name="colorJson">颜色列表的JSON字符串，格式如：[{"StartColor": "3278FA", "EndColor": "6496FF", "Type": 0}, {"StartColor": "3278FA", "EndColor": "6496FF", "Type": 1}]</param>
+        /// <param name="colorJson">颜色列表的JSON字符串，格式如：[{"StartColor": "3278FA", "EndColor": "6496FF","Type": 0}, {"StartColor": "3278FA", "EndColor": "6496FF", "Type": 1}]</param>
         /// <param name="dict">字库名称</param>
         /// <param name="matchVal">匹配值</param>
         /// <returns>]</returns>
@@ -4836,7 +5494,7 @@ namespace OLAPlug
         /// </summary>
         /// <param name="source">图片</param>
         /// <param name="str">查找字符串</param>
-        /// <param name="colorJson">颜色列表的JSON字符串，格式如：[{"StartColor": "3278FA", "EndColor": "6496FF", "Type": 0}, {"StartColor": "3278FA", "EndColor": "6496FF", "Type": 1}]</param>
+        /// <param name="colorJson">颜色列表的JSON字符串，格式如：[{"StartColor": "3278FA", "EndColor": "6496FF","Type": 0}, {"StartColor": "3278FA", "EndColor": "6496FF", "Type": 1}]</param>
         /// <param name="dict">字库名称</param>
         /// <param name="matchVal">匹配值</param>
         /// <returns>]</returns>
@@ -4879,10 +5537,10 @@ namespace OLAPlug
         /// <summary>
         /// 快速识别数字
         /// </summary>
-        /// <param name="x1"></param>
-        /// <param name="y1"></param>
-        /// <param name="x2"></param>
-        /// <param name="y2"></param>
+        /// <param name="x1">图片</param>
+        /// <param name="y1">区域左上角Y坐标</param>
+        /// <param name="x2">区域右下角X坐标</param>
+        /// <param name="y2">区域右下角Y坐标</param>
         /// <param name="numbers">0~9数字图片地址,多个数字用|分割,如img/0.png|img/1.png|img/2.png|img/3.png|img/4.png|img/5.png|img/6.png|img/7.png|img/8.png|img/9.png</param>
         /// <param name="colorJson">颜色json</param>
         /// <param name="matchVal">识别率</param>
@@ -4894,16 +5552,36 @@ namespace OLAPlug
         /// <summary>
         /// 快速识别数字
         /// </summary>
-        /// <param name="x1"></param>
-        /// <param name="y1"></param>
-        /// <param name="x2"></param>
-        /// <param name="y2"></param>
+        /// <param name="x1">图片</param>
+        /// <param name="y1">区域左上角Y坐标</param>
+        /// <param name="x2">区域右下角X坐标</param>
+        /// <param name="y2">区域右下角Y坐标</param>
         /// <param name="numbers">0~9数字图片地址,多个数字用|分割,如img/0.png|img/1.png|img/2.png|img/3.png|img/4.png|img/5.png|img/6.png|img/7.png|img/8.png|img/9.png</param>
         /// <param name="colorJson">颜色json</param>
         /// <param name="matchVal">识别率</param>
         /// <returns>识别到的数字,如果失败返回-1</returns>
         public int FastNumberOcr(int x1, int y1, int x2, int y2, string numbers, string colorJson, double matchVal){
             return OLAPlugDLLHelper.FastNumberOcr(OLAObject, x1, y1, x2, y2, numbers, colorJson, matchVal);
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="dictName">字库名称</param>
+        /// <param name="dictPath">文本字库路径</param>
+        /// <returns>是否成功</returns>
+        public int ImportTxtDict(string dictName, string dictPath){
+            return OLAPlugDLLHelper.ImportTxtDict(OLAObject, dictName, dictPath);
+        }
+
+        /// <summary>
+        /// 导出txt文本字库
+        /// </summary>
+        /// <param name="dictName">字库名称</param>
+        /// <param name="dictPath">文本字库路径</param>
+        /// <returns>是否成功</returns>
+        public int ExportTxtDict(string dictName, string dictPath){
+            return OLAPlugDLLHelper.ExportTxtDict(OLAObject, dictName, dictPath);
         }
 
         /// <summary>
@@ -4914,7 +5592,10 @@ namespace OLAPlug
         /// <param name="x2">截图区域右下角X坐标（相对于窗口客户区）</param>
         /// <param name="y2">截图区域右下角Y坐标（相对于窗口客户区）</param>
         /// <param name="file">输出文件路径，支持bmp/gif/jpg/jpeg/png</param>
-        /// <returns>操作结果，0 失败，1 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         /// <remarks>注意事项: 
         /// <br/>1. 若目录不存在请确保先行创建；覆盖同名文件
         /// </remarks>
@@ -4931,7 +5612,10 @@ namespace OLAPlug
         /// <param name="y2">区域右下角Y坐标（相对于窗口客户区）</param>
         /// <param name="data">返回BMP数据指针（输出）</param>
         /// <param name="dataLen">返回数据字节长度（输出）</param>
-        /// <returns>操作结果，0 失败，1 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         /// <remarks>注意事项: 
         /// <br/>1. data需调用FreeImageData释放；数据包含完整BMP文件头，可直接落盘
         /// </remarks>
@@ -4949,7 +5633,10 @@ namespace OLAPlug
         /// <param name="data">返回像素数据指针（输出，BGR顺序）</param>
         /// <param name="dataLen">返回数据字节长度（输出）</param>
         /// <param name="stride">返回每行对齐后的字节跨度（输出）</param>
-        /// <returns>操作结果，0 失败，1 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         /// <remarks>注意事项: 
         /// <br/>1. data需调用FreeImageData释放；无文件头，按4字节边界对齐
         /// </remarks>
@@ -4982,12 +5669,51 @@ namespace OLAPlug
         /// <param name="file">输出GIF文件路径</param>
         /// <param name="delay">帧间隔（毫秒）</param>
         /// <param name="time">录制总时长（毫秒）</param>
-        /// <returns>操作结果，0 失败，1 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         /// <remarks>注意事项: 
         /// <br/>1. 持续截图编码，性能开销较大
         /// </remarks>
         public int CaptureGif(int x1, int y1, int x2, int y2, string file, int delay, int time){
             return OLAPlugDLLHelper.CaptureGif(OLAObject, x1, y1, x2, y2, file, delay, time);
+        }
+
+        /// <summary>
+        /// 锁定当前屏幕图像
+        /// </summary>
+        /// <param name="enable">锁定标志
+        ///<br/> 0: 取消锁定，清空锁定图像并释放内存
+        ///<br/> 非0: 锁定当前屏幕图像，后续截图将返回锁定的图像
+        /// </param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 锁定后，CaptureMat等截图接口将返回锁定的图像数据
+        /// </remarks>
+        public int LockDisplay(int enable){
+            return OLAPlugDLLHelper.LockDisplay(OLAObject, enable);
+        }
+
+        /// <summary>
+        /// 设置截图缓存时间
+        /// </summary>
+        /// <param name="cacheTime">缓存时间（毫秒）
+        ///<br/> 0: 不缓存，实时截图
+        ///<br/> >0: 缓存截图到指定的毫秒数，在缓存时间内返回缓存的图像
+        /// </param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 设置缓存后，在缓存时间内多次截图将返回同一帧图像，提高性能
+        /// </remarks>
+        public int SetSnapCacheTime(int cacheTime){
+            return OLAPlugDLLHelper.SetSnapCacheTime(OLAObject, cacheTime);
         }
 
         /// <summary>
@@ -4997,7 +5723,10 @@ namespace OLAPlug
         /// <param name="data">返回像素数据指针（输出，BGR顺序）</param>
         /// <param name="size">返回数据字节长度（输出）</param>
         /// <param name="stride">返回每行字节跨度（输出）</param>
-        /// <returns>操作结果，0 失败，1 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         /// <remarks>注意事项: 
         /// <br/>1. data需调用FreeImageData释放
         /// </remarks>
@@ -5011,7 +5740,13 @@ namespace OLAPlug
         /// <param name="source">源图路径</param>
         /// <param name="templ">模板图路径</param>
         /// <param name="matchVal">匹配阈值（0~1）</param>
-        /// <param name="type">匹配类型</param>
+        /// <param name="type">匹配类型
+        ///<br/> 1: 灰度匹配，速度快
+        ///<br/> 2: 彩色匹配
+        ///<br/> 3: 透明匹配
+        ///<br/> 4: 透明彩色权重匹配
+        ///<br/> 5: 普通彩色匹配
+        /// </param>
         /// <param name="angle">旋转角度（度）</param>
         /// <param name="scale">缩放比例</param>
         /// <returns>匹配结果（结构体/指针，失败返回0）</returns>
@@ -5033,7 +5768,13 @@ namespace OLAPlug
         /// <param name="source">源图路径</param>
         /// <param name="templ">模板图路径</param>
         /// <param name="matchVal">匹配阈值（0~1）</param>
-        /// <param name="type">匹配类型</param>
+        /// <param name="type">匹配类型
+        ///<br/> 1: 灰度匹配，速度快
+        ///<br/> 2: 彩色匹配
+        ///<br/> 3: 透明匹配
+        ///<br/> 4: 透明彩色权重匹配
+        ///<br/> 5: 普通彩色匹配
+        /// </param>
         /// <param name="angle">旋转角度（度）</param>
         /// <param name="scale">缩放比例</param>
         /// <returns>匹配点列表字符串指针；未找到返回空字符串指针</returns>
@@ -5055,7 +5796,13 @@ namespace OLAPlug
         /// <param name="source">源图句柄</param>
         /// <param name="templ">模板图路径</param>
         /// <param name="matchVal">匹配阈值（0~1）</param>
-        /// <param name="type">匹配类型</param>
+        /// <param name="type">匹配类型
+        ///<br/> 1: 灰度匹配，速度快
+        ///<br/> 2: 彩色匹配
+        ///<br/> 3: 透明匹配
+        ///<br/> 4: 透明彩色权重匹配
+        ///<br/> 5: 普通彩色匹配
+        /// </param>
         /// <param name="angle">旋转角度（度）</param>
         /// <param name="scale">缩放比例</param>
         /// <returns>匹配结果（结构体/指针，失败返回0）</returns>
@@ -5074,7 +5821,13 @@ namespace OLAPlug
         /// <param name="source">源图句柄</param>
         /// <param name="templ">模板图路径</param>
         /// <param name="matchVal">匹配阈值（0~1）</param>
-        /// <param name="type">匹配类型</param>
+        /// <param name="type">匹配类型
+        ///<br/> 1: 灰度匹配，速度快
+        ///<br/> 2: 彩色匹配
+        ///<br/> 3: 透明匹配
+        ///<br/> 4: 透明彩色权重匹配
+        ///<br/> 5: 普通彩色匹配
+        /// </param>
         /// <param name="angle">旋转角度（度）</param>
         /// <param name="scale">缩放比例</param>
         /// <returns>匹配点列表字符串指针；未找到返回空字符串指针</returns>
@@ -5103,7 +5856,7 @@ namespace OLAPlug
         /// <summary>
         /// 获取绑定窗口指定坐标点的颜色值（返回指针）
         /// </summary>
-        /// <param name="source"></param>
+        /// <param name="source">源对象的指针，通常是一个图像或画布对象</param>
         /// <param name="x">指定点的X坐标（相对于窗口客户区）</param>
         /// <param name="y">指定点的Y坐标（相对于窗口客户区）</param>
         /// <returns>返回指向颜色值的指针，数据在内部缓存中；失败返回0</returns>
@@ -5211,15 +5964,18 @@ namespace OLAPlug
         /// <param name="y1">搜索区域左上角Y坐标</param>
         /// <param name="x2">搜索区域右下角X坐标</param>
         /// <param name="y2">搜索区域右下角Y坐标</param>
-        /// <param name="templ">窗口模板图句柄</param>
-        /// <param name="matchVal"></param>
-        /// <param name="type"></param>
-        /// <param name="angle"></param>
-        /// <param name="scale"></param>
-        /// <returns>匹配结果
-        ///<br/>0: 未找到
-        ///<br/>1: 找到
-        /// </returns>
+        /// <param name="templ">OLAImage对象的地址,由LoadImage 等接口生成</param>
+        /// <param name="matchVal">相似度，如0.85，最大为1</param>
+        /// <param name="type">匹配类型
+        ///<br/> 1: 灰度匹配，速度快
+        ///<br/> 2: 彩色匹配
+        ///<br/> 3: 透明匹配
+        ///<br/> 4: 透透明彩色权重匹配
+        ///<br/> 5: 普通彩色匹配
+        /// </param>
+        /// <param name="angle">旋转角度，每次匹配后旋转指定角度继续进行匹配,直到匹配成功,角度越小匹配次数越多时间越长。0为不旋转速度最快</param>
+        /// <param name="scale">窗口缩放比例，默认为1 可以通过GetScaleFromWindows接口读取当前窗口缩放</param>
+        /// <returns>匹配结果</returns>
         public MatchResult MatchWindowsFromPtr(int x1, int y1, int x2, int y2, long templ, double matchVal, int type, double angle, double scale){
             var result = PtrToStringUTF8(OLAPlugDLLHelper.MatchWindowsFromPtr(OLAObject, x1, y1, x2, y2, templ, matchVal, type, angle, scale));
             if (string.IsNullOrEmpty(result))
@@ -5232,16 +5988,19 @@ namespace OLAPlug
         /// <summary>
         /// 在绑定窗口中查找指定图像（使用内存数据）
         /// </summary>
-        /// <param name="source">源图句柄</param>
-        /// <param name="templ"></param>
-        /// <param name="matchVal"></param>
-        /// <param name="type"></param>
-        /// <param name="angle"></param>
-        /// <param name="scale"></param>
-        /// <returns>匹配结果
-        ///<br/>0: 未找到
-        ///<br/>1: 找到
-        /// </returns>
+        /// <param name="source">OLAImage对象的地址</param>
+        /// <param name="templ">OLAImage对象的地址,由LoadImage 等接口生成</param>
+        /// <param name="matchVal">相似度，如0.85，最大为1</param>
+        /// <param name="type">匹配类型
+        ///<br/> 1: 灰度匹配，速度快
+        ///<br/> 2: 彩色匹配
+        ///<br/> 3: 透明匹配
+        ///<br/> 4: 透透明彩色权重匹配
+        ///<br/> 5: 普通彩色匹配
+        /// </param>
+        /// <param name="angle">旋转角度，每次匹配后旋转指定角度继续进行匹配,直到匹配成功,角度越小匹配次数越多时间越长。0为不旋转速度最快</param>
+        /// <param name="scale">窗口缩放比例，默认为1 可以通过GetScaleFromWindows接口读取当前窗口缩放</param>
+        /// <returns>匹配结果</returns>
         public MatchResult MatchImageFromPtr(long source, long templ, double matchVal, int type, double angle, double scale){
             var result = PtrToStringUTF8(OLAPlugDLLHelper.MatchImageFromPtr(OLAObject, source, templ, matchVal, type, angle, scale));
             if (string.IsNullOrEmpty(result))
@@ -5254,13 +6013,19 @@ namespace OLAPlug
         /// <summary>
         /// 在绑定窗口中查找指定图像的所有匹配位置（使用内存数据）
         /// </summary>
-        /// <param name="source">源图句柄</param>
-        /// <param name="templ"></param>
-        /// <param name="matchVal"></param>
-        /// <param name="type"></param>
-        /// <param name="angle"></param>
-        /// <param name="scale"></param>
-        /// <returns></returns>
+        /// <param name="source">OLAImage对象的地址</param>
+        /// <param name="templ">OLAImage对象的地址,由LoadImage 等接口生成</param>
+        /// <param name="matchVal">相似度，如0.85，最大为1</param>
+        /// <param name="type">匹配类型
+        ///<br/> 1: 灰度匹配，速度快
+        ///<br/> 2: 彩色匹配
+        ///<br/> 3: 透明匹配
+        ///<br/> 4: 透透明彩色权重匹配
+        ///<br/> 5: 普通彩色匹配
+        /// </param>
+        /// <param name="angle">旋转角度，每次匹配后旋转指定角度继续进行匹配,直到匹配成功,角度越小匹配次数越多时间越长。0为不旋转速度最快</param>
+        /// <param name="scale">窗口缩放比例，默认为1 可以通过GetScaleFromWindows接口读取当前窗口缩放</param>
+        /// <returns>返回所有匹配结果字符串</returns>
         public List<MatchResult> MatchImageFromPtrAll(long source, long templ, double matchVal, int type, double angle, double scale){
             var result = PtrToStringUTF8(OLAPlugDLLHelper.MatchImageFromPtrAll(OLAObject, source, templ, matchVal, type, angle, scale));
             if (string.IsNullOrEmpty(result))
@@ -5277,12 +6042,18 @@ namespace OLAPlug
         /// <param name="y1">搜索区域左上角Y坐标</param>
         /// <param name="x2">搜索区域右下角X坐标</param>
         /// <param name="y2">搜索区域右下角Y坐标</param>
-        /// <param name="templ">窗口模板图句柄</param>
-        /// <param name="matchVal"></param>
-        /// <param name="type"></param>
-        /// <param name="angle"></param>
-        /// <param name="scale"></param>
-        /// <returns></returns>
+        /// <param name="templ">OLAImage对象的地址,由LoadImage 等接口生成</param>
+        /// <param name="matchVal">相似度，如0.85，最大为1</param>
+        /// <param name="type">匹配类型
+        ///<br/> 1: 灰度匹配，速度快
+        ///<br/> 2: 彩色匹配
+        ///<br/> 3: 透明匹配
+        ///<br/> 4: 透透明彩色权重匹配
+        ///<br/> 5: 普通彩色匹配
+        /// </param>
+        /// <param name="angle">旋转角度，每次匹配后旋转指定角度继续进行匹配,直到匹配成功,角度越小匹配次数越多时间越长。0为不旋转速度最快</param>
+        /// <param name="scale">窗口缩放比例，默认为1 可以通过GetScaleFromWindows接口读取当前窗口缩放</param>
+        /// <returns>返回所有匹配点结果的字符串</returns>
         public List<MatchResult> MatchWindowsFromPtrAll(int x1, int y1, int x2, int y2, long templ, double matchVal, int type, double angle, double scale){
             var result = PtrToStringUTF8(OLAPlugDLLHelper.MatchWindowsFromPtrAll(OLAObject, x1, y1, x2, y2, templ, matchVal, type, angle, scale));
             if (string.IsNullOrEmpty(result))
@@ -5299,15 +6070,18 @@ namespace OLAPlug
         /// <param name="y1">搜索区域左上角Y坐标</param>
         /// <param name="x2">搜索区域右下角X坐标</param>
         /// <param name="y2">搜索区域右下角Y坐标</param>
-        /// <param name="templ">图像文件路径</param>
-        /// <param name="matchVal"></param>
-        /// <param name="type"></param>
-        /// <param name="angle"></param>
-        /// <param name="scale"></param>
-        /// <returns>匹配结果
-        ///<br/>0: 未找到
-        ///<br/>1: 找到
-        /// </returns>
+        /// <param name="templ">模板图片的路径，可以是多个图片,比如"test.bmp|test2.bmp|test3.bmp"</param>
+        /// <param name="matchVal">相似度，如0.85，最大为1</param>
+        /// <param name="type">匹配类型
+        ///<br/> 1: 灰度匹配，速度快
+        ///<br/> 2: 彩色匹配
+        ///<br/> 3: 透明匹配
+        ///<br/> 4: 透透明彩色权重匹配
+        ///<br/> 5: 普通彩色匹配
+        /// </param>
+        /// <param name="angle">旋转角度，每次匹配后旋转指定角度继续进行匹配,直到匹配成功,角度越小匹配次数越多时间越长。0为不旋转速度最快</param>
+        /// <param name="scale">窗口缩放比例，默认为1 可以通过GetScaleFromWindows接口读取当前窗口缩放</param>
+        /// <returns>匹配结果</returns>
         public MatchResult MatchWindowsFromPath(int x1, int y1, int x2, int y2, string templ, double matchVal, int type, double angle, double scale){
             var result = PtrToStringUTF8(OLAPlugDLLHelper.MatchWindowsFromPath(OLAObject, x1, y1, x2, y2, templ, matchVal, type, angle, scale));
             if (string.IsNullOrEmpty(result))
@@ -5324,12 +6098,18 @@ namespace OLAPlug
         /// <param name="y1">搜索区域左上角Y坐标</param>
         /// <param name="x2">搜索区域右下角X坐标</param>
         /// <param name="y2">搜索区域右下角Y坐标</param>
-        /// <param name="templ">图像文件路径</param>
-        /// <param name="matchVal"></param>
-        /// <param name="type"></param>
-        /// <param name="angle"></param>
-        /// <param name="scale"></param>
-        /// <returns></returns>
+        /// <param name="templ">模板图片的路径，可以是多个图片,比如"test.bmp|test2.bmp|test3.bmp"</param>
+        /// <param name="matchVal">相似度，如0.85，最大为1</param>
+        /// <param name="type">匹配类型
+        ///<br/> 1: 灰度匹配，速度快
+        ///<br/> 2: 彩色匹配
+        ///<br/> 3: 透明匹配
+        ///<br/> 4: 透透明彩色权重匹配
+        ///<br/> 5: 普通彩色匹配
+        /// </param>
+        /// <param name="angle">旋转角度，每次匹配后旋转指定角度继续进行匹配,直到匹配成功,角度越小匹配次数越多时间越长。0为不旋转速度最快</param>
+        /// <param name="scale">窗口缩放比例，默认为1 可以通过GetScaleFromWindows接口读取当前窗口缩放</param>
+        /// <returns>返回所有匹配结果的字符串</returns>
         public List<MatchResult> MatchWindowsFromPathAll(int x1, int y1, int x2, int y2, string templ, double matchVal, int type, double angle, double scale){
             var result = PtrToStringUTF8(OLAPlugDLLHelper.MatchWindowsFromPathAll(OLAObject, x1, y1, x2, y2, templ, matchVal, type, angle, scale));
             if (string.IsNullOrEmpty(result))
@@ -5346,11 +6126,11 @@ namespace OLAPlug
         /// <param name="y1">搜索区域左上角Y坐标</param>
         /// <param name="x2">搜索区域右下角X坐标</param>
         /// <param name="y2">搜索区域右下角Y坐标</param>
-        /// <param name="colorJson"></param>
+        /// <param name="colorJson">颜色模型配置字符串，用于限定图像匹配中的颜色范围，格式说明见 颜色模型说明 -ColorModel。</param>
         /// <param name="templ">窗口模板图句柄</param>
-        /// <param name="matchVal"></param>
-        /// <param name="angle"></param>
-        /// <param name="scale"></param>
+        /// <param name="matchVal">相似度，如0.85，最大为1</param>
+        /// <param name="angle">旋转角度，每次匹配后旋转指定角度继续进行匹配,直到匹配成功,角度越小匹配次数越多时间越长。0为不旋转速度最快</param>
+        /// <param name="scale">窗口缩放比例，默认为1 可以通过GetScaleFromWindows接口读取当前窗口缩放</param>
         /// <returns>匹配结果
         ///<br/>0: 未找到
         ///<br/>1: 找到
@@ -5371,11 +6151,11 @@ namespace OLAPlug
         /// <param name="y1">搜索区域左上角Y坐标</param>
         /// <param name="x2">搜索区域右下角X坐标</param>
         /// <param name="y2">搜索区域右下角Y坐标</param>
-        /// <param name="colorJson"></param>
+        /// <param name="colorJson">颜色模型配置字符串，用于限定图像匹配中的颜色范围，格式说明见 颜色模型说明 -ColorModel。</param>
         /// <param name="templ">窗口模板图句柄</param>
-        /// <param name="matchVal"></param>
-        /// <param name="angle"></param>
-        /// <param name="scale"></param>
+        /// <param name="matchVal">相似度，如0.85，最大为1</param>
+        /// <param name="angle">旋转角度，每次匹配后旋转指定角度继续进行匹配,直到匹配成功,角度越小匹配次数越多时间越长。0为不旋转速度最快</param>
+        /// <param name="scale">窗口缩放比例，默认为1 可以通过GetScaleFromWindows接口读取当前窗口缩放</param>
         /// <returns>匹配结果
         ///<br/>0: 未找到
         ///<br/>1: 找到
@@ -5396,11 +6176,11 @@ namespace OLAPlug
         /// <param name="y1">搜索区域左上角Y坐标</param>
         /// <param name="x2">搜索区域右下角X坐标</param>
         /// <param name="y2">搜索区域右下角Y坐标</param>
-        /// <param name="colorJson"></param>
+        /// <param name="colorJson">颜色模型配置字符串，用于限定图像匹配中的颜色范围，格式说明见 颜色模型说明 -ColorModel。</param>
         /// <param name="templ">窗口模板图句柄</param>
-        /// <param name="matchVal"></param>
-        /// <param name="angle"></param>
-        /// <param name="scale"></param>
+        /// <param name="matchVal">相似度，如0.85，最大为1</param>
+        /// <param name="angle">旋转角度，每次匹配后旋转指定角度继续进行匹配,直到匹配成功,角度越小匹配次数越多时间越长。0为不旋转速度最快</param>
+        /// <param name="scale">窗口缩放比例，默认为1 可以通过GetScaleFromWindows接口读取当前窗口缩放</param>
         /// <returns></returns>
         public List<MatchResult> MatchWindowsThresholdFromPtrAll(int x1, int y1, int x2, int y2, List<ColorModel> colorJson, long templ, double matchVal, double angle, double scale){
             var result = PtrToStringUTF8(OLAPlugDLLHelper.MatchWindowsThresholdFromPtrAll(OLAObject, x1, y1, x2, y2, JsonConvert.SerializeObject(colorJson), templ, matchVal, angle, scale));
@@ -5418,11 +6198,11 @@ namespace OLAPlug
         /// <param name="y1">搜索区域左上角Y坐标</param>
         /// <param name="x2">搜索区域右下角X坐标</param>
         /// <param name="y2">搜索区域右下角Y坐标</param>
-        /// <param name="colorJson"></param>
+        /// <param name="colorJson">颜色模型配置字符串，用于限定图像匹配中的颜色范围，格式说明见 颜色模型说明 -ColorModel。</param>
         /// <param name="templ">窗口模板图句柄</param>
-        /// <param name="matchVal"></param>
-        /// <param name="angle"></param>
-        /// <param name="scale"></param>
+        /// <param name="matchVal">相似度，如0.85，最大为1</param>
+        /// <param name="angle">旋转角度，每次匹配后旋转指定角度继续进行匹配,直到匹配成功,角度越小匹配次数越多时间越长。0为不旋转速度最快</param>
+        /// <param name="scale">窗口缩放比例，默认为1 可以通过GetScaleFromWindows接口读取当前窗口缩放</param>
         /// <returns></returns>
         public List<MatchResult> MatchWindowsThresholdFromPtrAll(int x1, int y1, int x2, int y2, string colorJson, long templ, double matchVal, double angle, double scale){
             var result = PtrToStringUTF8(OLAPlugDLLHelper.MatchWindowsThresholdFromPtrAll(OLAObject, x1, y1, x2, y2, colorJson, templ, matchVal, angle, scale));
@@ -5440,11 +6220,11 @@ namespace OLAPlug
         /// <param name="y1">搜索区域左上角Y坐标</param>
         /// <param name="x2">搜索区域右下角X坐标</param>
         /// <param name="y2">搜索区域右下角Y坐标</param>
-        /// <param name="colorJson"></param>
+        /// <param name="colorJson">颜色模型配置字符串，用于限定图像匹配中的颜色范围，格式说明见 颜色模型说明 -ColorModel。</param>
         /// <param name="templ">图像文件路径</param>
-        /// <param name="matchVal"></param>
-        /// <param name="angle"></param>
-        /// <param name="scale"></param>
+        /// <param name="matchVal">相似度，如0.85，最大为1</param>
+        /// <param name="angle">旋转角度，每次匹配后旋转指定角度继续进行匹配,直到匹配成功,角度越小匹配次数越多时间越长。0为不旋转速度最快</param>
+        /// <param name="scale">窗口缩放比例，默认为1 可以通过GetScaleFromWindows接口读取当前窗口缩放</param>
         /// <returns>匹配结果
         ///<br/>0: 未找到
         ///<br/>1: 找到
@@ -5465,11 +6245,11 @@ namespace OLAPlug
         /// <param name="y1">搜索区域左上角Y坐标</param>
         /// <param name="x2">搜索区域右下角X坐标</param>
         /// <param name="y2">搜索区域右下角Y坐标</param>
-        /// <param name="colorJson"></param>
+        /// <param name="colorJson">颜色模型配置字符串，用于限定图像匹配中的颜色范围，格式说明见 颜色模型说明 -ColorModel。</param>
         /// <param name="templ">图像文件路径</param>
-        /// <param name="matchVal"></param>
-        /// <param name="angle"></param>
-        /// <param name="scale"></param>
+        /// <param name="matchVal">相似度，如0.85，最大为1</param>
+        /// <param name="angle">旋转角度，每次匹配后旋转指定角度继续进行匹配,直到匹配成功,角度越小匹配次数越多时间越长。0为不旋转速度最快</param>
+        /// <param name="scale">窗口缩放比例，默认为1 可以通过GetScaleFromWindows接口读取当前窗口缩放</param>
         /// <returns>匹配结果
         ///<br/>0: 未找到
         ///<br/>1: 找到
@@ -5490,11 +6270,11 @@ namespace OLAPlug
         /// <param name="y1">搜索区域左上角Y坐标</param>
         /// <param name="x2">搜索区域右下角X坐标</param>
         /// <param name="y2">搜索区域右下角Y坐标</param>
-        /// <param name="colorJson"></param>
+        /// <param name="colorJson">颜色模型配置字符串，用于限定图像匹配中的颜色范围，格式说明见 颜色模型说明 -ColorModel。</param>
         /// <param name="templ">图像文件路径</param>
-        /// <param name="matchVal"></param>
-        /// <param name="angle"></param>
-        /// <param name="scale"></param>
+        /// <param name="matchVal">相似度，如0.85，最大为1</param>
+        /// <param name="angle">旋转角度，每次匹配后旋转指定角度继续进行匹配,直到匹配成功,角度越小匹配次数越多时间越长。0为不旋转速度最快</param>
+        /// <param name="scale">窗口缩放比例，默认为1 可以通过GetScaleFromWindows接口读取当前窗口缩放</param>
         /// <returns></returns>
         public List<MatchResult> MatchWindowsThresholdFromPathAll(int x1, int y1, int x2, int y2, List<ColorModel> colorJson, string templ, double matchVal, double angle, double scale){
             var result = PtrToStringUTF8(OLAPlugDLLHelper.MatchWindowsThresholdFromPathAll(OLAObject, x1, y1, x2, y2, JsonConvert.SerializeObject(colorJson), templ, matchVal, angle, scale));
@@ -5512,11 +6292,11 @@ namespace OLAPlug
         /// <param name="y1">搜索区域左上角Y坐标</param>
         /// <param name="x2">搜索区域右下角X坐标</param>
         /// <param name="y2">搜索区域右下角Y坐标</param>
-        /// <param name="colorJson"></param>
+        /// <param name="colorJson">颜色模型配置字符串，用于限定图像匹配中的颜色范围，格式说明见 颜色模型说明 -ColorModel。</param>
         /// <param name="templ">图像文件路径</param>
-        /// <param name="matchVal"></param>
-        /// <param name="angle"></param>
-        /// <param name="scale"></param>
+        /// <param name="matchVal">相似度，如0.85，最大为1</param>
+        /// <param name="angle">旋转角度，每次匹配后旋转指定角度继续进行匹配,直到匹配成功,角度越小匹配次数越多时间越长。0为不旋转速度最快</param>
+        /// <param name="scale">窗口缩放比例，默认为1 可以通过GetScaleFromWindows接口读取当前窗口缩放</param>
         /// <returns></returns>
         public List<MatchResult> MatchWindowsThresholdFromPathAll(int x1, int y1, int x2, int y2, string colorJson, string templ, double matchVal, double angle, double scale){
             var result = PtrToStringUTF8(OLAPlugDLLHelper.MatchWindowsThresholdFromPathAll(OLAObject, x1, y1, x2, y2, colorJson, templ, matchVal, angle, scale));
@@ -5571,7 +6351,10 @@ namespace OLAPlug
         /// </summary>
         /// <param name="ptr">图像句柄</param>
         /// <param name="path">输出文件路径，支持bmp/gif/jpg/jpeg/png</param>
-        /// <returns>操作结果，0 失败，1 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int SaveImageFromPtr(long ptr, string path){
             return OLAPlugDLLHelper.SaveImageFromPtr(OLAObject, ptr, path);
         }
@@ -5600,10 +6383,15 @@ namespace OLAPlug
         /// <param name="color1">要查找的颜色值（BGR格式）</param>
         /// <param name="color2">要查找的颜色值（BGR格式）</param>
         /// <param name="dir">查找方向
-        ///<br/> 0: 从左到右，从上到下
-        ///<br/> 1: 从左到右，从下到上
-        ///<br/> 2: 从右到左，从上到下
-        ///<br/> 3: 从右到左，从下到上
+        ///<br/> 0: 从左到右,从上到下
+        ///<br/> 1: 从左到右,从下到上
+        ///<br/> 2: 从右到左,从上到下
+        ///<br/> 3: 从右到左,从下到上
+        ///<br/> 4: 从中心往外查找
+        ///<br/> 5: 从上到下,从左到右
+        ///<br/> 6: 从上到下,从右到左
+        ///<br/> 7: 从下到上,从左到右
+        ///<br/> 8: 从下到上,从右到左
         /// </param>
         /// <param name="x">返回找到的颜色点X坐标</param>
         /// <param name="y">返回找到的颜色点Y坐标</param>
@@ -5622,8 +6410,8 @@ namespace OLAPlug
         /// <param name="y1">搜索区域左上角Y坐标</param>
         /// <param name="x2">搜索区域右下角X坐标</param>
         /// <param name="y2">搜索区域右下角Y坐标</param>
-        /// <param name="color1"></param>
-        /// <param name="color2"></param>
+        /// <param name="color1">颜色起始范围，颜色格式 RRGGBB</param>
+        /// <param name="color2">颜色结束范围，颜色格式 RRGGBB</param>
         /// <returns>查找结果返回所有匹配点坐标的字符串，格式为"["x":10,"y":20],"[x":30,"y":40]"；未找到返回空字符串指针，需调用FreeStringPtr释放内存</returns>
         public List<Point> FindColorList(int x1, int y1, int x2, int y2, string color1, string color2){
             var result = PtrToStringUTF8(OLAPlugDLLHelper.FindColorList(OLAObject, x1, y1, x2, y2, color1, color2));
@@ -5643,10 +6431,15 @@ namespace OLAPlug
         /// <param name="y2">搜索区域右下角Y坐标</param>
         /// <param name="colorJson">颜色范围定义（JSON）</param>
         /// <param name="dir">查找方向
-        ///<br/> 0: 从左到右，从上到下
-        ///<br/> 1: 从左到右，从下到上
-        ///<br/> 2: 从右到左，从上到下
-        ///<br/> 3: 从右到左，从下到上
+        ///<br/> 0: 从左到右,从上到下
+        ///<br/> 1: 从左到右,从下到上
+        ///<br/> 2: 从右到左,从上到下
+        ///<br/> 3: 从右到左,从下到上
+        ///<br/> 4: 从中心往外查找
+        ///<br/> 5: 从上到下,从左到右
+        ///<br/> 6: 从上到下,从右到左
+        ///<br/> 7: 从下到上,从左到右
+        ///<br/> 8: 从下到上,从右到左
         /// </param>
         /// <param name="x">返回找到的颜色点X坐标</param>
         /// <param name="y">返回找到的颜色点Y坐标</param>
@@ -5683,19 +6476,24 @@ namespace OLAPlug
         /// <param name="y1">搜索区域左上角Y坐标</param>
         /// <param name="x2">搜索区域右下角X坐标</param>
         /// <param name="y2">搜索区域右下角Y坐标</param>
-        /// <param name="colorJson">颜色列表（格式："color1,color2"）</param>
-        /// <param name="pointJson"></param>
-        /// <param name="dir">查找方向（取值同FindColor）
-        ///<br/> 0: 从左到右，从上到下
-        ///<br/> 1: 从左到右，从下到上
-        ///<br/> 2: 从右到左，从上到下
-        ///<br/> 3: 从右到左，从下到上
+        /// <param name="colorJson">颜色模型配置字符串，用于限定图像匹配中的颜色范围，格式说明见 颜色模型说明 -ColorModel</param>
+        /// <param name="pointJson">点阵颜色列表，支持JSON格式或简化字符串格式，格式说明见 点阵颜色列表格式说明 -PointColorListFormat</param>
+        /// <param name="dir">查找方向
+        ///<br/> 0: 从左到右,从上到下
+        ///<br/> 1: 从左到右,从下到上
+        ///<br/> 2: 从右到左,从上到下
+        ///<br/> 3: 从右到左,从下到上
+        ///<br/> 4: 从中心往外查找
+        ///<br/> 5: 从上到下,从左到右
+        ///<br/> 6: 从上到下,从右到左
+        ///<br/> 7: 从下到上,从左到右
+        ///<br/> 8: 从下到上,从右到左
         /// </param>
-        /// <param name="x">返回找到的基准点X坐标</param>
-        /// <param name="y">返回找到的基准点Y坐标</param>
+        /// <param name="x">返回找到的颜色点X坐标</param>
+        /// <param name="y">返回找到的颜色点Y坐标</param>
         /// <returns>查找结果
-        ///<br/>0: 未找到
-        ///<br/>1: 找到
+        ///<br/>0: 失败，未找到符合条件的颜色点
+        ///<br/>1: 成功，找到符合条件的颜色点
         /// </returns>
         public int FindMultiColor(int x1, int y1, int x2, int y2, List<ColorModel> colorJson, List<PointColorModel> pointJson, int dir, out int x, out int y){
             return OLAPlugDLLHelper.FindMultiColor(OLAObject, x1, y1, x2, y2, JsonConvert.SerializeObject(colorJson), JsonConvert.SerializeObject(pointJson), dir, out x, out y);
@@ -5708,19 +6506,24 @@ namespace OLAPlug
         /// <param name="y1">搜索区域左上角Y坐标</param>
         /// <param name="x2">搜索区域右下角X坐标</param>
         /// <param name="y2">搜索区域右下角Y坐标</param>
-        /// <param name="colorJson">颜色列表（格式："color1,color2"）</param>
-        /// <param name="pointJson"></param>
-        /// <param name="dir">查找方向（取值同FindColor）
-        ///<br/> 0: 从左到右，从上到下
-        ///<br/> 1: 从左到右，从下到上
-        ///<br/> 2: 从右到左，从上到下
-        ///<br/> 3: 从右到左，从下到上
+        /// <param name="colorJson">颜色模型配置字符串，用于限定图像匹配中的颜色范围，格式说明见 颜色模型说明 -ColorModel</param>
+        /// <param name="pointJson">点阵颜色列表，支持JSON格式或简化字符串格式，格式说明见 点阵颜色列表格式说明 -PointColorListFormat</param>
+        /// <param name="dir">查找方向
+        ///<br/> 0: 从左到右,从上到下
+        ///<br/> 1: 从左到右,从下到上
+        ///<br/> 2: 从右到左,从上到下
+        ///<br/> 3: 从右到左,从下到上
+        ///<br/> 4: 从中心往外查找
+        ///<br/> 5: 从上到下,从左到右
+        ///<br/> 6: 从上到下,从右到左
+        ///<br/> 7: 从下到上,从左到右
+        ///<br/> 8: 从下到上,从右到左
         /// </param>
-        /// <param name="x">返回找到的基准点X坐标</param>
-        /// <param name="y">返回找到的基准点Y坐标</param>
+        /// <param name="x">返回找到的颜色点X坐标</param>
+        /// <param name="y">返回找到的颜色点Y坐标</param>
         /// <returns>查找结果
-        ///<br/>0: 未找到
-        ///<br/>1: 找到
+        ///<br/>0: 失败，未找到符合条件的颜色点
+        ///<br/>1: 成功，找到符合条件的颜色点
         /// </returns>
         public int FindMultiColor(int x1, int y1, int x2, int y2, string colorJson, string pointJson, int dir, out int x, out int y){
             return OLAPlugDLLHelper.FindMultiColor(OLAObject, x1, y1, x2, y2, colorJson, pointJson, dir, out x, out y);
@@ -5733,9 +6536,9 @@ namespace OLAPlug
         /// <param name="y1">搜索区域左上角Y坐标</param>
         /// <param name="x2">搜索区域右下角X坐标</param>
         /// <param name="y2">搜索区域右下角Y坐标</param>
-        /// <param name="colorJson"></param>
-        /// <param name="pointJson"></param>
-        /// <returns></returns>
+        /// <param name="colorJson">颜色模型配置字符串，用于限定图像匹配中的颜色范围，格式说明见 颜色模型说明 -ColorModel</param>
+        /// <param name="pointJson">点阵颜色列表，支持JSON格式或简化字符串格式，格式说明见 点阵颜色列表格式说明 -PointColorListFormat</param>
+        /// <returns>返回识别到的坐标点列表的JSON字符串</returns>
         public List<Point> FindMultiColorList(int x1, int y1, int x2, int y2, List<ColorModel> colorJson, List<PointColorModel> pointJson){
             var result = PtrToStringUTF8(OLAPlugDLLHelper.FindMultiColorList(OLAObject, x1, y1, x2, y2, JsonConvert.SerializeObject(colorJson), JsonConvert.SerializeObject(pointJson)));
             if (string.IsNullOrEmpty(result))
@@ -5752,9 +6555,9 @@ namespace OLAPlug
         /// <param name="y1">搜索区域左上角Y坐标</param>
         /// <param name="x2">搜索区域右下角X坐标</param>
         /// <param name="y2">搜索区域右下角Y坐标</param>
-        /// <param name="colorJson"></param>
-        /// <param name="pointJson"></param>
-        /// <returns></returns>
+        /// <param name="colorJson">颜色模型配置字符串，用于限定图像匹配中的颜色范围，格式说明见 颜色模型说明 -ColorModel</param>
+        /// <param name="pointJson">点阵颜色列表，支持JSON格式或简化字符串格式，格式说明见 点阵颜色列表格式说明 -PointColorListFormat</param>
+        /// <returns>返回识别到的坐标点列表的JSON字符串</returns>
         public List<Point> FindMultiColorList(int x1, int y1, int x2, int y2, string colorJson, string pointJson){
             var result = PtrToStringUTF8(OLAPlugDLLHelper.FindMultiColorList(OLAObject, x1, y1, x2, y2, colorJson, pointJson));
             if (string.IsNullOrEmpty(result))
@@ -5768,16 +6571,21 @@ namespace OLAPlug
         /// 在内存图像中查找多色点
         /// </summary>
         /// <param name="ptr">图像句柄</param>
-        /// <param name="colorJson"></param>
-        /// <param name="pointJson"></param>
+        /// <param name="colorJson">颜色模型配置字符串，用于限定图像匹配中的颜色范围，格式说明见 颜色模型说明 -ColorModel</param>
+        /// <param name="pointJson">点阵颜色列表，支持JSON格式或简化字符串格式，格式说明见 点阵颜色列表格式说明 -PointColorListFormat</param>
         /// <param name="dir">查找方向
-        ///<br/> 0: 从左到右，从上到下
-        ///<br/> 1: 从左到右，从下到上
-        ///<br/> 2: 从右到左，从上到下
-        ///<br/> 3: 从右到左，从下到上
+        ///<br/> 0: 从左到右,从上到下
+        ///<br/> 1: 从左到右,从下到上
+        ///<br/> 2: 从右到左,从上到下
+        ///<br/> 3: 从右到左,从下到上
+        ///<br/> 4: 从中心往外查找
+        ///<br/> 5: 从上到下,从左到右
+        ///<br/> 6: 从上到下,从右到左
+        ///<br/> 7: 从下到上,从左到右
+        ///<br/> 8: 从下到上,从右到左
         /// </param>
-        /// <param name="x">返回找到的基准点X坐标</param>
-        /// <param name="y">返回找到的基准点Y坐标</param>
+        /// <param name="x">返回找到的颜色点X坐标</param>
+        /// <param name="y">返回找到的颜色点Y坐标</param>
         /// <returns>查找结果
         ///<br/>0: 未找到
         ///<br/>1: 找到
@@ -5790,16 +6598,21 @@ namespace OLAPlug
         /// 在内存图像中查找多色点
         /// </summary>
         /// <param name="ptr">图像句柄</param>
-        /// <param name="colorJson"></param>
-        /// <param name="pointJson"></param>
+        /// <param name="colorJson">颜色模型配置字符串，用于限定图像匹配中的颜色范围，格式说明见 颜色模型说明 -ColorModel</param>
+        /// <param name="pointJson">点阵颜色列表，支持JSON格式或简化字符串格式，格式说明见 点阵颜色列表格式说明 -PointColorListFormat</param>
         /// <param name="dir">查找方向
-        ///<br/> 0: 从左到右，从上到下
-        ///<br/> 1: 从左到右，从下到上
-        ///<br/> 2: 从右到左，从上到下
-        ///<br/> 3: 从右到左，从下到上
+        ///<br/> 0: 从左到右,从上到下
+        ///<br/> 1: 从左到右,从下到上
+        ///<br/> 2: 从右到左,从上到下
+        ///<br/> 3: 从右到左,从下到上
+        ///<br/> 4: 从中心往外查找
+        ///<br/> 5: 从上到下,从左到右
+        ///<br/> 6: 从上到下,从右到左
+        ///<br/> 7: 从下到上,从左到右
+        ///<br/> 8: 从下到上,从右到左
         /// </param>
-        /// <param name="x">返回找到的基准点X坐标</param>
-        /// <param name="y">返回找到的基准点Y坐标</param>
+        /// <param name="x">返回找到的颜色点X坐标</param>
+        /// <param name="y">返回找到的颜色点Y坐标</param>
         /// <returns>查找结果
         ///<br/>0: 未找到
         ///<br/>1: 找到
@@ -5812,9 +6625,9 @@ namespace OLAPlug
         /// 在内存图像中查找多色点列表
         /// </summary>
         /// <param name="ptr">图像句柄</param>
-        /// <param name="colorJson"></param>
-        /// <param name="pointJson"></param>
-        /// <returns></returns>
+        /// <param name="colorJson">颜色模型配置字符串，用于限定图像匹配中的颜色范围，格式说明见 颜色模型说明 -ColorModel</param>
+        /// <param name="pointJson">点阵颜色列表，支持JSON格式或简化字符串格式，格式说明见 点阵颜色列表格式说明 -PointColorListFormat</param>
+        /// <returns>返回识别到的坐标点列表的JSON字符串</returns>
         public List<Point> FindMultiColorListFromPtr(long ptr, List<ColorModel> colorJson, List<PointColorModel> pointJson){
             var result = PtrToStringUTF8(OLAPlugDLLHelper.FindMultiColorListFromPtr(OLAObject, ptr, JsonConvert.SerializeObject(colorJson), JsonConvert.SerializeObject(pointJson)));
             if (string.IsNullOrEmpty(result))
@@ -5828,9 +6641,9 @@ namespace OLAPlug
         /// 在内存图像中查找多色点列表
         /// </summary>
         /// <param name="ptr">图像句柄</param>
-        /// <param name="colorJson"></param>
-        /// <param name="pointJson"></param>
-        /// <returns></returns>
+        /// <param name="colorJson">颜色模型配置字符串，用于限定图像匹配中的颜色范围，格式说明见 颜色模型说明 -ColorModel</param>
+        /// <param name="pointJson">点阵颜色列表，支持JSON格式或简化字符串格式，格式说明见 点阵颜色列表格式说明 -PointColorListFormat</param>
+        /// <returns>返回识别到的坐标点列表的JSON字符串</returns>
         public List<Point> FindMultiColorListFromPtr(long ptr, string colorJson, string pointJson){
             var result = PtrToStringUTF8(OLAPlugDLLHelper.FindMultiColorListFromPtr(OLAObject, ptr, colorJson, pointJson));
             if (string.IsNullOrEmpty(result))
@@ -6368,11 +7181,11 @@ namespace OLAPlug
         /// <summary>
         /// 根据多色点生成阈值图像（从屏幕区域）
         /// </summary>
-        /// <param name="x1"></param>
-        /// <param name="y1"></param>
-        /// <param name="x2"></param>
-        /// <param name="y2"></param>
-        /// <param name="colorJson"></param>
+        /// <param name="x1">搜索区域左上角X坐标</param>
+        /// <param name="y1">搜索区域左上角Y坐标</param>
+        /// <param name="x2">搜索区域右下角X坐标</param>
+        /// <param name="y2">搜索区域右下角Y坐标</param>
+        /// <param name="colorJson">要统计的颜色值（JSON格式）</param>
         /// <returns>返回阈值图像数据指针，需调用FreeImageData释放内存；失败返回0</returns>
         public long GetThresholdImageFromMultiColor(int x1, int y1, int x2, int y2, List<ColorModel> colorJson){
             return OLAPlugDLLHelper.GetThresholdImageFromMultiColor(OLAObject, x1, y1, x2, y2, JsonConvert.SerializeObject(colorJson));
@@ -6381,11 +7194,11 @@ namespace OLAPlug
         /// <summary>
         /// 根据多色点生成阈值图像（从屏幕区域）
         /// </summary>
-        /// <param name="x1"></param>
-        /// <param name="y1"></param>
-        /// <param name="x2"></param>
-        /// <param name="y2"></param>
-        /// <param name="colorJson"></param>
+        /// <param name="x1">搜索区域左上角X坐标</param>
+        /// <param name="y1">搜索区域左上角Y坐标</param>
+        /// <param name="x2">搜索区域右下角X坐标</param>
+        /// <param name="y2">搜索区域右下角Y坐标</param>
+        /// <param name="colorJson">要统计的颜色值（JSON格式）</param>
         /// <returns>返回阈值图像数据指针，需调用FreeImageData释放内存；失败返回0</returns>
         public long GetThresholdImageFromMultiColor(int x1, int y1, int x2, int y2, string colorJson){
             return OLAPlugDLLHelper.GetThresholdImageFromMultiColor(OLAObject, x1, y1, x2, y2, colorJson);
@@ -6491,7 +7304,7 @@ namespace OLAPlug
         /// <param name="ptr">图像句柄</param>
         /// <param name="x">圆心X坐标</param>
         /// <param name="y">圆心Y坐标</param>
-        /// <param name="radius"></param>
+        /// <param name="radius">半径</param>
         /// <param name="thickness">线条粗细，负值表示填充</param>
         /// <param name="color">绘制颜色（BGR格式）</param>
         /// <returns>返回绘制后的图像数据指针，需调用FreeImageData释放内存；失败返回0</returns>
@@ -6562,17 +7375,38 @@ namespace OLAPlug
         /// <param name="x2">搜索区域右下角X坐标</param>
         /// <param name="y2">搜索区域右下角Y坐标</param>
         /// <param name="templ">动画模板/序列句柄</param>
-        /// <param name="matchVal"></param>
-        /// <param name="type"></param>
-        /// <param name="angle"></param>
-        /// <param name="scale"></param>
-        /// <param name="delay"></param>
-        /// <param name="time"></param>
-        /// <param name="threadCount"></param>
-        /// <returns>匹配结果
-        ///<br/>0: 未找到
-        ///<br/>1: 找到
-        /// </returns>
+        /// <param name="matchVal">相似度，如0.85，最大为1</param>
+        /// <param name="type">匹配类型
+        ///<br/> 1: 灰度匹配，速度快
+        ///<br/> 2: 彩色匹配
+        ///<br/> 3: 透明匹配
+        ///<br/> 4: 透透明彩色权重匹配
+        ///<br/> 5: 普通彩色匹配
+        /// </param>
+        /// <param name="angle">旋转角度，每次匹配后旋转指定角度继续进行匹配,直到匹配成功,角度越小匹配次数越多时间越长。0为不旋转速度最快</param>
+        /// <param name="scale">窗口缩放比例，默认为1 可以通过GetScaleFromWindows接口读取当前窗口缩放</param>
+        /// <param name="delay">动画帧间隔，单位毫秒</param>
+        /// <param name="time">总识别时间，单位毫秒</param>
+        /// <param name="threadCount">用于查找的线程数</param>
+        /// <returns>匹配结果</returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 线程数需要根据delay帧率自行调整，过小会导致识别时间到期未识别完，过大会导致CPU占用过大
+        /// <br/>2. 当x1, y1, x2, y2都传0时，将搜索整个窗口客户区
+        /// <br/>3. 识别结果最长等待时间为time + 1000ms
+        /// <br/>4. 匹配类型的选择：
+        /// <br/>5. 灰度匹配速度最快，但精度较低
+        /// <br/>6. 彩色匹配精度较高，但速度较慢
+        /// <br/>7. 透明匹配适用于带透明通道的图片
+        /// <br/>8. 线程数的选择：
+        /// <br/>9. 建议根据动画帧率和CPU核心数来设置
+        /// <br/>10. 一般建议设置为CPU核心数的1-2倍
+        /// <br/>11. 角度参数影响匹配时间和精度：
+        /// <br/>12. 角度越小，匹配次数越多，时间越长
+        /// <br/>13. 角度为0时速度最快，但可能错过旋转的目标
+        /// <br/>14. 缩放比例应与窗口实际缩放比例一致
+        /// <br/>15. DLL调用返回的字符串指针需要调用 FreeStringPtr 释放内存
+        /// <br/>16. 返回的坐标是相对于绑定窗口客户区的坐标
+        /// </remarks>
         public MatchResult MatchAnimationFromPtr(int x1, int y1, int x2, int y2, long templ, double matchVal, int type, double angle, double scale, int delay, int time, int threadCount){
             var result = PtrToStringUTF8(OLAPlugDLLHelper.MatchAnimationFromPtr(OLAObject, x1, y1, x2, y2, templ, matchVal, type, angle, scale, delay, time, threadCount));
             if (string.IsNullOrEmpty(result))
@@ -6589,18 +7423,24 @@ namespace OLAPlug
         /// <param name="y1">搜索区域左上角Y坐标</param>
         /// <param name="x2">搜索区域右下角X坐标</param>
         /// <param name="y2">搜索区域右下角Y坐标</param>
-        /// <param name="templ"></param>
-        /// <param name="matchVal"></param>
-        /// <param name="type"></param>
-        /// <param name="angle"></param>
-        /// <param name="scale"></param>
-        /// <param name="delay"></param>
-        /// <param name="time"></param>
-        /// <param name="threadCount"></param>
-        /// <returns>匹配结果
-        ///<br/>0: 未找到
-        ///<br/>1: 找到
-        /// </returns>
+        /// <param name="templ">模板图片的路径，可以是多个图片,比如"test.bmp|test2.bmp|test3.bmp"</param>
+        /// <param name="matchVal">相似度，如0.85，最大为1</param>
+        /// <param name="type">匹配类型
+        ///<br/> 1: 灰度匹配，速度快
+        ///<br/> 2: 彩色匹配
+        ///<br/> 3: 透明匹配
+        ///<br/> 4: 透透明彩色权重匹配
+        ///<br/> 5: 普通彩色匹配
+        /// </param>
+        /// <param name="angle">旋转角度，每次匹配后旋转指定角度继续进行匹配,直到匹配成功,角度越小匹配次数越多时间越长。0为不旋转速度最快</param>
+        /// <param name="scale">窗口缩放比例，默认为1 可以通过GetScaleFromWindows接口读取当前窗口缩放</param>
+        /// <param name="delay">动画帧间隔，单位毫秒</param>
+        /// <param name="time">总识别时间，单位毫秒</param>
+        /// <param name="threadCount">用于查找的线程数</param>
+        /// <returns>匹配结果</returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 线程数需要根据delay帧率自行调整，过小会导致识别时间到期未识别完，过大会导致CPU占用过大
+        /// </remarks>
         public MatchResult MatchAnimationFromPath(int x1, int y1, int x2, int y2, string templ, double matchVal, int type, double angle, double scale, int delay, int time, int threadCount){
             var result = PtrToStringUTF8(OLAPlugDLLHelper.MatchAnimationFromPath(OLAObject, x1, y1, x2, y2, templ, matchVal, type, angle, scale, delay, time, threadCount));
             if (string.IsNullOrEmpty(result))
@@ -6626,10 +7466,13 @@ namespace OLAPlug
         /// <summary>
         /// 获取图像的BMP格式数据
         /// </summary>
-        /// <param name="imgPtr">图像句柄</param>
-        /// <param name="data"></param>
-        /// <param name="size"></param>
-        /// <returns>返回包含BMP文件头的完整BMP数据指针，需调用FreeImageData释放内存；失败返回0</returns>
+        /// <param name="imgPtr">OLAImage对象的地址</param>
+        /// <param name="data">返回图片的数据指针</param>
+        /// <param name="size">返回图片的数据长度</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int GetImageBmpData(long imgPtr, out long data, out int size){
             return OLAPlugDLLHelper.GetImageBmpData(OLAObject, imgPtr, out data, out size);
         }
@@ -6637,10 +7480,13 @@ namespace OLAPlug
         /// <summary>
         /// 获取图像的PNG格式数据
         /// </summary>
-        /// <param name="imgPtr">图像句柄</param>
-        /// <param name="data"></param>
-        /// <param name="size"></param>
-        /// <returns>返回包含PNG文件头的完整PNG数据指针，需调用FreeImageData释放内存；失败返回0</returns>
+        /// <param name="imgPtr">OLAImage对象的地址</param>
+        /// <param name="data">返回图片的数据指针</param>
+        /// <param name="size">返回图片的数据长度</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int GetImagePngData(long imgPtr, out long data, out int size){
             return OLAPlugDLLHelper.GetImagePngData(OLAObject, imgPtr, out data, out size);
         }
@@ -6648,7 +7494,7 @@ namespace OLAPlug
         /// <summary>
         /// 释放由GetImageData等接口返回的图像数据指针
         /// </summary>
-        /// <param name="screenPtr"></param>
+        /// <param name="screenPtr">图像数据指针</param>
         /// <returns>操作结果
         ///<br/>0: 失败
         ///<br/>1: 成功
@@ -6699,7 +7545,10 @@ namespace OLAPlug
         /// <param name="image">图像句柄</param>
         /// <param name="points">坐标点数组（JSON），如[{"x":10,"y":10}]</param>
         /// <param name="color">颜色（BGR十六进制字符串）</param>
-        /// <returns>操作结果，0 失败，1 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int SetPixelList(long image, List<Point> points, string color){
             return OLAPlugDLLHelper.SetPixelList(OLAObject, image, JsonConvert.SerializeObject(points), color);
         }
@@ -6710,7 +7559,10 @@ namespace OLAPlug
         /// <param name="image">图像句柄</param>
         /// <param name="points">坐标点数组（JSON），如[{"x":10,"y":10}]</param>
         /// <param name="color">颜色（BGR十六进制字符串）</param>
-        /// <returns>操作结果，0 失败，1 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int SetPixelList(long image, string points, string color){
             return OLAPlugDLLHelper.SetPixelList(OLAObject, image, points, color);
         }
@@ -6777,7 +7629,10 @@ namespace OLAPlug
         /// <param name="r">返回Red（输出）</param>
         /// <param name="g">返回Green（输出）</param>
         /// <param name="b">返回Blue（输出）</param>
-        /// <returns>操作结果，0 失败，1 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int Hex2ARGB(string hex, out int a, out int r, out int g, out int b){
             return OLAPlugDLLHelper.Hex2ARGB(OLAObject, hex, out a, out r, out g, out b);
         }
@@ -6789,7 +7644,10 @@ namespace OLAPlug
         /// <param name="r">返回Red（输出）</param>
         /// <param name="g">返回Green（输出）</param>
         /// <param name="b">返回Blue（输出）</param>
-        /// <returns>操作结果，0 失败，1 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int Hex2RGB(string hex, out int r, out int g, out int b){
             return OLAPlugDLLHelper.Hex2RGB(OLAObject, hex, out r, out g, out b);
         }
@@ -6844,7 +7702,10 @@ namespace OLAPlug
         /// <param name="y1">Y坐标</param>
         /// <param name="colorStart">起始颜色（含）</param>
         /// <param name="colorEnd">结束颜色（含）</param>
-        /// <returns>结果，0 否，1 是</returns>
+        /// <returns>操作结果
+        ///<br/>0: 否
+        ///<br/>1: 是
+        /// </returns>
         public int CmpColor(int x1, int y1, string colorStart, string colorEnd){
             return OLAPlugDLLHelper.CmpColor(OLAObject, x1, y1, colorStart, colorEnd);
         }
@@ -6857,7 +7718,10 @@ namespace OLAPlug
         /// <param name="y">Y坐标</param>
         /// <param name="colorStart">起始颜色（含）</param>
         /// <param name="colorEnd">结束颜色（含）</param>
-        /// <returns>结果，0 否，1 是</returns>
+        /// <returns>操作结果
+        ///<br/>0: 否
+        ///<br/>1: 是
+        /// </returns>
         public int CmpColorPtr(long ptr, int x, int y, string colorStart, string colorEnd){
             return OLAPlugDLLHelper.CmpColorPtr(OLAObject, ptr, x, y, colorStart, colorEnd);
         }
@@ -6868,7 +7732,10 @@ namespace OLAPlug
         /// <param name="x1">X坐标</param>
         /// <param name="y1">Y坐标</param>
         /// <param name="colorJson">颜色（JSON）</param>
-        /// <returns>结果，0 否，1 是</returns>
+        /// <returns>操作结果
+        ///<br/>0: 否
+        ///<br/>1: 是
+        /// </returns>
         public int CmpColorEx(int x1, int y1, string colorJson){
             return OLAPlugDLLHelper.CmpColorEx(OLAObject, x1, y1, colorJson);
         }
@@ -6880,7 +7747,10 @@ namespace OLAPlug
         /// <param name="x">X坐标</param>
         /// <param name="y">Y坐标</param>
         /// <param name="colorJson">颜色（JSON）</param>
-        /// <returns>结果，0 否，1 是</returns>
+        /// <returns>操作结果
+        ///<br/>0: 否
+        ///<br/>1: 是
+        /// </returns>
         public int CmpColorPtrEx(long ptr, int x, int y, string colorJson){
             return OLAPlugDLLHelper.CmpColorPtrEx(OLAObject, ptr, x, y, colorJson);
         }
@@ -6890,7 +7760,10 @@ namespace OLAPlug
         /// </summary>
         /// <param name="hex">颜色（十六进制）</param>
         /// <param name="colorJson">颜色（JSON）</param>
-        /// <returns>结果，0 否，1 是</returns>
+        /// <returns>操作结果
+        ///<br/>0: 否
+        ///<br/>1: 是
+        /// </returns>
         public int CmpColorHexEx(string hex, string colorJson){
             return OLAPlugDLLHelper.CmpColorHexEx(OLAObject, hex, colorJson);
         }
@@ -6901,7 +7774,10 @@ namespace OLAPlug
         /// <param name="hex">颜色（十六进制）</param>
         /// <param name="colorStart">起始颜色（含）</param>
         /// <param name="colorEnd">结束颜色（含）</param>
-        /// <returns>结果，0 否，1 是</returns>
+        /// <returns>操作结果
+        ///<br/>0: 否
+        ///<br/>1: 是
+        /// </returns>
         public int CmpColorHex(string hex, string colorStart, string colorEnd){
             return OLAPlugDLLHelper.CmpColorHex(OLAObject, hex, colorStart, colorEnd);
         }
@@ -6988,7 +7864,10 @@ namespace OLAPlug
         /// <param name="y1">返回区域左上角Y坐标（输出）</param>
         /// <param name="x2">返回区域右下角X坐标（输出）</param>
         /// <param name="y2">返回区域右下角Y坐标（输出）</param>
-        /// <returns>操作结果，0 失败，1 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int GetROIRegion(long ptr, out int x1, out int y1, out int x2, out int y2){
             return OLAPlugDLLHelper.GetROIRegion(OLAObject, ptr, out x1, out y1, out x2, out y2);
         }
@@ -7042,8 +7921,8 @@ namespace OLAPlug
         /// <summary>
         /// 形态学梯度
         /// </summary>
-        /// <param name="ptr">图像句柄</param>
-        /// <param name="kernelSize"></param>
+        /// <param name="ptr">图像指针，由图像处理函数返回</param>
+        /// <param name="kernelSize">形态学核的大小，通常为奇数（3、5、7等）</param>
         /// <returns>返回处理后的图像句柄，失败返回0</returns>
         public long MorphGradient(long ptr, int kernelSize){
             return OLAPlugDLLHelper.MorphGradient(OLAObject, ptr, kernelSize);
@@ -7052,8 +7931,8 @@ namespace OLAPlug
         /// <summary>
         /// 形态学顶帽
         /// </summary>
-        /// <param name="ptr">图像句柄</param>
-        /// <param name="kernelSize"></param>
+        /// <param name="ptr">图像指针，由图像处理函数返回</param>
+        /// <param name="kernelSize">形态学核的大小，通常为奇数（3、5、7等）</param>
         /// <returns>返回处理后的图像句柄，失败返回0</returns>
         public long MorphTophat(long ptr, int kernelSize){
             return OLAPlugDLLHelper.MorphTophat(OLAObject, ptr, kernelSize);
@@ -7062,8 +7941,8 @@ namespace OLAPlug
         /// <summary>
         /// 形态学黑帽
         /// </summary>
-        /// <param name="ptr">图像句柄</param>
-        /// <param name="kernelSize"></param>
+        /// <param name="ptr">图像指针，由图像处理函数返回</param>
+        /// <param name="kernelSize">形态学核的大小，通常为奇数（3、5、7等）</param>
         /// <returns>返回处理后的图像句柄，失败返回0</returns>
         public long MorphBlackhat(long ptr, int kernelSize){
             return OLAPlugDLLHelper.MorphBlackhat(OLAObject, ptr, kernelSize);
@@ -7072,8 +7951,8 @@ namespace OLAPlug
         /// <summary>
         /// 膨胀
         /// </summary>
-        /// <param name="ptr">图像句柄</param>
-        /// <param name="kernelSize"></param>
+        /// <param name="ptr">图像指针，由图像处理函数返回</param>
+        /// <param name="kernelSize">形态学核的大小，通常为奇数（3、5、7等）</param>
         /// <returns>返回处理后的图像句柄，失败返回0</returns>
         public long Dilation(long ptr, int kernelSize){
             return OLAPlugDLLHelper.Dilation(OLAObject, ptr, kernelSize);
@@ -7082,8 +7961,8 @@ namespace OLAPlug
         /// <summary>
         /// 腐蚀
         /// </summary>
-        /// <param name="ptr">图像句柄</param>
-        /// <param name="kernelSize"></param>
+        /// <param name="ptr">图像指针，由图像处理函数返回</param>
+        /// <param name="kernelSize">形态学核的大小，通常为奇数（3、5、7等）</param>
         /// <returns>返回处理后的图像句柄，失败返回0</returns>
         public long Erosion(long ptr, int kernelSize){
             return OLAPlugDLLHelper.Erosion(OLAObject, ptr, kernelSize);
@@ -7092,8 +7971,8 @@ namespace OLAPlug
         /// <summary>
         /// 高斯模糊
         /// </summary>
-        /// <param name="ptr">图像句柄</param>
-        /// <param name="kernelSize"></param>
+        /// <param name="ptr">图像指针，由图像处理函数返回</param>
+        /// <param name="kernelSize">形态学核的大小，通常为奇数（3、5、7等）</param>
         /// <returns>返回处理后的图像句柄，失败返回0</returns>
         public long GaussianBlur(long ptr, int kernelSize){
             return OLAPlugDLLHelper.GaussianBlur(OLAObject, ptr, kernelSize);
@@ -7111,8 +7990,8 @@ namespace OLAPlug
         /// <summary>
         /// Canny边缘检测
         /// </summary>
-        /// <param name="ptr">图像句柄</param>
-        /// <param name="kernelSize"></param>
+        /// <param name="ptr">图像指针，由图像处理函数返回</param>
+        /// <param name="kernelSize">形态学核的大小，通常为奇数（3、5、7等）</param>
         /// <returns>返回边缘图像句柄，失败返回0</returns>
         public long CannyEdge(long ptr, int kernelSize){
             return OLAPlugDLLHelper.CannyEdge(OLAObject, ptr, kernelSize);
@@ -7121,8 +8000,12 @@ namespace OLAPlug
         /// <summary>
         /// 翻转图像
         /// </summary>
-        /// <param name="ptr">图像句柄</param>
-        /// <param name="flipCode"></param>
+        /// <param name="ptr">图像指针</param>
+        /// <param name="flipCode">翻转代码
+        ///<br/> 0: X轴
+        ///<br/> 1: Y轴
+        ///<br/> 2: 同时翻转
+        /// </param>
         /// <returns>返回翻转后的图像句柄，失败返回0</returns>
         public long Flip(long ptr, int flipCode){
             return OLAPlugDLLHelper.Flip(OLAObject, ptr, flipCode);
@@ -7131,8 +8014,8 @@ namespace OLAPlug
         /// <summary>
         /// 形态学开运算
         /// </summary>
-        /// <param name="ptr">图像句柄</param>
-        /// <param name="kernelSize"></param>
+        /// <param name="ptr">图像指针，由图像处理函数返回</param>
+        /// <param name="kernelSize">形态学核的大小，通常为奇数（3、5、7等）</param>
         /// <returns>返回处理后的图像句柄，失败返回0</returns>
         public long MorphOpen(long ptr, int kernelSize){
             return OLAPlugDLLHelper.MorphOpen(OLAObject, ptr, kernelSize);
@@ -7141,8 +8024,8 @@ namespace OLAPlug
         /// <summary>
         /// 形态学闭运算
         /// </summary>
-        /// <param name="ptr">图像句柄</param>
-        /// <param name="kernelSize"></param>
+        /// <param name="ptr">图像指针，由图像处理函数返回</param>
+        /// <param name="kernelSize">形态学核的大小，通常为奇数（3、5、7等）</param>
         /// <returns>返回处理后的图像句柄，失败返回0</returns>
         public long MorphClose(long ptr, int kernelSize){
             return OLAPlugDLLHelper.MorphClose(OLAObject, ptr, kernelSize);
@@ -7180,7 +8063,10 @@ namespace OLAPlug
         /// </summary>
         /// <param name="imageStitch">拼接实例句柄</param>
         /// <param name="image">图像句柄</param>
-        /// <returns>操作结果，0 失败，1 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int ImageStitchAppend(long imageStitch, long image){
             return OLAPlugDLLHelper.ImageStitchAppend(OLAObject, imageStitch, image);
         }
@@ -7189,7 +8075,7 @@ namespace OLAPlug
         /// 获取拼接图片结果
         /// </summary>
         /// <param name="imageStitch">拼接实例句柄</param>
-        /// <param name="trajectory"></param>
+        /// <param name="trajectory">输出参数，可为0；返回轨迹数据的字符串指针，需使用 FreeStringPtr 释放</param>
         /// <returns>返回拼接后的图像句柄，失败返回0</returns>
         public long ImageStitchGetResult(long imageStitch, out long trajectory){
             return OLAPlugDLLHelper.ImageStitchGetResult(OLAObject, imageStitch, out trajectory);
@@ -7199,9 +8085,48 @@ namespace OLAPlug
         /// 释放拼接图片实例
         /// </summary>
         /// <param name="imageStitch">拼接实例句柄</param>
-        /// <returns>操作结果，0 失败，1 成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int ImageStitchFree(long imageStitch){
             return OLAPlugDLLHelper.ImageStitchFree(OLAObject, imageStitch);
+        }
+
+        /// <summary>
+        /// 压缩二值化图像成字符串
+        /// </summary>
+        /// <param name="image">拼接实例句柄</param>
+        /// <returns>压缩结果字符串</returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. DLL调用返回字符串指针地址,需要调用 FreeStringPtr接口释放内存
+        /// </remarks>
+        public string BitPacking(long image){
+            return PtrToStringUTF8(OLAPlugDLLHelper.BitPacking(OLAObject, image));
+        }
+
+        /// <summary>
+        /// 解压缩字符串成二值化图像
+        /// </summary>
+        /// <param name="imageStr">BitPacking压缩结果</param>
+        /// <returns>返回图像句柄,失败返回0</returns>
+        public long BitUnpacking(string imageStr){
+            return OLAPlugDLLHelper.BitUnpacking(OLAObject, imageStr);
+        }
+
+        /// <summary>
+        /// 设置图片缓存开关
+        /// </summary>
+        /// <param name="enable">是否启用图片缓存
+        ///<br/> 0: 关闭
+        ///<br/> 1: 开启
+        /// </param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        public int SetImageCache(int enable){
+            return OLAPlugDLLHelper.SetImageCache(enable);
         }
 
         /// <summary>
@@ -7236,7 +8161,10 @@ namespace OLAPlug
         /// 关闭注册表键句柄
         /// </summary>
         /// <param name="key">注册表键句柄，由 RegistryOpenKey 或 RegistryCreateKey 返回</param>
-        /// <returns>操作结果，1 表示成功，0 表示失败</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         /// <remarks>注意事项: 
         /// <br/>1. 关闭后句柄失效，不可再使用
         /// </remarks>
@@ -7249,7 +8177,10 @@ namespace OLAPlug
         /// </summary>
         /// <param name="rootKey">根键类型，见 OlaRegistryRootKey</param>
         /// <param name="subKey">子键路径</param>
-        /// <returns>1 表示存在，0 表示不存在</returns>
+        /// <returns>查询结果
+        ///<br/>0: 表示不存在
+        ///<br/>1: 表示存在
+        /// </returns>
         public int RegistryKeyExists(int rootKey, string subKey){
             return OLAPlugDLLHelper.RegistryKeyExists(OLAObject, rootKey, subKey);
         }
@@ -7259,8 +8190,14 @@ namespace OLAPlug
         /// </summary>
         /// <param name="rootKey">根键类型，见 OlaRegistryRootKey</param>
         /// <param name="subKey">子键路径</param>
-        /// <param name="recursive">是否递归删除子键，1 表示递归删除，0 表示仅删除当前键</param>
-        /// <returns>操作结果，1 表示成功，0 表示失败</returns>
+        /// <param name="recursive">是否递归删除子键
+        ///<br/> 0: 表示仅删除当前键
+        ///<br/> 1: 表示递归删除
+        /// </param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         /// <remarks>注意事项: 
         /// <br/>1. 建议谨慎使用递归删除，避免误删系统关键配置
         /// </remarks>
@@ -7274,7 +8211,10 @@ namespace OLAPlug
         /// <param name="key">注册表键句柄，由 RegistryOpenKey 或 RegistryCreateKey 返回</param>
         /// <param name="valueName">值名称，空字符串表示默认值</param>
         /// <param name="value">字符串值内容</param>
-        /// <returns>操作结果，1 表示成功，0 表示失败</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int RegistrySetString(long key, string valueName, string value){
             return OLAPlugDLLHelper.RegistrySetString(OLAObject, key, valueName, value);
         }
@@ -7298,7 +8238,10 @@ namespace OLAPlug
         /// <param name="key">注册表键句柄，由 RegistryOpenKey 或 RegistryCreateKey 返回</param>
         /// <param name="valueName">值名称</param>
         /// <param name="value">要写入的 32 位整型值</param>
-        /// <returns>操作结果，1 表示成功，0 表示失败</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int RegistrySetDword(long key, string valueName, int value){
             return OLAPlugDLLHelper.RegistrySetDword(OLAObject, key, valueName, value);
         }
@@ -7319,7 +8262,10 @@ namespace OLAPlug
         /// <param name="key">注册表键句柄，由 RegistryOpenKey 或 RegistryCreateKey 返回</param>
         /// <param name="valueName">值名称</param>
         /// <param name="value">要写入的 64 位整型值</param>
-        /// <returns>操作结果，1 表示成功，0 表示失败</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int RegistrySetQword(long key, string valueName, long value){
             return OLAPlugDLLHelper.RegistrySetQword(OLAObject, key, valueName, value);
         }
@@ -7339,7 +8285,10 @@ namespace OLAPlug
         /// </summary>
         /// <param name="key">注册表键句柄，由 RegistryOpenKey 或 RegistryCreateKey 返回</param>
         /// <param name="valueName">值名称</param>
-        /// <returns>操作结果，1 表示成功或值不存在，0 表示失败</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 表示成功或值不存在
+        /// </returns>
         public int RegistryDeleteValue(long key, string valueName){
             return OLAPlugDLLHelper.RegistryDeleteValue(OLAObject, key, valueName);
         }
@@ -7373,8 +8322,14 @@ namespace OLAPlug
         /// </summary>
         /// <param name="name">环境变量名称</param>
         /// <param name="value">环境变量值</param>
-        /// <param name="systemWide">是否为系统级环境变量，1 表示系统级，0 表示当前用户</param>
-        /// <returns>操作结果，1 表示成功，0 表示失败</returns>
+        /// <param name="systemWide">是否为系统级环境变量
+        ///<br/> 0: 表示当前用户
+        ///<br/> 1: 表示系统级
+        /// </param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int RegistrySetEnvironmentVariable(string name, string value, int systemWide){
             return OLAPlugDLLHelper.RegistrySetEnvironmentVariable(OLAObject, name, value, systemWide);
         }
@@ -7383,7 +8338,10 @@ namespace OLAPlug
         /// 获取环境变量的值
         /// </summary>
         /// <param name="name">环境变量名称</param>
-        /// <param name="systemWide">是否从系统级环境变量读取，1 表示系统级，0 表示当前用户</param>
+        /// <param name="systemWide">是否从系统级环境变量读取
+        ///<br/> 0: 表示当前用户
+        ///<br/> 1: 表示系统级
+        /// </param>
         /// <returns>环境变量值的字符串句柄，如果不存在则返回 0</returns>
         /// <remarks>注意事项: 
         /// <br/>1. 返回的字符串句柄需使用 FreeStringPtr 释放
@@ -7420,10 +8378,10 @@ namespace OLAPlug
         /// <param name="rootKey">根键类型，见 OlaRegistryRootKey</param>
         /// <param name="subKey">子键路径</param>
         /// <param name="filePath">备份文件路径（.reg 格式）</param>
-        /// <returns>操作结果，1 表示成功，0 表示失败</returns>
-        /// <remarks>注意事项: 
-        /// <br/>1. 文件将以标准 .reg 格式保存，可以使用 regedit 导入
-        /// </remarks>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功 * @note 文件将以标准 .reg 格式保存，可以使用 regedit 导入
+        /// </returns>
         public int RegistryBackupToFile(int rootKey, string subKey, string filePath){
             return OLAPlugDLLHelper.RegistryBackupToFile(OLAObject, rootKey, subKey, filePath);
         }
@@ -7432,10 +8390,10 @@ namespace OLAPlug
         /// 从文件恢复注册表键
         /// </summary>
         /// <param name="filePath">备份文件路径（.reg 格式）</param>
-        /// <returns>操作结果，1 表示成功，0 表示失败</returns>
-        /// <remarks>注意事项: 
-        /// <br/>1. 文件必须是标准 .reg 格式
-        /// </remarks>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功 * @note 文件必须是标准 .reg 格式
+        /// </returns>
         public int RegistryRestoreFromFile(string filePath){
             return OLAPlugDLLHelper.RegistryRestoreFromFile(OLAObject, filePath);
         }
@@ -7461,7 +8419,10 @@ namespace OLAPlug
         /// <param name="rootKey">根键类型</param>
         /// <param name="searchPath">搜索起始路径</param>
         /// <param name="searchPattern">搜索模式（支持通配符 * 和 ?）</param>
-        /// <param name="recursive">是否递归搜索，1 表示递归，0 表示仅搜索当前层级</param>
+        /// <param name="recursive">是否递归搜索
+        ///<br/> 0: 表示仅搜索当前层级
+        ///<br/> 1: 表示递归
+        /// </param>
         /// <returns>JSON 数组字符串句柄，包含匹配的键路径，例如 ["path1","path2"]</returns>
         /// <remarks>注意事项: 
         /// <br/>1. 返回的字符串句柄需使用 FreeStringPtr 释放
@@ -7496,15 +8457,9 @@ namespace OLAPlug
         /// <summary>
         /// 创建数据库连接
         /// </summary>
-        /// <param name="dbName"></param>
-        /// <param name="password"></param>
-        /// <returns>数据库连接句柄，如果打开失败则返回 0</returns>
-        /// <remarks>注意事项: 
-        /// <br/>1. 用于创建一个新的数据库文件
-        /// <br/>2. 成功创建数据库后，返回一个非零的句柄，该句柄用于后续的数据库操作
-        /// <br/>3. 如果指定的数据库文件存在，则返回0
-        /// <br/>4. 在使用完数据库连接后，必须调用 CloseDatabase 接口关闭连接，以释放资源
-        /// </remarks>
+        /// <param name="dbName">数据库文件路径</param>
+        /// <param name="password">数据库密码</param>
+        /// <returns>数据库对象，若打开失败，返回0</returns>
         public long CreateDatabase(string dbName, string password){
             return OLAPlugDLLHelper.CreateDatabase(OLAObject, dbName, password);
         }
@@ -7512,15 +8467,9 @@ namespace OLAPlug
         /// <summary>
         /// 打开数据库连接
         /// </summary>
-        /// <param name="dbName"></param>
-        /// <param name="password"></param>
-        /// <returns>数据库连接句柄，如果打开失败则返回 0</returns>
-        /// <remarks>注意事项: 
-        /// <br/>1. 用于打开一个现有的数据库文件
-        /// <br/>2. 成功打开数据库后，返回一个非零的句柄，该句柄用于后续的数据库操作
-        /// <br/>3. 如果指定的数据库文件不存在，连接失败
-        /// <br/>4. 在使用完数据库连接后，必须调用 CloseDatabase 接口关闭连接，以释放资源
-        /// </remarks>
+        /// <param name="dbName">数据库文件路径</param>
+        /// <param name="password">数据库密码</param>
+        /// <returns>数据库对象，若打开失败，返回0</returns>
         public long OpenDatabase(string dbName, string password){
             return OLAPlugDLLHelper.OpenDatabase(OLAObject, dbName, password);
         }
@@ -7554,7 +8503,10 @@ namespace OLAPlug
         /// 关闭数据库连接
         /// </summary>
         /// <param name="db">数据库连接句柄，由 OpenDatabase 接口生成</param>
-        /// <returns>操作结果，成功关闭返回 1，失败返回 0</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         /// <remarks>注意事项: 
         /// <br/>1. 用于关闭由 OpenDatabase 接口打开的数据库连接
         /// <br/>2. 关闭连接后，传入的数据库句柄将失效，不能再用于其他数据库操作
@@ -7617,7 +8569,10 @@ namespace OLAPlug
         /// </summary>
         /// <param name="db">数据库连接句柄，由 OpenDatabase 接口生成</param>
         /// <param name="sql">要执行的SQL语句</param>
-        /// <returns>操作结果，成功执行返回 1，失败返回 0</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         /// <remarks>注意事项: 
         /// <br/>1. 用于执行 INSERT, UPDATE, DELETE, CREATE TABLE 等修改数据库内容的SQL语句
         /// <br/>2. 对于 INSERT 语句，如果表有自增主键，新插入行的主键值可以通过其他接口获取
@@ -7662,8 +8617,12 @@ namespace OLAPlug
         /// <summary>
         /// 读取结果集的下一行数据
         /// </summary>
-        /// <param name="stmt"></param>
-        /// <returns>成功读取到下一行返回 1，没有更多数据返回 0，发生错误返回 -1</returns>
+        /// <param name="stmt">结果集句柄，由 ExecuteReader 接口生成</param>
+        /// <returns>操作结果
+        ///<br/>-1: 发生错误返回
+        ///<br/>0: 没有更多数据返回
+        ///<br/>1: 成功读取到下一行返回
+        /// </returns>
         /// <remarks>注意事项: 
         /// <br/>1. 用于遍历由 ExecuteReader 生成的结果集
         /// <br/>2. 调用此函数后，结果集的当前位置会移动到下一行
@@ -7677,7 +8636,7 @@ namespace OLAPlug
         /// <summary>
         /// 获取结果集中数据行的总数
         /// </summary>
-        /// <param name="stmt"></param>
+        /// <param name="stmt">结果集句柄，由 ExecuteReader 接口生成</param>
         /// <returns>数据行的总数</returns>
         /// <remarks>注意事项: 
         /// <br/>1. 该函数返回结果集中包含的总行数
@@ -7692,7 +8651,7 @@ namespace OLAPlug
         /// <summary>
         /// 获取结果集中列的总数
         /// </summary>
-        /// <param name="stmt"></param>
+        /// <param name="stmt">结果集句柄，由 ExecuteReader 接口生成</param>
         /// <returns>列的总数</returns>
         /// <remarks>注意事项: 
         /// <br/>1. 该函数返回结果集包含的列（字段）的数量
@@ -7707,8 +8666,8 @@ namespace OLAPlug
         /// <summary>
         /// 根据列索引获取列名
         /// </summary>
-        /// <param name="stmt"></param>
-        /// <param name="iCol"></param>
+        /// <param name="stmt">结果集句柄，由 ExecuteReader 接口生成</param>
+        /// <param name="iCol">列的索引，从 0 开始</param>
         /// <returns>列名的字符串指针</returns>
         /// <remarks>注意事项: 
         /// <br/>1. 用于获取结果集中指定位置列的名称
@@ -7723,7 +8682,7 @@ namespace OLAPlug
         /// <summary>
         /// 根据列索引获取列的索引（冗余函数，通常直接使用 columnIndex）
         /// </summary>
-        /// <param name="stmt"></param>
+        /// <param name="stmt">结果集句柄，由 ExecuteReader 接口生成</param>
         /// <param name="columnName">列的名称</param>
         /// <returns>列的索引，如果列不存在则返回 -1</returns>
         /// <remarks>注意事项: 
@@ -7739,8 +8698,8 @@ namespace OLAPlug
         /// <summary>
         /// 根据列索引获取列的数据类型
         /// </summary>
-        /// <param name="stmt"></param>
-        /// <param name="iCol"></param>
+        /// <param name="stmt">结果集句柄，由 ExecuteReader 接口生成</param>
+        /// <param name="iCol">列的索引，从 0 开始</param>
         /// <returns>数据类型的字符串表示</returns>
         /// <remarks>注意事项: 
         /// <br/>1. 用于获取结果集中指定列的数据类型
@@ -7755,8 +8714,11 @@ namespace OLAPlug
         /// <summary>
         /// 释放结果集资源
         /// </summary>
-        /// <param name="stmt"></param>
-        /// <returns>成功释放返回 1，失败返回 0</returns>
+        /// <param name="stmt">结果集句柄，由 ExecuteReader 接口生成</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         /// <remarks>注意事项: 
         /// <br/>1. 用于关闭和释放由 ExecuteReader 生成的结果集占用的资源
         /// <br/>2. 在完成对结果集的所有操作（如 Read, GetData 等）后，必须调用此函数
@@ -7770,8 +8732,8 @@ namespace OLAPlug
         /// <summary>
         /// 根据列索引获取当前行指定列的 double 值
         /// </summary>
-        /// <param name="stmt"></param>
-        /// <param name="iCol"></param>
+        /// <param name="stmt">结果集句柄，由 ExecuteReader 接口生成</param>
+        /// <param name="iCol">列的索引，从 0 开始</param>
         /// <returns>列的 double 值</returns>
         /// <remarks>注意事项: 
         /// <br/>1. 用于从当前数据行中提取指定列的数值，并转换为 double 类型
@@ -7786,8 +8748,8 @@ namespace OLAPlug
         /// <summary>
         /// 根据列索引获取当前行指定列的 int32 值
         /// </summary>
-        /// <param name="stmt"></param>
-        /// <param name="iCol"></param>
+        /// <param name="stmt">结果集句柄，由 ExecuteReader 接口生成</param>
+        /// <param name="iCol">列的索引，从 0 开始</param>
         /// <returns>列的 int32 值</returns>
         /// <remarks>注意事项: 
         /// <br/>1. 用于从当前数据行中提取指定列的数值，并转换为 32 位整数类型
@@ -7802,8 +8764,8 @@ namespace OLAPlug
         /// <summary>
         /// 根据列索引获取当前行指定列的 int64 值
         /// </summary>
-        /// <param name="stmt"></param>
-        /// <param name="iCol"></param>
+        /// <param name="stmt">结果集句柄，由 ExecuteReader 接口生成</param>
+        /// <param name="iCol">列的索引，从 0 开始</param>
         /// <returns>列的 int64 值</returns>
         /// <remarks>注意事项: 
         /// <br/>1. 用于从当前数据行中提取指定列的数值，并转换为 64 位整数类型
@@ -7819,8 +8781,8 @@ namespace OLAPlug
         /// <summary>
         /// 根据列索引获取当前行指定列的字符串值
         /// </summary>
-        /// <param name="stmt"></param>
-        /// <param name="iCol"></param>
+        /// <param name="stmt">结果集句柄，由 ExecuteReader 接口生成</param>
+        /// <param name="iCol">列的索引，从 0 开始</param>
         /// <returns>字符串值的指针</returns>
         /// <remarks>注意事项: 
         /// <br/>1. 用于从当前数据行中提取指定列的文本数据
@@ -7834,9 +8796,9 @@ namespace OLAPlug
         }
 
         /// <summary>
-        /// 根据列名获取当前行指定列的 double 值
+        /// 
         /// </summary>
-        /// <param name="stmt"></param>
+        /// <param name="stmt">结果集句柄，由 ExecuteReader 接口生成</param>
         /// <param name="columnName">列的名称</param>
         /// <returns>列的 double 值</returns>
         /// <remarks>注意事项: 
@@ -7853,7 +8815,7 @@ namespace OLAPlug
         /// <summary>
         /// 根据列名获取当前行指定列的 int32 值
         /// </summary>
-        /// <param name="stmt"></param>
+        /// <param name="stmt">结果集句柄，由 ExecuteReader 接口生成</param>
         /// <param name="columnName">列的名称</param>
         /// <returns>列的 int32 值</returns>
         /// <remarks>注意事项: 
@@ -7869,7 +8831,7 @@ namespace OLAPlug
         /// <summary>
         /// 根据列名获取当前行指定列的 int64 值
         /// </summary>
-        /// <param name="stmt"></param>
+        /// <param name="stmt">结果集句柄，由 ExecuteReader 接口生成</param>
         /// <param name="columnName">列的名称</param>
         /// <returns>列的 int64 值</returns>
         /// <remarks>注意事项: 
@@ -7885,7 +8847,7 @@ namespace OLAPlug
         /// <summary>
         /// 根据列名获取当前行指定列的字符串值
         /// </summary>
-        /// <param name="stmt"></param>
+        /// <param name="stmt">结果集句柄，由 ExecuteReader 接口生成</param>
         /// <param name="columnName">列的名称</param>
         /// <returns>字符串值的指针</returns>
         /// <remarks>注意事项: 
@@ -7903,7 +8865,10 @@ namespace OLAPlug
         /// 初始化ola相关数据库,包括olg_config,ola_image表
         /// </summary>
         /// <param name="db">数据库连接句柄，由 OpenDatabase 接口生成</param>
-        /// <returns>成功初始化返回 1，失败返回 0</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         /// <remarks>注意事项: 
         /// <br/>1. 用于在打开的数据库上创建OLA系统所需的表和索引
         /// <br/>2. 此操作是幂等的，如果数据库已初始化，则不会重复创建表
@@ -7920,7 +8885,10 @@ namespace OLAPlug
         /// <param name="db">数据库连接句柄，由 OpenDatabase 接口生成</param>
         /// <param name="dir">图像文件所在的目录路径</param>
         /// <param name="cover">是否覆盖已存在的数据</param>
-        /// <returns>成功返回 1，失败返回 0</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         /// <remarks>注意事项: 
         /// <br/>1. 用于批量导入指定目录下的所有图像文件到OLA数据库
         /// <br/>2. cover 参数控制是否覆盖数据库中已存在的同名图像数据
@@ -7936,7 +8904,10 @@ namespace OLAPlug
         /// </summary>
         /// <param name="db">数据库连接句柄，由 OpenDatabase 接口生成</param>
         /// <param name="dir">包含要移除图像的目录路径</param>
-        /// <returns>成功移除返回 1，失败返回 0</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         /// <remarks>注意事项: 
         /// <br/>1. 用于批量删除数据库中与指定目录关联的所有OLA图像数据
         /// <br/>2. 此操作会删除所有在该目录下导入或与该目录路径匹配的图像记录
@@ -7951,9 +8922,12 @@ namespace OLAPlug
         /// 将OLA图像数据从数据库导出到指定目录
         /// </summary>
         /// <param name="db">数据库连接句柄，由 OpenDatabase 接口生成</param>
-        /// <param name="dir"></param>
+        /// <param name="dir">包含要移除图像的目录路径</param>
         /// <param name="exportDir">导出的目标目录路径</param>
-        /// <returns>成功导出返回 1，失败返回 0</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         /// <remarks>注意事项: 
         /// <br/>1. 用于将数据库中存储的所有OLA图像数据导出为文件
         /// <br/>2. 导出的文件将保存在 exportDir 指定的目录中
@@ -7968,10 +8942,13 @@ namespace OLAPlug
         /// 从文件导入单个OLA图像数据
         /// </summary>
         /// <param name="db">数据库连接句柄，由 OpenDatabase 接口生成</param>
-        /// <param name="dir"></param>
-        /// <param name="fileName"></param>
-        /// <param name="cover">是否覆盖已存在的同名图像</param>
-        /// <returns>成功导入返回 1，失败返回 0</returns>
+        /// <param name="dir">图像文件所在的目录路径</param>
+        /// <param name="fileName">要导入的图像文件名</param>
+        /// <param name="cover">是否覆盖已存在的图像数据</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         /// <remarks>注意事项: 
         /// <br/>1. 用于将单个图像文件导入到OLA数据库中，并指定其在库中的名称
         /// <br/>2. imagePath 必须指向一个有效的图像文件
@@ -7986,14 +8963,14 @@ namespace OLAPlug
         /// 从数据库中获取指定名称的OLA图像数据
         /// </summary>
         /// <param name="db">数据库连接句柄，由 OpenDatabase 接口生成</param>
-        /// <param name="dir"></param>
-        /// <param name="fileName"></param>
+        /// <param name="dir">图片目录路径</param>
+        /// <param name="fileName">图片文件名</param>
         /// <returns>图像数据的指针，如果未找到则返回 0</returns>
         /// <remarks>注意事项: 
-        /// <br/>1. 用于从OLA数据库中检索已存储的图像
-        /// <br/>2. 返回的指针指向的内存包含原始图像数据，调用者需负责解析和使用
-        /// <br/>3. 图像数据的格式信息可能需要通过其他元数据接口获取
-        /// <br/>4. 如果指定名称的图像不存在，函数返回 0
+        /// <br/>1. 该函数用于从OLA数据库中获取指定目录和文件名的图像数据，适用于从数据库中检索图像的场景。
+        /// <br/>2. 如果图像不存在或操作失败，函数将返回 0。可以通过 GetDatabaseError 函数获取详细的错误信息。
+        /// <br/>3. 确保目录路径和文件名正确，且图像数据存在于数据库中，否则可能导致获取失败。
+        /// <br/>4. 使用完返回的图像对象指针后，应妥善处理资源，避免内存泄漏。
         /// </remarks>
         public long GetOlaImage(long db, string dir, string fileName){
             return OLAPlugDLLHelper.GetOlaImage(OLAObject, db, dir, fileName);
@@ -8003,14 +8980,16 @@ namespace OLAPlug
         /// 从数据库中移除指定名称的OLA图像数据
         /// </summary>
         /// <param name="db">数据库连接句柄，由 OpenDatabase 接口生成</param>
-        /// <param name="dir"></param>
-        /// <param name="fileName"></param>
-        /// <returns>成功移除返回 1，失败返回 0</returns>
+        /// <param name="dir">图像文件在数据库中的目录路径</param>
+        /// <param name="fileName">图片文件名</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         /// <remarks>注意事项: 
-        /// <br/>1. 用于从OLA数据库中删除指定的图像数据
-        /// <br/>2. 删除操作是永久性的，无法通过常规手段恢复
-        /// <br/>3. 如果指定名称的图像不存在，函数可能返回成功或失败，具体取决于实现
-        /// <br/>4. 删除图像后，任何引用该图像的操作都将失败
+        /// <br/>1. 该函数用于从OLA数据库中移除指定目录和文件名的图像数据，适用于删除单个图像数据的场景。
+        /// <br/>2. 如果移除失败，函数将返回 0。可以通过 GetDatabaseError 函数获取详细的错误信息。
+        /// <br/>3. 确保目录路径和文件名正确，且图像数据存在于数据库中，否则可能导致移除失败。
         /// </remarks>
         public int RemoveOlaImage(long db, string dir, string fileName){
             return OLAPlugDLLHelper.RemoveOlaImage(OLAObject, db, dir, fileName);
@@ -8022,7 +9001,10 @@ namespace OLAPlug
         /// <param name="db">数据库连接句柄，由 OpenDatabase 接口生成</param>
         /// <param name="key">配置项的键名</param>
         /// <param name="value">配置项的值</param>
-        /// <returns>成功设置返回 1，失败返回 0</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         /// <remarks>注意事项: 
         /// <br/>1. 用于在数据库中存储键值对形式的配置信息
         /// <br/>2. 配置信息通常用于保存应用程序的设置或状态
@@ -8054,7 +9036,10 @@ namespace OLAPlug
         /// </summary>
         /// <param name="db">数据库连接句柄，由 OpenDatabase 接口生成</param>
         /// <param name="key">配置项的键名</param>
-        /// <returns>成功移除返回 1，失败返回 0</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         /// <remarks>注意事项: 
         /// <br/>1. 用于删除数据库中存储的特定配置项
         /// <br/>2. 删除后，再次调用 GetDbConfig 将无法获取该键的值
@@ -8070,7 +9055,10 @@ namespace OLAPlug
         /// </summary>
         /// <param name="key">配置项的键名</param>
         /// <param name="value">配置项的值</param>
-        /// <returns>成功设置返回 1，失败返回 0</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         /// <remarks>注意事项: 
         /// <br/>1. 与 SetDbConfig 类似，但增加了作用域（scope）参数
         /// <br/>2. 作用域可用于对配置项进行分类或隔离，例如按模块、用户或环境划分
@@ -8100,7 +9088,10 @@ namespace OLAPlug
         /// 从数据库中移除带作用域的配置项
         /// </summary>
         /// <param name="key">配置项的键名</param>
-        /// <returns>成功移除返回 1，失败返回 0</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         /// <remarks>注意事项: 
         /// <br/>1. 用于删除在特定作用域下存储的配置项
         /// <br/>2. 必须同时指定正确的作用域和键名才能成功删除
@@ -8118,7 +9109,10 @@ namespace OLAPlug
         /// <param name="dict_name">字库名称</param>
         /// <param name="dict_path">字库图片文件夹路径</param>
         /// <param name="cover">是否覆盖已存在的图像数据</param>
-        /// <returns>成功返回 1，失败返回 0</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         /// <remarks>注意事项: 
         /// <br/>1. 该函数用于从指定目录中加载字库图片文件，并将其初始化到OLA数据库中。适用于批量导入字库的场景
         /// <br/>2. cover 参数用于控制是否覆盖已存在的图像数据。设置为 1 时，会覆盖现有数据；设置为 0时，会跳过已存在的图像
@@ -8130,18 +9124,45 @@ namespace OLAPlug
         }
 
         /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="db">数据库连接句柄，由 OpenDatabase 接口生成</param>
+        /// <param name="dict_name">字库名称</param>
+        /// <param name="dict_path">文本字库路径,如C:\\dicts\\mydict.txt</param>
+        /// <param name="cover"></param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 该函数用于从txt字库文件中加载字库信息，并将其初始化到OLA数据库中。适用于批量导入字库的场景
+        /// <br/>2. cover 参数用于控制是否覆盖已存在的图像数据。设置为 1 时，会覆盖现有数据；设置为 0时，会跳过已存在的图像。
+        /// <br/>3. 如果初始化失败，函数将返回 0。可以通过 GetDatabaseError 函数获取详细的错误信息
+        /// <br/>4. 确保文本路径正确，且文本文件格式受支持，否则可能导致初始化失败
+        /// </remarks>
+        public int InitDictFromTxt(long db, string dict_name, string dict_path, int cover){
+            return OLAPlugDLLHelper.InitDictFromTxt(OLAObject, db, dict_name, dict_path, cover);
+        }
+
+        /// <summary>
         /// 向指定字库中导入单个文字的图像
         /// </summary>
         /// <param name="db">数据库连接句柄，由 OpenDatabase 接口生成</param>
         /// <param name="dict_name">字库名称</param>
-        /// <param name="pic_file_name"></param>
-        /// <param name="cover">是否覆盖已存在的同名文字</param>
-        /// <returns>成功导入返回 1，失败返回 0</returns>
+        /// <param name="pic_file_name">要导入的图像文件名</param>
+        /// <param name="cover">是否覆盖已存在的图像数据
+        ///<br/> 0: 不覆盖
+        ///<br/> 1: 覆盖
+        /// </param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         /// <remarks>注意事项: 
-        /// <br/>1. 用于将单个字符的图像添加到指定的字库中
-        /// <br/>2. imagePath 必须指向一个有效的图像文件，该图像应只包含单个字符
-        /// <br/>3. word 参数是该字符在字库中的标识，通常就是该字符本身
-        /// <br/>4. 此接口适用于动态添加或更新字库中的单个字符
+        /// <br/>1. 该函数用于将指定目录中的字库图像文件导入到OLA数据库中，适用于单个字库图像文件的导入场景。
+        /// <br/>2. cover 参数用于控制是否覆盖已存在的图像数据。设置为 1 时，会覆盖现有数据；设置为 0时，会跳过已存在的图像。
+        /// <br/>3. 如果导入失败，函数将返回 0。可以通过 GetDatabaseError 函数获取详细的错误信息。
+        /// <br/>4. 确保目录路径和文件名正确，且图像文件格式受支持，否则可能导致导入失败。
         /// </remarks>
         public int ImportDictWord(long db, string dict_name, string pic_file_name, int cover){
             return OLAPlugDLLHelper.ImportDictWord(OLAObject, db, dict_name, pic_file_name, cover);
@@ -8152,8 +9173,11 @@ namespace OLAPlug
         /// </summary>
         /// <param name="db">数据库连接句柄，由 OpenDatabase 接口生成</param>
         /// <param name="dict_name">字库名称</param>
-        /// <param name="export_dir"></param>
-        /// <returns>成功返回 1，失败返回 0</returns>
+        /// <param name="export_dir">导出路径</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         /// <remarks>注意事项: 
         /// <br/>1. 该函数用于将OLA数据库中的图像数据导出到指定目录，适用于批量导出字库图像数据的场景
         /// <br/>2. 如果导出失败，函数将返回 0。可以通过 GetDatabaseError 函数获取详细的错误信息
@@ -8169,7 +9193,10 @@ namespace OLAPlug
         /// </summary>
         /// <param name="db">数据库连接句柄，由 OpenDatabase 接口生成</param>
         /// <param name="dict_name">要移除的字库名称</param>
-        /// <returns>成功移除返回 1，失败返回 0</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         /// <remarks>注意事项: 
         /// <br/>1. 用于删除数据库中存储的整个字库及其所有图像数据
         /// <br/>2. 此操作是永久性的，会删除该字库下的所有字符图像
@@ -8186,7 +9213,10 @@ namespace OLAPlug
         /// <param name="db">数据库连接句柄，由 OpenDatabase 接口生成</param>
         /// <param name="dict_name">字库名称</param>
         /// <param name="word">要移除的文字</param>
-        /// <returns>成功移除返回 1，失败返回 0</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         /// <remarks>注意事项: 
         /// <br/>1. 用于从字库中删除特定字符的图像数据
         /// <br/>2. 此操作只影响指定字库中的指定字符，不会影响字库中的其他字符
@@ -8204,7 +9234,10 @@ namespace OLAPlug
         /// <param name="dict_name">字库名称</param>
         /// <param name="word">要读取的文字</param>
         /// <param name="gap">文字间隔，单位为像素</param>
-        /// <param name="dir">拼接方向，0-水平拼接，1-垂直拼接</param>
+        /// <param name="dir">拼接方向
+        ///<br/> 0: 水平拼接
+        ///<br/> 1: 垂直拼接
+        /// </param>
         /// <returns>图像对象的指针。如果操作失败，返回 0</returns>
         /// <remarks>注意事项: 
         /// <br/>1. 该函数用于从OLA数据库中获取指定字典名称和文字的图像数据，适用于从数据库中查找指定文字的场景
@@ -8694,7 +9727,10 @@ namespace OLAPlug
         ///<br/> 14: 闪烁指定的窗口（吸引用户注意）
         ///<br/> 15: 使指定的窗口获取输入焦点
         /// </param>
-        /// <returns>0: 设置失败（可能原因：无效的窗口句柄、无效的状态标志、窗口已被销毁等）1: 设置成功</returns>
+        /// <returns>操作结果
+        ///<br/>0: 设置失败（可能原因：无效的窗口句柄、无效的状态标志、窗口已被销毁等）
+        ///<br/>1: 设置成功
+        /// </returns>
         /// <remarks>注意事项: 
         /// <br/>1. 在使用强制结束进程（flag=13）时要特别谨慎，确保已保存相关数据
         /// <br/>2. 某些状态组合可能会相互影响，建议按照逻辑顺序设置
@@ -8708,15 +9744,9 @@ namespace OLAPlug
         /// <summary>
         /// 根据窗口标题或类名查找窗口
         /// </summary>
-        /// <param name="class_name"></param>
-        /// <param name="title"></param>
-        /// <returns>找到的窗口句柄，未找到则返回 0</returns>
-        /// <remarks>注意事项: 
-        /// <br/>1. 该函数用于在系统中查找符合条件的第一个顶层窗口
-        /// <br/>2. 如果 lpClassName 为 NULL，则忽略类名进行匹配
-        /// <br/>3. 如果 lpWindowName 为 NULL，则忽略窗口标题进行匹配
-        /// <br/>4. 此函数只搜索顶层窗口，不包括子窗口
-        /// </remarks>
+        /// <param name="class_name">窗口类名，支持模糊匹配。如果为空字符串，则匹配所有类名。</param>
+        /// <param name="title">窗口标题，支持模糊匹配。如果为空字符串，则匹配所有标题。</param>
+        /// <returns>返回找到的窗口句柄，如果未找到匹配的窗口，返回0</returns>
         public long FindWindow(string class_name, string title){
             return OLAPlugDLLHelper.FindWindow(OLAObject, class_name, title);
         }
@@ -8739,7 +9769,10 @@ namespace OLAPlug
         /// 设置系统剪贴板的文本内容
         /// </summary>
         /// <param name="text">要设置的文本内容</param>
-        /// <returns>成功设置返回 1，失败返回 0</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         /// <remarks>注意事项: 
         /// <br/>1. 该函数将指定的文本字符串放入系统剪贴板
         /// <br/>2. 执行后，文本内容可被其他应用程序粘贴使用
@@ -8754,7 +9787,10 @@ namespace OLAPlug
         /// 向指定窗口发送粘贴命令（模拟 Ctrl+V）
         /// </summary>
         /// <param name="hwnd">目标窗口的句柄</param>
-        /// <returns>成功发送返回 1，失败返回 0</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         /// <remarks>注意事项: 
         /// <br/>1. 该函数向指定窗口发送 WM_PASTE 消息，触发其粘贴操作
         /// <br/>2. 目标窗口必须是可接收文本输入的控件（如编辑框）
@@ -8766,17 +9802,20 @@ namespace OLAPlug
         }
 
         /// <summary>
-        /// 根据进程ID和窗口类名或标题查找窗口
+        /// 获取给定窗口相关的窗口句柄，如父窗口、子窗口、相邻窗口等
         /// </summary>
-        /// <param name="hwnd"></param>
-        /// <param name="flag"></param>
-        /// <returns>找到的窗口句柄，未找到则返回 0</returns>
-        /// <remarks>注意事项: 
-        /// <br/>1. 该函数结合进程ID和窗口属性进行精确查找
-        /// <br/>2. 用于确保找到的是指定进程内的窗口，避免与其他进程的同名窗口混淆
-        /// <br/>3. 如果 processId 为 0，则搜索所有进程
-        /// <br/>4. className 和 titleName 支持部分匹配
-        /// </remarks>
+        /// <param name="hwnd">窗口句柄</param>
+        /// <param name="flag">指定要获取的窗口类型
+        ///<br/> 0: 获取父窗口
+        ///<br/> 1: 获取第一个子窗口
+        ///<br/> 2: 获取First窗口
+        ///<br/> 3: 获取Last窗口
+        ///<br/> 4: 获取下一个窗口
+        ///<br/> 5: 获取上一个窗口
+        ///<br/> 6: 获取拥有者窗口
+        ///<br/> 7: 获取顶层窗口
+        /// </param>
+        /// <returns>返回指定类型的窗口句柄</returns>
         public long GetWindow(long hwnd, int flag){
             return OLAPlugDLLHelper.GetWindow(OLAObject, hwnd, flag);
         }
@@ -8815,16 +9854,20 @@ namespace OLAPlug
         /// 获取指定窗口的矩形区域（相对于屏幕）
         /// </summary>
         /// <param name="hwnd">窗口句柄</param>
-        /// <param name="x1"></param>
-        /// <param name="y1"></param>
-        /// <param name="x2"></param>
-        /// <param name="y2"></param>
-        /// <returns>成功获取返回 1，失败返回 0</returns>
+        /// <param name="x1">返回窗口左上角的X坐标</param>
+        /// <param name="y1">返回窗口左上角的Y坐标</param>
+        /// <param name="x2">返回窗口右下角的X坐标</param>
+        /// <param name="y2">返回窗口右下角的Y坐标</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         /// <remarks>注意事项: 
-        /// <br/>1. 该函数获取窗口的完整区域，包括标题栏和边框
-        /// <br/>2. 坐标是相对于整个屏幕的绝对坐标
-        /// <br/>3. 获取的矩形可用于窗口定位、截图或移动操作
-        /// <br/>4. 如果 hwnd 无效，函数将失败
+        /// <br/>1. 窗口必须处于可见状态，否则获取可能失败
+        /// <br/>2. 返回的坐标是相对于屏幕左上角的绝对坐标
+        /// <br/>3. 返回的区域包括窗口的非客户区（标题栏、边框等）
+        /// <br/>4. 如果只需要获取客户区域，请使用 GetClientRect 函数
+        /// <br/>5. 对于多显示器系统，坐标值可能为负数，这表示窗口位于主显示器左侧或上方的显示器上
         /// </remarks>
         public int GetWindowRect(long hwnd, out int x1, out int y1, out int x2, out int y2){
             return OLAPlugDLLHelper.GetWindowRect(OLAObject, hwnd, out x1, out y1, out x2, out y2);
@@ -8849,13 +9892,25 @@ namespace OLAPlug
         /// 获取指定窗口的当前状态
         /// </summary>
         /// <param name="hwnd">窗口句柄</param>
-        /// <param name="flag"></param>
-        /// <returns>返回值含义如：0-关闭, 1-正常, 2-最小化, 3-最大化, 4-隐藏等</returns>
+        /// <param name="flag">要检查的窗口状态
+        ///<br/> 0: 判断窗口是否存在（检查句柄的有效性）
+        ///<br/> 1: 判断窗口是否处于激活状态（是否为前台窗口）
+        ///<br/> 2: 判断窗口是否可见（是否显示在屏幕上）
+        ///<br/> 3: 判断窗口是否最小化（是否处于最小化状态）
+        ///<br/> 4: 判断窗口是否最大化（是否处于最大化状态）
+        ///<br/> 5: 判断窗口是否置顶（是否总在最前）
+        ///<br/> 6: 判断窗口是否无响应（是否处于"未响应"状态）
+        ///<br/> 7: 判断窗口是否可用（是否能接收用户输入）
+        /// </param>
+        /// <returns>操作结果
+        ///<br/>0: 指定的状态条件不满足（或窗口句柄无效）
+        ///<br/>1: 指定的状态条件满足
+        /// </returns>
         /// <remarks>注意事项: 
-        /// <br/>1. 该函数查询窗口的当前显示状态
-        /// <br/>2. 返回的状态码可用于判断窗口是否被最小化或最大化
-        /// <br/>3. 状态信息对于自动化脚本控制窗口行为非常有用
-        /// <br/>4. 如果窗口句柄无效，返回值未定义
+        /// <br/>1. 在检查窗口状态前，建议先使用flag=0确认窗口是否存在
+        /// <br/>2. 某些状态可能会同时存在（如窗口可以同时是可见的和置顶的）
+        /// <br/>3. 窗口的"无响应"状态检查可能需要一定时间
+        /// <br/>4. 对于系统窗口或特权窗口，某些状态可能无法正确获取
         /// </remarks>
         public int GetWindowState(long hwnd, int flag){
             return OLAPlugDLLHelper.GetWindowState(OLAObject, hwnd, flag);
@@ -8896,7 +9951,10 @@ namespace OLAPlug
         /// <param name="hwnd">窗口句柄</param>
         /// <param name="width">指向接收客户区宽度的变量</param>
         /// <param name="height">指向接收客户区高度的变量</param>
-        /// <returns>成功获取返回 1，失败返回 0</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         /// <remarks>注意事项: 
         /// <br/>1. 客户区是窗口中用于显示内容的区域，不包括标题栏、边框和滚动条
         /// <br/>2. 获取的尺寸常用于绘制操作或调整内部控件布局
@@ -8940,16 +9998,20 @@ namespace OLAPlug
         /// 获取指定窗口客户区的矩形区域
         /// </summary>
         /// <param name="hwnd">窗口句柄</param>
-        /// <param name="x1"></param>
-        /// <param name="y1"></param>
-        /// <param name="x2"></param>
-        /// <param name="y2"></param>
-        /// <returns>成功获取返回 1，失败返回 0</returns>
+        /// <param name="x1">返回客户区左上角的X坐标，总是0</param>
+        /// <param name="y1">返回客户区左上角的Y坐标，总是0</param>
+        /// <param name="x2">返回客户区右下角的X坐标，即客户区宽度</param>
+        /// <param name="y2">返回客户区右下角的Y坐标，即客户区高度</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         /// <remarks>注意事项: 
-        /// <br/>1. 与 GetWindowRect 不同，此函数获取的是客户区坐标
-        /// <br/>2. 坐标相对于窗口客户区的左上角(0,0)
-        /// <br/>3. 客户区矩形常用于在窗口内进行精确的元素定位
-        /// <br/>4. 如果 hwnd 无效，函数将失败
+        /// <br/>1. 窗口必须处于可见状态，否则获取可能失败
+        /// <br/>2. 返回的坐标是相对于客户区左上角的相对坐标，(x1,y1)总是(0,0)
+        /// <br/>3. (x2,y2)表示客户区的宽度和高度，而不是屏幕坐标
+        /// <br/>4. 如果需要获取包含非客户区的窗口区域，请使用 GetWindowRect 函数
+        /// <br/>5. 如果需要将客户区坐标转换为屏幕坐标，请使用 ClientToScreen 函数与 GetWindowRect
         /// </remarks>
         public int GetClientRect(long hwnd, out int x1, out int y1, out int x2, out int y2){
             return OLAPlugDLLHelper.GetClientRect(OLAObject, hwnd, out x1, out y1, out x2, out y2);
@@ -8960,7 +10022,10 @@ namespace OLAPlug
         /// </summary>
         /// <param name="hwnd">窗口句柄</param>
         /// <param name="title">要设置的新标题</param>
-        /// <returns>成功设置返回 1，失败返回 0</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         /// <remarks>注意事项: 
         /// <br/>1. 该函数会改变窗口标题栏上显示的文本
         /// <br/>2. 新标题会立即反映在UI上
@@ -8975,9 +10040,12 @@ namespace OLAPlug
         /// 设置指定窗口的大小和位置
         /// </summary>
         /// <param name="hwnd">窗口句柄</param>
-        /// <param name="width"></param>
-        /// <param name="height"></param>
-        /// <returns>成功设置返回 1，失败返回 0</returns>
+        /// <param name="width">窗口的目标宽度（像素），包括边框，必须大于0</param>
+        /// <param name="height">窗口的目标高度（像素），包括标题栏和边框，必须大于0</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         /// <remarks>注意事项: 
         /// <br/>1. 该函数可以同时改变窗口的位置和大小
         /// <br/>2. 坐标是相对于屏幕的绝对坐标
@@ -8994,7 +10062,10 @@ namespace OLAPlug
         /// <param name="hwnd">窗口句柄</param>
         /// <param name="width">客户区的新宽度</param>
         /// <param name="height">客户区的新高度</param>
-        /// <returns>成功设置返回 1，失败返回 0</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         /// <remarks>注意事项: 
         /// <br/>1. 与 SetWindowSize 不同，此函数设置的是客户区尺寸
         /// <br/>2. 系统会根据客户区大小自动调整窗口的整体大小以包含边框和标题栏
@@ -9010,7 +10081,10 @@ namespace OLAPlug
         /// </summary>
         /// <param name="hwnd">窗口句柄</param>
         /// <param name="alpha">透明度值，范围 0-255，0为完全透明，255为完全不透明</param>
-        /// <returns>成功设置返回 1，失败返回 0</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         /// <remarks>注意事项: 
         /// <br/>1. 该函数通过设置窗口的分层属性来实现透明效果
         /// <br/>2. 窗口必须支持分层属性（WS_EX_LAYERED）才能设置透明度
@@ -9039,17 +10113,21 @@ namespace OLAPlug
         }
 
         /// <summary>
-        /// 根据进程名称查找其创建的窗口
+        /// 根据进程名称、窗口类名和标题查找可见窗口。此函数提供了一种灵活的方式来定位特定进程的窗口
         /// </summary>
-        /// <param name="process_name"></param>
-        /// <param name="class_name"></param>
-        /// <param name="title"></param>
-        /// <returns>找到的窗口句柄，未找到则返回 0</returns>
+        /// <param name="process_name">进程名称（如"notepad.exe"），精确匹配但不区分大小写</param>
+        /// <param name="class_name">窗口类名，支持模糊匹配。如果为空字符串("")，则匹配所有类名</param>
+        /// <param name="title">窗口标题，支持模糊匹配。如果为空字符串("")，则匹配所有标题</param>
+        /// <returns>返回找到的窗口句柄，未找到则返回 0</returns>
         /// <remarks>注意事项: 
-        /// <br/>1. 该函数先通过进程名找到进程ID，再查找属于该进程的窗口
-        /// <br/>2. 用于确保找到的是特定应用程序的窗口
-        /// <br/>3. processName 是文件名，不是完整路径
-        /// <br/>4. 常用于启动程序后自动获取其主窗口句柄
+        /// <br/>1. 进程名称必须包含扩展名（如".exe"），且不区分大小写
+        /// <br/>2. 类名和标题支持模糊匹配，可以只包含部分文本
+        /// <br/>3. 空字符串参数会匹配任意值，可用于通配搜索
+        /// <br/>4. 如果有多个匹配的窗口，函数返回第一个找到的窗口
+        /// <br/>5. 建议使用更具体的搜索条件以提高查找准确性
+        /// <br/>6. 某些系统进程的窗口可能无法被找到
+        /// <br/>7. 进程必须具有可见的主窗口才能被找到
+        /// <br/>8. 可以结合 GetWindowState 验证找到的窗口
         /// </remarks>
         public long FindWindowByProcess(string process_name, string class_name, string title){
             return OLAPlugDLLHelper.FindWindowByProcess(OLAObject, process_name, class_name, title);
@@ -9061,7 +10139,10 @@ namespace OLAPlug
         /// <param name="hwnd">窗口句柄</param>
         /// <param name="x">窗口左上角的新x坐标</param>
         /// <param name="y">窗口左上角的新y坐标</param>
-        /// <returns>成功移动返回 1，失败返回 0</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         /// <remarks>注意事项: 
         /// <br/>1. 该函数只改变窗口的位置，不改变其大小
         /// <br/>2. 坐标是相对于屏幕的绝对坐标
@@ -9105,12 +10186,14 @@ namespace OLAPlug
         /// <summary>
         /// 枚举系统中所有正在运行的进程
         /// </summary>
-        /// <param name="name"></param>
-        /// <returns>包含进程ID、名称、路径等信息</returns>
+        /// <param name="name">进程名</param>
+        /// <returns>所有匹配的进程PID，按进程启动顺序排序，格式为"pid1,pid2,pid3"。如果没有找到匹配的进程，返回空字符串</returns>
         /// <remarks>注意事项: 
-        /// <br/>1. 该函数扫描系统并返回所有活动进程的列表
-        /// <br/>2. 返回的字符串指针需要调用 FreeStringPtr 接口释放内存
-        /// <br/>3. 可用于进程监控、查找特定程序或终止恶意进程
+        /// <br/>1. DLL调用返回字符串指针地址，需要调用 FreeStringPtr 接口释放内存
+        /// <br/>2. 进程ID列表中的进程按启动时间排序，越早启动的进程排在越前面
+        /// <br/>3. 某些系统进程可能无法被枚举，这取决于当前用户的权限
+        /// <br/>4. 建议在使用此函数前，先使用 GetProcessInfo 函数获取进程的详细信息
+        /// <br/>5. 如果需要查找特定窗口的进程，可以使用 GetWindowProcessId 函数
         /// </remarks>
         public string EnumProcess(string name){
             return PtrToStringUTF8(OLAPlugDLLHelper.EnumProcess(OLAObject, name));
@@ -9119,16 +10202,23 @@ namespace OLAPlug
         /// <summary>
         /// 枚举指定父窗口下的所有子窗口
         /// </summary>
-        /// <param name="parent"></param>
-        /// <param name="title"></param>
-        /// <param name="className"></param>
-        /// <param name="filter"></param>
-        /// <returns>例如：[123456, 234567, 345678]</returns>
+        /// <param name="parent">父窗口句柄，获取的窗口必须是该窗口的子窗口。当为0时获取桌面的子窗口</param>
+        /// <param name="title">窗口标题，支持模糊匹配。如果为空字符串，则不匹配标题</param>
+        /// <param name="className">窗口类名，支持模糊匹配。如果为空字符串，则不匹配类名</param>
+        /// <param name="filter">过滤条件，可以组合使用（值相加）
+        ///<br/> 1: 匹配窗口标题（参数title有效）
+        ///<br/> 2: 匹配窗口类名（参数class_name有效）
+        ///<br/> 4: 只匹配第一个进程的窗口
+        ///<br/> 8: 匹配顶级窗口（所有者窗口为0）
+        ///<br/> 16: 匹配可见窗口
+        /// </param>
+        /// <returns>所有匹配的窗口句柄字符串，格式为"hwnd1,hwnd2,hwnd3"，如果没有找到匹配的窗口，返回空字符串</returns>
         /// <remarks>注意事项: 
-        /// <br/>1. 该函数递归或非递归地遍历窗口层次结构
-        /// <br/>2. 返回的数组包含所有匹配的子窗口句柄
-        /// <br/>3. 返回的字符串指针需要调用 FreeStringPtr 接口释放内存
-        /// <br/>4. 是实现窗口树分析和批量操作的基础
+        /// <br/>1. DLL调用返回字符串指针地址，需要调用 FreeStringPtr 接口释放内存
+        /// <br/>2. 过滤条件可以组合使用，例如：1+8+16 表示匹配标题、顶级窗口和可见窗口
+        /// <br/>3. 某些窗口可能无法被枚举，这取决于当前用户的权限和窗口的状态
+        /// <br/>4. 建议在使用此函数前，先使用 GetWindowTitle 和 GetWindowClass 函数获取窗口信息
+        /// <br/>5. 如果需要查找特定进程的窗口，可以使用 EnumWindowByProcess 函数
         /// </remarks>
         public string EnumWindow(long parent, string title, string className, int filter){
             return PtrToStringUTF8(OLAPlugDLLHelper.EnumWindow(OLAObject, parent, title, className, filter));
@@ -9137,16 +10227,19 @@ namespace OLAPlug
         /// <summary>
         /// 根据进程名称枚举其创建的所有窗口
         /// </summary>
-        /// <param name="process_name"></param>
-        /// <param name="title"></param>
+        /// <param name="process_name">进程映像名，如"svchost.exe"。此参数精确匹配但不区分大小写</param>
+        /// <param name="title">窗口标题，支持模糊匹配。如果为空字符串，则不匹配标题</param>
         /// <param name="class_name"></param>
-        /// <param name="filter"></param>
-        /// <returns>例如：[123456, 234567]</returns>
+        /// <param name="filter">过滤条件，可以组合使用（值相加）
+        ///<br/> 1: 匹配窗口标题（参数title有效）
+        ///<br/> 2: 匹配窗口类名（参数class_name有效）
+        ///<br/> 4: 只匹配第一个进程的窗口
+        ///<br/> 8: 匹配顶级窗口（所有者窗口为0）
+        ///<br/> 16: 匹配可见窗口
+        /// </param>
+        /// <returns>返回所有匹配的窗口句柄字符串，格式为"hwnd1,hwnd2,hwnd3"</returns>
         /// <remarks>注意事项: 
-        /// <br/>1. 该函数结合进程枚举和窗口枚举，找出特定应用程序的所有窗口
-        /// <br/>2. 返回的数组可用于对应用程序的多个窗口进行统一操作
-        /// <br/>3. 返回的字符串指针需要调用 FreeStringPtr 接口释放内存
-        /// <br/>4. 常用于关闭程序的所有窗口或查找特定功能的子窗口
+        /// <br/>1. DLL调用返回字符串指针地址，需要调用 FreeStringPtr 接口释放内存
         /// </remarks>
         public string EnumWindowByProcess(string process_name, string title, string class_name, int filter){
             return PtrToStringUTF8(OLAPlugDLLHelper.EnumWindowByProcess(OLAObject, process_name, title, class_name, filter));
@@ -9155,16 +10248,23 @@ namespace OLAPlug
         /// <summary>
         /// 根据进程ID枚举其创建的所有窗口
         /// </summary>
-        /// <param name="pid"></param>
-        /// <param name="title"></param>
+        /// <param name="pid">进程ID。可以通过 GetWindowProcessId 函数获取</param>
+        /// <param name="title">窗口标题，支持模糊匹配。如果为空字符串，则不匹配标题</param>
         /// <param name="class_name"></param>
-        /// <param name="filter"></param>
-        /// <returns>例如：[123456, 234567]</returns>
+        /// <param name="filter">过滤条件，可以组合使用（值相加）
+        ///<br/> 1: 匹配窗口标题（参数title有效）
+        ///<br/> 2: 匹配窗口类名（参数class_name有效）
+        ///<br/> 4: 只匹配第一个进程的窗口
+        ///<br/> 8: 匹配顶级窗口（所有者窗口为0）
+        ///<br/> 16: 匹配可见窗口
+        /// </param>
+        /// <returns>返回所有匹配的窗口句柄字符串，格式为"hwnd1,hwnd2,hwnd3"</returns>
         /// <remarks>注意事项: 
-        /// <br/>1. 与 EnumWindowByProcess 类似，但使用进程ID作为参数
-        /// <br/>2. 进程ID是唯一的，因此查找更精确
-        /// <br/>3. 返回的字符串指针需要调用 FreeStringPtr 接口释放内存
-        /// <br/>4. 在已知进程ID的场景下（如通过 CreateChildProcess 获得），此函数更高效
+        /// <br/>1. DLL调用返回字符串指针地址，需要调用 FreeStringPtr 接口释放内存
+        /// <br/>2. 过滤条件可以组合使用，例如：1+8+16 表示匹配标题、顶级窗口和可见窗口
+        /// <br/>3. 如果指定了进程ID为0，将枚举所有进程的窗口
+        /// <br/>4. 建议在使用此函数前，先使用 GetWindowProcessId 函数获取正确的进程ID
+        /// <br/>5. 如果需要查找特定进程的所有窗口，可以使用 EnumWindowByProcess 函数
         /// </remarks>
         public string EnumWindowByProcessId(long pid, string title, string class_name, int filter){
             return PtrToStringUTF8(OLAPlugDLLHelper.EnumWindowByProcessId(OLAObject, pid, title, class_name, filter));
@@ -9173,19 +10273,47 @@ namespace OLAPlug
         /// <summary>
         /// 高级窗口查找，支持多种条件和模糊匹配
         /// </summary>
-        /// <param name="spec1"></param>
-        /// <param name="flag1"></param>
-        /// <param name="type1"></param>
-        /// <param name="spec2"></param>
-        /// <param name="flag2"></param>
-        /// <param name="type2"></param>
-        /// <param name="sort"></param>
-        /// <returns>找到的窗口句柄，未找到则返回 0</returns>
+        /// <param name="spec1">查找串1，内容取决于flag1的值</param>
+        /// <param name="flag1">查找串1的类型，可选值
+        ///<br/> 0: 标题
+        ///<br/> 1: 程序名字（如notepad）
+        ///<br/> 2: 类名
+        ///<br/> 3: 程序路径（不含盘符，如\windows\system32）
+        ///<br/> 4: 父句柄（十进制字符串）
+        ///<br/> 5: 父窗口标题
+        ///<br/> 6: 父窗口类名
+        ///<br/> 7: 顶级窗口句柄（十进制字符串）
+        ///<br/> 8: 顶级窗口标题
+        ///<br/> 9: 顶级窗口类名
+        /// </param>
+        /// <param name="type1">查找串1的匹配方式
+        ///<br/> 0: 精确匹配
+        ///<br/> 1: 模糊匹配
+        /// </param>
+        /// <param name="spec2">查找串2，内容取决于flag2的值</param>
+        /// <param name="flag2">查找串2的类型，可选值
+        ///<br/> 0: 标题
+        ///<br/> 1: 程序名字（如notepad）
+        ///<br/> 2: 类名
+        ///<br/> 3: 程序路径（不含盘符，如\windows\system32）
+        ///<br/> 4: 父句柄（十进制字符串）
+        ///<br/> 5: 父窗口标题
+        ///<br/> 6: 父窗口类名
+        ///<br/> 7: 顶级窗口句柄（十进制字符串）
+        ///<br/> 8: 顶级窗口标题
+        ///<br/> 9: 顶级窗口类名
+        /// </param>
+        /// <param name="type2">查找串2的匹配方式
+        ///<br/> 0: 精确匹配
+        ///<br/> 1: 模糊匹配
+        /// </param>
+        /// <param name="sort">排序方式
+        ///<br/> 0: 不排序
+        ///<br/> 1: 按窗口打开顺序排序
+        /// </param>
+        /// <returns>返回所有匹配的窗口句柄字符串,格式"hwnd1,hwnd2,hwnd3"</returns>
         /// <remarks>注意事项: 
-        /// <br/>1. 该函数是 FindWindow 和 FindWindowEx 的增强版
-        /// <br/>2. 支持正则表达式、类名/标题的包含关系、属性匹配等多种查找方式
-        /// <br/>3. flag 参数决定了 s1 和 s2 的具体含义和匹配逻辑
-        /// <br/>4. 是实现复杂窗口定位策略的强力工具
+        /// <br/>1. DLL调用返回字符串指针地址,需要调用 FreeStringPtr接口释放内存
         /// </remarks>
         public string EnumWindowSuper(string spec1, int flag1, int type1, string spec2, int flag2, int type2, int sort){
             return PtrToStringUTF8(OLAPlugDLLHelper.EnumWindowSuper(OLAObject, spec1, flag1, type1, spec2, flag2, type2, sort));
@@ -9210,13 +10338,10 @@ namespace OLAPlug
         /// <summary>
         /// 获取指定进程的详细信息
         /// </summary>
-        /// <param name="pid"></param>
-        /// <returns>例如：{"pid": 1234, "name": "notepad.exe", "path": "C:\\...", "cmdline": "...", "parent":1111}</returns>
+        /// <param name="pid">进程ID</param>
+        /// <returns>返回格式为 "进程名|进程路径|CPU占用率|内存占用量"，CPU占用率以百分比表示，内存占用量以字节为单位</returns>
         /// <remarks>注意事项: 
-        /// <br/>1. 该函数查询指定进程的完整信息，包括命令行、父进程ID等
-        /// <br/>2. 返回的字符串指针需要调用 FreeStringPtr 接口释放内存
-        /// <br/>3. 是进程分析和安全审计的重要工具
-        /// <br/>4. 某些系统进程或权限不足时，部分信息可能无法获取
+        /// <br/>1. DLL调用返回字符串指针地址，需要调用 FreeStringPtr 接口释放内存
         /// </remarks>
         public string GetProcessInfo(long pid){
             return PtrToStringUTF8(OLAPlugDLLHelper.GetProcessInfo(OLAObject, pid));
@@ -9225,15 +10350,15 @@ namespace OLAPlug
         /// <summary>
         /// 显示或隐藏系统任务栏上的程序图标
         /// </summary>
-        /// <param name="hwnd"></param>
-        /// <param name="show">1-显示图标, 0-隐藏图标</param>
-        /// <returns>成功执行返回 1，失败返回 0</returns>
-        /// <remarks>注意事项: 
-        /// <br/>1. 用于控制应用程序在任务栏上的可见性
-        /// <br/>2. 常用于创建后台服务程序或系统托盘应用
-        /// <br/>3. 隐藏图标后，用户可能难以通过常规方式关闭程序
-        /// <br/>4. 操作可能需要特定的窗口样式（如 WS_SYSMENU）
-        /// </remarks>
+        /// <param name="hwnd">窗口句柄</param>
+        /// <param name="show">是否显示任务栏图标
+        ///<br/> 0: 隐藏图标
+        ///<br/> 1: 显示图标
+        /// </param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         public int ShowTaskBarIcon(long hwnd, int show){
             return OLAPlugDLLHelper.ShowTaskBarIcon(OLAObject, hwnd, show);
         }
@@ -9241,15 +10366,19 @@ namespace OLAPlug
         /// <summary>
         /// 根据进程ID查找其创建的窗口
         /// </summary>
-        /// <param name="process_id"></param>
-        /// <param name="className">窗口类名，可为 NULL</param>
-        /// <param name="title"></param>
+        /// <param name="process_id">进程ID</param>
+        /// <param name="className">窗口类名，支持模糊匹配。如果为空字符串("")，则匹配所有类名</param>
+        /// <param name="title">窗口标题，支持模糊匹配。如果为空字符串("")，则匹配所有标题</param>
         /// <returns>找到的窗口句柄，未找到则返回 0</returns>
         /// <remarks>注意事项: 
-        /// <br/>1. 该函数直接通过进程ID查找窗口，效率较高
-        /// <br/>2. 用于在已知进程ID的情况下快速定位其主窗口或子窗口
-        /// <br/>3. className 和 titleName 支持部分匹配
-        /// <br/>4. 是进程与窗口关联操作的常用接口
+        /// <br/>1. 进程ID必须是当前运行的有效进程ID
+        /// <br/>2. 类名和标题支持模糊匹配，可以只包含部分文本
+        /// <br/>3. 空字符串参数会匹配任意值，可用于通配搜索
+        /// <br/>4. 如果有多个匹配的窗口，函数返回第一个找到的窗口
+        /// <br/>5. 建议先验证进程ID是否有效再进行查找
+        /// <br/>6. 某些系统进程的窗口可能因权限问题无法被找到
+        /// <br/>7. 进程必须具有可见的窗口才能被找到
+        /// <br/>8. 可以结合 GetWindowState 和 SetWindowState 进行窗口操作
         /// </remarks>
         public long FindWindowByProcessId(long process_id, string className, string title){
             return OLAPlugDLLHelper.FindWindowByProcessId(OLAObject, process_id, className, title);
@@ -9273,18 +10402,44 @@ namespace OLAPlug
         /// <summary>
         /// 高级窗口查找，功能与 EnumWindowSuper 类似
         /// </summary>
-        /// <param name="spec1"></param>
-        /// <param name="flag1"></param>
-        /// <param name="type1"></param>
-        /// <param name="spec2"></param>
-        /// <param name="flag2"></param>
-        /// <param name="type2"></param>
+        /// <param name="spec1">查找串1，内容取决于flag1的值</param>
+        /// <param name="flag1">查找串1的类型，可选值
+        ///<br/> 0: 标题
+        ///<br/> 1: 程序名字（如notepad）
+        ///<br/> 2: 类名
+        ///<br/> 3: 程序路径（不含盘符，如\windows\system32）
+        ///<br/> 4: 父句柄（十进制字符串）
+        ///<br/> 5: 父窗口标题
+        ///<br/> 6: 父窗口类名
+        ///<br/> 7: 顶级窗口句柄（十进制字符串）
+        ///<br/> 8: 顶级窗口标题
+        ///<br/> 9: 顶级窗口类名
+        /// </param>
+        /// <param name="type1">查找串1的匹配方式
+        ///<br/> 0: 精确匹配
+        ///<br/> 1: 模糊匹配
+        /// </param>
+        /// <param name="spec2">查找串2，内容取决于flag2的值</param>
+        /// <param name="flag2">查找串2的类型，可选值
+        ///<br/> 0: 标题
+        ///<br/> 1: 程序名字（如notepad）
+        ///<br/> 2: 类名
+        ///<br/> 3: 程序路径（不含盘符，如\windows\system32）
+        ///<br/> 4: 父句柄（十进制字符串）
+        ///<br/> 5: 父窗口标题
+        ///<br/> 6: 父窗口类名
+        ///<br/> 7: 顶级窗口句柄（十进制字符串）
+        ///<br/> 8: 顶级窗口标题
+        ///<br/> 9: 顶级窗口类名
+        /// </param>
+        /// <param name="type2">查找串2的匹配方式</param>
         /// <returns>找到的窗口句柄，未找到则返回 0</returns>
         /// <remarks>注意事项: 
-        /// <br/>1. 该函数提供比标准 FindWindow 更强大的查找能力
-        /// <br/>2. 支持复杂的匹配条件和多种查找策略
-        /// <br/>3. 具体行为由 flag 参数控制
-        /// <br/>4. 可用于实现自定义的窗口定位逻辑
+        /// <br/>1. 两个条件必须同时满足才会返回窗口句柄
+        /// <br/>2. 模糊匹配时，只要窗口属性包含指定的字符串即可匹配成功
+        /// <br/>3. 程序路径匹配时不区分大小写，且不需要包含盘符
+        /// <br/>4. 建议在使用此函数前，先使用 GetWindowTitle、GetWindowClass 等函数获取窗口信息
+        /// <br/>5. 如果需要查找多个符合条件的窗口，可以使用 EnumWindowSuper 函数
         /// </remarks>
         public long FindWindowSuper(string spec1, int flag1, int type1, string spec2, int flag2, int type2){
             return OLAPlugDLLHelper.FindWindowSuper(OLAObject, spec1, flag1, type1, spec2, flag2, type2);
@@ -9296,7 +10451,10 @@ namespace OLAPlug
         /// <param name="hwnd">窗口句柄</param>
         /// <param name="x">指向客户区x坐标的变量，转换后存储屏幕x坐标</param>
         /// <param name="y">指向客户区y坐标的变量，转换后存储屏幕y坐标</param>
-        /// <returns>成功转换返回 1，失败返回 0</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         /// <remarks>注意事项: 
         /// <br/>1. 该函数用于坐标系转换，将相对于窗口客户区的坐标转为全局屏幕坐标
         /// <br/>2. 常用于将鼠标点击位置或控件位置映射到屏幕
@@ -9313,7 +10471,10 @@ namespace OLAPlug
         /// <param name="hwnd">窗口句柄</param>
         /// <param name="x">指向屏幕x坐标的变量，转换后存储客户区x坐标</param>
         /// <param name="y">指向屏幕y坐标的变量，转换后存储客户区y坐标</param>
-        /// <returns>成功转换返回 1，失败返回 0</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         /// <remarks>注意事项: 
         /// <br/>1. 与 ClientToScreen 相反，将全局屏幕坐标转为相对于指定窗口客户区的坐标
         /// <br/>2. 常用于判断屏幕上的某个点是否在窗口客户区内
@@ -9342,8 +10503,11 @@ namespace OLAPlug
         /// 设置窗口的显示状态（可见性）
         /// </summary>
         /// <param name="hwnd">窗口句柄</param>
-        /// <param name="affinity"></param>
-        /// <returns>成功设置返回 1，失败返回 0</returns>
+        /// <param name="affinity">1-显示窗口, 0-隐藏窗口</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         /// <remarks>注意事项: 
         /// <br/>1. 该函数直接控制窗口的可见性，类似于 SetWindowState(SW_SHOW/SW_HIDE)
         /// <br/>2. 隐藏窗口后，它将从屏幕上消失，但仍在进程中运行
@@ -9357,18 +10521,15 @@ namespace OLAPlug
         /// <summary>
         /// 检查指定窗口是否处于“假死”状态
         /// </summary>
-        /// <param name="x1"></param>
-        /// <param name="y1"></param>
-        /// <param name="x2"></param>
-        /// <param name="y2"></param>
-        /// <param name="time"></param>
-        /// <returns>1-正常, 0-假死, -1-错误</returns>
-        /// <remarks>注意事项: 
-        /// <br/>1. 通过向窗口发送消息并等待响应来判断其是否无响应
-        /// <br/>2. 假死窗口通常无法处理用户输入或更新界面
-        /// <br/>3. 可用于监控应用程序健康状况或自动重启无响应程序
-        /// <br/>4. 检测需要一定时间，且可能受系统负载影响
-        /// </remarks>
+        /// <param name="x1">查找区域的左上角X坐标</param>
+        /// <param name="y1">查找区域的左上角Y坐标</param>
+        /// <param name="x2">查找区域的右下角X坐标</param>
+        /// <param name="y2">查找区域的右下角Y坐标</param>
+        /// <param name="time">识别间隔，单位毫秒</param>
+        /// <returns>状态
+        ///<br/>0: 正常
+        ///<br/>1: 卡屏
+        /// </returns>
         public int IsDisplayDead(int x1, int y1, int x2, int y2, int time){
             return OLAPlugDLLHelper.IsDisplayDead(OLAObject, x1, y1, x2, y2, time);
         }
@@ -9376,17 +10537,11 @@ namespace OLAPlug
         /// <summary>
         /// 获取指定窗口的刷新帧率（FPS）
         /// </summary>
-        /// <param name="x1"></param>
-        /// <param name="y1"></param>
-        /// <param name="x2"></param>
-        /// <param name="y2"></param>
+        /// <param name="x1">查找区域的左上角X坐标</param>
+        /// <param name="y1">查找区域的左上角Y坐标</param>
+        /// <param name="x2">查找区域的右下角X坐标</param>
+        /// <param name="y2">查找区域的右下角Y坐标</param>
         /// <returns>窗口的近似帧率，如 60, 30, 0（静态）等</returns>
-        /// <remarks>注意事项: 
-        /// <br/>1. 通过监控窗口区域的变化频率来估算FPS
-        /// <br/>2. 常用于游戏或视频应用的性能监控
-        /// <br/>3. 对于静态窗口，返回值通常为 0 或很低的数值
-        /// <br/>4. 估算值可能存在一定误差
-        /// </remarks>
         public int GetWindowsFps(int x1, int y1, int x2, int y2){
             return OLAPlugDLLHelper.GetWindowsFps(OLAObject, x1, y1, x2, y2);
         }
@@ -9395,7 +10550,10 @@ namespace OLAPlug
         /// 终止进程
         /// </summary>
         /// <param name="pid">进程ID</param>
-        /// <returns>成功返回1,失败返回0</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         /// <remarks>注意事项: 
         /// <br/>1. 该函数强制结束指定ID的进程
         /// <br/>2. 终止后，进程及其所有资源将被系统回收
@@ -9410,7 +10568,10 @@ namespace OLAPlug
         /// 终止进程树
         /// </summary>
         /// <param name="pid">进程ID</param>
-        /// <returns>成功返回1,失败返回0@title 终止进程树 - TerminateProcessTree</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         /// <remarks>注意事项: 
         /// <br/>1. 该函数不仅终止指定进程，还递归终止其创建的所有子进程
         /// <br/>2. 用于彻底清理一个程序及其后台服务
@@ -9439,7 +10600,10 @@ namespace OLAPlug
         /// <summary>
         /// 检查字体平滑
         /// </summary>
-        /// <returns>成功返回1,失败返回0</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         /// <remarks>注意事项: 
         /// <br/>1. 字体平滑可使屏幕上的文字边缘更平滑，提高可读性
         /// <br/>2. 此设置影响所有应用程序的文本渲染
@@ -9454,7 +10618,10 @@ namespace OLAPlug
         /// 设置字体平滑
         /// </summary>
         /// <param name="enable">是否启用</param>
-        /// <returns>成功返回1,失败返回0</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         /// <remarks>注意事项: 
         /// <br/>1. 该函数修改系统的全局字体渲染设置
         /// <br/>2. 更改后，新创建的窗口将使用新的设置
@@ -9468,7 +10635,10 @@ namespace OLAPlug
         /// <summary>
         /// 启用调试权限
         /// </summary>
-        /// <returns>成功返回1,失败返回0</returns>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
         /// <remarks>注意事项: 
         /// <br/>1. 调试权限（SeDebugPrivilege）允许进程调试或操作其他进程
         /// <br/>2. 此权限对于调用 TerminateProcess, EnumProcess 等函数通常是必需的

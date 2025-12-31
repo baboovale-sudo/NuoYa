@@ -5,7 +5,7 @@ namespace OLAPlug
 {
     public static class OLAPlugDLLHelper
     {
-        public const string DLL = "OLA.dll"; //支持修改DLL名称为任意值,只要跟文件对应好就行 比如abc.cdf。
+        public const string DLL = "OLAPlug_x64.dll"; //支持修改DLL名称为任意值,只要跟文件对应好就行 比如abc.cdf。
         //public const string DLL = "OLAPlug_x86.dll"; //支持修改DLL名称为任意值,只要跟文件对应好就行 比如abc.cdf。
 
         /// <summary>
@@ -13,7 +13,7 @@ namespace OLAPlug
         /// </summary>
         /// <param name="keycode"></param>
         /// <param name="modifiers"></param>
-        public delegate void HotkeyCallback(int keycode, int modifiers);
+        public delegate int HotkeyCallback(int keycode, int modifiers);
 
         /// <summary>
         /// 鼠标按键回调
@@ -85,6 +85,9 @@ namespace OLAPlug
 
         [DllImport(DLL)]
         public static extern long Ver();
+
+        [DllImport(DLL)]
+        public static extern long GetPlugInfo(int type);
 
         [DllImport(DLL)]
         public static extern int SetPath(long instance, string path);
@@ -166,6 +169,12 @@ namespace OLAPlug
 
         [DllImport(DLL)]
         public static extern long GetLastErrorString();
+
+        [DllImport(DLL)]
+        public static extern long HideModule(long instance, string moduleName);
+
+        [DllImport(DLL)]
+        public static extern int UnhideModule(long instance, long ctx);
 
         [DllImport(DLL)]
         public static extern int GetRandomNumber(long instance, int min, int max);
@@ -396,6 +405,9 @@ namespace OLAPlug
         public static extern int ProtectProcess(long instance, long pid, int enable);
 
         [DllImport(DLL)]
+        public static extern int ProtectProcess2(long instance, long pid, int enable);
+
+        [DllImport(DLL)]
         public static extern int AddProtectPID(long instance, long pid, long mode, long allow_pid);
 
         [DllImport(DLL)]
@@ -421,6 +433,90 @@ namespace OLAPlug
 
         [DllImport(DLL)]
         public static extern int StartSecurityGuard(long instance);
+
+        [DllImport(DLL)]
+        public static extern int ProtectFileTestDriver(long instance);
+
+        [DllImport(DLL)]
+        public static extern int ProtectFileEnableDriver(long instance);
+
+        [DllImport(DLL)]
+        public static extern int ProtectFileDisableDriver(long instance);
+
+        [DllImport(DLL)]
+        public static extern int ProtectFileStartFilter(long instance);
+
+        [DllImport(DLL)]
+        public static extern int ProtectFileStopFilter(long instance);
+
+        [DllImport(DLL)]
+        public static extern int ProtectFileAddProtectedPath(long instance, string path, int mode, int is_directory);
+
+        [DllImport(DLL)]
+        public static extern int ProtectFileRemoveProtectedPath(long instance, string path);
+
+        [DllImport(DLL)]
+        public static extern int ProtectFileClearProtectedPaths(long instance);
+
+        [DllImport(DLL)]
+        public static extern int ProtectFileQueryProtectedPath(long instance, string path, out int mode);
+
+        [DllImport(DLL)]
+        public static extern int ProtectFileAddWhitelist(long instance, long pid);
+
+        [DllImport(DLL)]
+        public static extern int ProtectFileRemoveWhitelist(long instance, long pid);
+
+        [DllImport(DLL)]
+        public static extern int ProtectFileClearWhitelist(long instance);
+
+        [DllImport(DLL)]
+        public static extern int ProtectFileQueryWhitelist(long instance, long pid);
+
+        [DllImport(DLL)]
+        public static extern int ProtectFileAddBlacklist(long instance, long pid);
+
+        [DllImport(DLL)]
+        public static extern int ProtectFileRemoveBlacklist(long instance, long pid);
+
+        [DllImport(DLL)]
+        public static extern int ProtectFileClearBlacklist(long instance);
+
+        [DllImport(DLL)]
+        public static extern int ProtectFileQueryBlacklist(long instance, long pid);
+
+        [DllImport(DLL)]
+        public static extern int VipProtectEnableDriver(long instance);
+
+        [DllImport(DLL)]
+        public static extern int VipProtectDisableDriver(long instance);
+
+        [DllImport(DLL)]
+        public static extern int VipProtectAddProtect(long instance, long pid, string path, int mode, int permission);
+
+        [DllImport(DLL)]
+        public static extern int VipProtectRemoveProtect(long instance, long pid, string path);
+
+        [DllImport(DLL)]
+        public static extern int VipProtectClearAll(long instance);
+
+        [DllImport(DLL)]
+        public static extern int VipProtectAddWhitelist(long instance, long pid, string path);
+
+        [DllImport(DLL)]
+        public static extern int VipProtectRemoveWhitelist(long instance, long pid, string path);
+
+        [DllImport(DLL)]
+        public static extern int VipProtectClearWhitelist(long instance);
+
+        [DllImport(DLL)]
+        public static extern int VipProtectAddBlacklist(long instance, long pid, string path);
+
+        [DllImport(DLL)]
+        public static extern int VipProtectRemoveBlacklist(long instance, long pid, string path);
+
+        [DllImport(DLL)]
+        public static extern int VipProtectClearBlacklist(long instance);
 
         [DllImport(DLL)]
         public static extern int GenerateRSAKey(long instance, string publicKeyPath, string privateKeyPath, int type, int keySize);
@@ -894,7 +990,7 @@ namespace OLAPlug
         public static extern int VirtualFreeEx(long instance, long hwnd, long addr);
 
         [DllImport(DLL)]
-        public static extern int VirtualProtectEx(long instance, long hwnd, long addr, int size, int type, int protect);
+        public static extern int VirtualProtectEx(long instance, long hwnd, long addr, int size, int newProtect, out int oldProtect);
 
         [DllImport(DLL)]
         public static extern long VirtualQueryEx(long instance, long hwnd, long addr, long pmbi);
@@ -978,6 +1074,12 @@ namespace OLAPlug
         public static extern int FastNumberOcr(long instance, int x1, int y1, int x2, int y2, string numbers, string colorJson, double matchVal);
 
         [DllImport(DLL)]
+        public static extern int ImportTxtDict(long instance, string dictName, string dictPath);
+
+        [DllImport(DLL)]
+        public static extern int ExportTxtDict(long instance, string dictName, string dictPath);
+
+        [DllImport(DLL)]
         public static extern int Capture(long instance, int x1, int y1, int x2, int y2, string file);
 
         [DllImport(DLL)]
@@ -991,6 +1093,12 @@ namespace OLAPlug
 
         [DllImport(DLL)]
         public static extern int CaptureGif(long instance, int x1, int y1, int x2, int y2, string file, int delay, int time);
+
+        [DllImport(DLL)]
+        public static extern int LockDisplay(long instance, int enable);
+
+        [DllImport(DLL)]
+        public static extern int SetSnapCacheTime(long instance, int cacheTime);
 
         [DllImport(DLL)]
         public static extern int GetImageData(long instance, long imgPtr, out long data, out int size, out int stride);
@@ -1344,6 +1452,15 @@ namespace OLAPlug
         public static extern int ImageStitchFree(long instance, long imageStitch);
 
         [DllImport(DLL)]
+        public static extern long BitPacking(long instance, long image);
+
+        [DllImport(DLL)]
+        public static extern long BitUnpacking(long instance, string imageStr);
+
+        [DllImport(DLL)]
+        public static extern int SetImageCache(int enable);
+
+        [DllImport(DLL)]
         public static extern long RegistryOpenKey(long instance, int rootKey, string subKey);
 
         [DllImport(DLL)]
@@ -1534,6 +1651,9 @@ namespace OLAPlug
 
         [DllImport(DLL)]
         public static extern int InitDictFromDir(long instance, long db, string dict_name, string dict_path, int cover);
+
+        [DllImport(DLL)]
+        public static extern int InitDictFromTxt(long instance, long db, string dict_name, string dict_path, int cover);
 
         [DllImport(DLL)]
         public static extern int ImportDictWord(long instance, long db, string dict_name, string pic_file_name, int cover);

@@ -43,264 +43,7 @@ namespace OLA
             if (!string.IsNullOrEmpty(packageName)) this.PackageName = packageName;
         }
 
-        // =======================================================================
-        // 🔥🔥🔥 OL_SDK 标准封装方法区 (含详细 XML 注释) 🔥🔥🔥
-        // =======================================================================
-
-        /// <summary>
-        /// [封装] 范围找图并点击
-        /// <para>SDK原名: <see cref="OLAPlugServer.MatchWindowsFromPath"/></para>
-        /// <para>参数链式: 左上X -> 左上Y -> 右下X -> 右下Y -> 图片名 -> 点击X -> 点击Y -> 延迟</para>
-        /// <para>修改说明: 封装了找图成功后的自动点击(带随机偏移)和智能延迟逻辑。</para>
-        /// </summary>
-        /// <param name="x1">查找范围左上角X</param>
-        /// <param name="y1">查找范围左上角Y</param>
-        /// <param name="x2">查找范围右下角X</param>
-        /// <param name="y2">查找范围右下角Y</param>
-        /// <param name="imgName">图片名称 (位于Output目录下)</param>
-        /// <param name="targetX">成功后点击的X坐标</param>
-        /// <param name="targetY">成功后点击的Y坐标</param>
-        /// <param name="delay">点击后的延迟时间(毫秒)</param>
-        /// <param name="offset">点击坐标的随机偏移量(默认5)</param>
-        /// <param name="sim">图片相似度(默认0.85)</param>
-        /// <returns>
-        /// <see cref="bool"/>
-        /// <list type="bullet">
-        /// <item><description><c>true</c>: 找到图片并执行了点击。</description></item>
-        /// <item><description><c>false</c>: 未找到图片或相似度不足。</description></item>
-        /// </list>
-        /// </returns>
-        /// <example>
-        /// <code>
-        /// // 示例：在全屏找 "start.bmp"，找到后点击(100,200)，延迟1秒
-        /// bool result = _worker.OL_MatchWindowsFromPath(0, 0, 1280, 720, "start.bmp", 100, 200, 1000);
-        /// </code>
-        /// </example>
-        public bool OL_MatchWindowsFromPath(
-            int x1, int y1, int x2, int y2,
-            string imgName,
-            int targetX, int targetY,
-            int delay,
-            int offset = 5,
-            double sim = 0.85)
-        {
-            var res = _ola!.MatchWindowsFromPath(x1, y1, x2, y2, imgName, sim, 0, 0, 1.0);
-            if (res != null && res.MatchState)
-            {
-                OL_LeftClick(targetX, targetY, offset);
-                SmartSleep(delay);
-                return true;
-            }
-            return false;
-        }
-
-        /// <summary>
-        /// [封装] 多点找色并点击
-        /// <para>SDK原名: <see cref="OLAPlugServer.CmpColor"/></para>
-        /// <para>参数链式: 多点颜色串 -> 点击X -> 点击Y -> 延迟</para>
-        /// <para>修改说明: 解析字符串并循环调用 CmpColor，所有点匹配成功才执行点击。</para>
-        /// </summary>
-        /// <param name="pointsStr">
-        /// 多点颜色特征串，格式: "x,y,color|x,y,color"
-        /// <br/>例如: "100,200,FFFFFF|300,400,00FF00"
-        /// </param>
-        /// <param name="targetX">成功后点击的X坐标</param>
-        /// <param name="targetY">成功后点击的Y坐标</param>
-        /// <param name="delay">点击后的延迟时间(毫秒)</param>
-        /// <param name="offset">点击坐标的随机偏移量(默认5)</param>
-        /// <returns>
-        /// <see cref="bool"/>
-        /// <list type="bullet">
-        /// <item><description><c>true</c>: 所有颜色点均匹配成功，已点击。</description></item>
-        /// <item><description><c>false</c>: 任意一个点颜色不匹配。</description></item>
-        /// </list>
-        /// </returns>
-        /// <example>
-        /// <code>
-        /// // 示例：判断两个点的颜色，符合则点击(500,500)
-        /// bool result = _worker.OL_CmpColor("100,200,FFFFFF|300,400,00FF00", 500, 500, 1000);
-        /// </code>
-        /// </example>
-        public bool OL_CmpColor(string pointsStr, int targetX, int targetY, int delay, int offset = 5)
-        {
-            if (string.IsNullOrEmpty(pointsStr)) return false;
-
-            string[] points = pointsStr.Split('|');
-            foreach (string p in points)
-            {
-                string[] item = p.Split(',');
-                if (item.Length < 3) continue;
-
-                int x = int.Parse(item[0]);
-                int y = int.Parse(item[1]);
-                string color = item[2];
-
-                // 使用精确比色
-                if (_ola!.CmpColor(x, y, color, color) == 0)
-                {
-                    return false;
-                }
-            }
-            OL_LeftClick(targetX, targetY, offset);
-            SmartSleep(delay);
-            return true;
-        }
-
-        /// <summary>
-        /// [封装] 找字并点击该字坐标 (重载1)
-        /// <para>SDK原名: <see cref="OLAPlugServer.FindStr"/></para>
-        /// <para>参数链式: 左上X -> 左上Y -> 右下X -> 右下Y -> 找字内容 -> 颜色-容差 -> 延迟</para>
-        /// <para>修改说明: 找到文字后，自动点击文字所在的坐标(x,y)。</para>
-        /// </summary>
-        /// <param name="x1">范围左上X</param>
-        /// <param name="y1">范围左上Y</param>
-        /// <param name="x2">范围右下X</param>
-        /// <param name="y2">范围右下Y</param>
-        /// <param name="text">要查找的文字内容</param>
-        /// <param name="color">颜色-容差 (如 "FFFFFF-101010")</param>
-        /// <param name="delay">点击后延迟(ms)</param>
-        /// <returns>
-        /// <see cref="bool"/>
-        /// <list type="bullet">
-        /// <item><description><c>true</c>: 找到文字并点击了自身坐标。</description></item>
-        /// <item><description><c>false</c>: 未找到文字。</description></item>
-        /// </list>
-        /// </returns>
-        /// <example>
-        /// <code>
-        /// // 示例：在区域找 "开始游戏"，找到后点击文字位置
-        /// bool result = _worker.OL_FindStr(0, 0, 1280, 720, "开始游戏", "FFFFFF-101010", 1000);
-        /// </code>
-        /// </example>
-        public bool OL_FindStr(int x1, int y1, int x2, int y2, string text, string color, int delay)
-        {
-            int x, y;
-            if (_ola!.FindStr(x1, y1, x2, y2, text, color, "无尽黑暗.txt", 0.8, out x, out y) != -1)
-            {
-                LogCallback?.Invoke($"🔠 找到[{text}] -> 坐标({x},{y}) -> 点击自身");
-                OL_LeftClick(x, y);
-                SmartSleep(delay);
-                return true;
-            }
-            return false;
-        }
-
-        /// <summary>
-        /// [封装] 找字并点击指定坐标 (重载2)
-        /// <para>SDK原名: <see cref="OLAPlugServer.FindStr"/></para>
-        /// <para>参数链式: 左上X -> 左上Y -> 右下X -> 右下Y -> 找字内容 -> 颜色-容差 -> 点击X -> 点击Y -> 延迟</para>
-        /// <para>修改说明: 找到文字后，不点文字，而是点击参数中指定的坐标(clickX, clickY)。</para>
-        /// </summary>
-        /// <param name="x1">范围左上X</param>
-        /// <param name="y1">范围左上Y</param>
-        /// <param name="x2">范围右下X</param>
-        /// <param name="y2">范围右下Y</param>
-        /// <param name="text">要查找的文字内容</param>
-        /// <param name="color">颜色-容差</param>
-        /// <param name="clickX">指定点击X坐标</param>
-        /// <param name="clickY">指定点击Y坐标</param>
-        /// <param name="delay">点击后延迟(ms)</param>
-        /// <returns>
-        /// <see cref="bool"/>
-        /// <list type="bullet">
-        /// <item><description><c>true</c>: 找到文字并点击了指定坐标。</description></item>
-        /// <item><description><c>false</c>: 未找到文字。</description></item>
-        /// </list>
-        /// </returns>
-        /// <example>
-        /// <code>
-        /// // 示例：找 "任务完成"，找到后点击坐标(900, 500)
-        /// bool result = _worker.OL_FindStr(0, 0, 1280, 720, "任务完成", "FFFFFF-101010", 900, 500, 1000);
-        /// </code>
-        /// </example>
-        public bool OL_FindStr(int x1, int y1, int x2, int y2, string text, string color, int clickX, int clickY, int delay)
-        {
-            int x, y;
-            if (_ola!.FindStr(x1, y1, x2, y2, text, color, "无尽黑暗.txt", 0.8, out x, out y) != -1)
-            {
-                LogCallback?.Invoke($"🔠 找到[{text}] -> 点击指定位置({clickX},{clickY})");
-                OL_LeftClick(clickX, clickY);
-                SmartSleep(delay);
-                return true;
-            }
-            return false;
-        }
-
-        /// <summary>
-        /// [封装] 区域OCR识字
-        /// <para>SDK原名: <see cref="OLAPlugServer.OcrFromDict"/></para>
-        /// <para>参数链式: 左上X -> 左上Y -> 右下X -> 右下Y -> 颜色 -> (返回文本)</para>
-        /// </summary>
-        /// <param name="x1">范围左上X</param>
-        /// <param name="y1">范围左上Y</param>
-        /// <param name="x2">范围右下X</param>
-        /// <param name="y2">范围右下Y</param>
-        /// <param name="color">颜色-容差</param>
-        /// <returns>
-        /// <see cref="string"/>
-        /// <para>返回识别到的文本内容。如果未识别到，返回空字符串 ""。</para>
-        /// </returns>
-        /// <example>
-        /// <code>
-        /// string txt = _worker.OL_OcrFromDict(0, 0, 200, 100, "FFFFFF-000000");
-        /// </code>
-        /// </example>
-        public string OL_OcrFromDict(int x1, int y1, int x2, int y2, string color)
-        {
-            string text = _ola!.OcrFromDict(x1, y1, x2, y2, color, "无尽黑暗.txt", 0.8);
-            return text ?? "";
-        }
-
-        /// <summary>
-        /// [封装] 鼠标移动并左键点击
-        /// <para>SDK原名: <see cref="OLAPlugServer.LeftClick"/> (组合 MoveTo + LeftDown + LeftUp)</para>
-        /// <para>参数链式: 目标X -> 目标Y -> 随机偏移范围</para>
-        /// <para>修改说明: 增加了坐标随机偏移，并模拟了按下与抬起之间的微小延迟(30-100ms)，防检测。</para>
-        /// </summary>
-        /// <param name="x">目标X坐标</param>
-        /// <param name="y">目标Y坐标</param>
-        /// <param name="range">随机偏移范围(默认5像素)</param>
-        /// <returns>void</returns>
-        /// <example>
-        /// <code>
-        /// _worker.OL_LeftClick(100, 200, 5);
-        /// </code>
-        /// </example>
-        public void OL_LeftClick(int x, int y, int range = 5)
-        {
-            int rndX = x + _rnd.Next(-range, range + 1);
-            int rndY = y + _rnd.Next(-range, range + 1);
-            _ola!.MoveTo(rndX, rndY);
-            Thread.Sleep(_rnd.Next(30, 100));
-            _ola.LeftDown();
-            Thread.Sleep(_rnd.Next(50, 200));
-            _ola.LeftUp();
-        }
-
-        /// <summary>
-        /// [功能] 智能延迟
-        /// <para>修改说明: 支持任务暂停和停止状态检测的 Sleep，比 Thread.Sleep 更安全。</para>
-        /// </summary>
-        /// <returns>
-        /// <see cref="bool"/>
-        /// <para>true: 延迟正常结束。</para>
-        /// <para>false: 延迟期间接收到停止或异常指令。</para>
-        /// </returns>
-        public bool SmartSleep(int ms)
-        {
-            int slice = 100;
-            int count = ms / slice;
-            int remain = ms % slice;
-            for (int i = 0; i < count; i++) { if (CheckLoopState()) return false; Thread.Sleep(slice); }
-            if (remain > 0) { if (CheckLoopState()) return false; Thread.Sleep(remain); }
-            return true;
-        }
-
-        // =======================================================================
-        // 以下为其他内部方法 (Start/Stop逻辑等)
-        // =======================================================================
-
-        #region 生命周期与逻辑线程
+        #region 生命周期控制
         public void Start()
         {
             if (RunState == 1) return;
@@ -339,11 +82,13 @@ namespace OLA
                 RunState = 0;
                 CloseEmulator();
                 Thread.Sleep(3000);
-                LogCallback?.Invoke("🔄 执行重启...");
+                LogCallback?.Invoke("执行重启...");
                 Start();
             });
         }
+        #endregion
 
+        #region 逻辑线程核心
         private void RunLogicThread(CancellationToken token)
         {
             try
@@ -390,7 +135,7 @@ namespace OLA
                 if (ret == 1)
                 {
                     UpdateStatus("运行中", childHwnd.ToString());
-                    LogCallback?.Invoke($"✅ 成功绑定窗口: 0x{childHwnd:X}");
+                    LogCallback?.Invoke($"成功绑定窗口: 0x{childHwnd:X}");
                     try { DoGameLogic(token, childHwnd); }
                     catch (OperationCanceledException) { }
                     catch (Exception ex) { if (!token.IsCancellationRequested) LogError($"逻辑异常:{ex.Message}"); }
@@ -409,7 +154,7 @@ namespace OLA
 
             if (TaskList == null || TaskList.Count == 0)
             {
-                LogCallback?.Invoke("⚠️ 未分配任务");
+                LogCallback?.Invoke("未分配任务");
                 Thread.Sleep(2000);
                 return;
             }
@@ -419,21 +164,261 @@ namespace OLA
             {
                 CheckPauseState();
                 if (RunState == 4) break;
-                LogCallback?.Invoke($"👉 开始执行: {taskName}");
+                LogCallback?.Invoke($"开始执行: {taskName}");
                 try { gameTask.Execute(taskName); }
-                catch (Exception ex) { LogCallback?.Invoke($"❌ 任务[{taskName}]出错: {ex.Message}"); }
+                catch (Exception ex) { LogCallback?.Invoke($"任务[{taskName}]出错: {ex.Message}"); }
                 if (RunState == 4) break;
-                LogCallback?.Invoke($"✅ {taskName} 已完成");
+                LogCallback?.Invoke($"{taskName} 已完成");
                 Thread.Sleep(1000);
             }
             if (RunState != 4)
             {
                 UpdateStatus("任务已全部完成", currentHwnd.ToString());
-                LogCallback?.Invoke("🎉 所有任务已完成");
+                LogCallback?.Invoke("所有任务已完成");
             }
         }
         #endregion
 
+        // =======================================================================
+        // 🔥🔥🔥 OL_SDK 标准封装方法区 (官方文档级注释) 🔥🔥🔥
+        // =======================================================================
+
+        /// <summary>
+        /// [封装] 范围找图并点击 (OL_MatchWindowsFromPath)
+        /// <para>-------------------------------------------------------</para>
+        /// <para><b>函数简介:</b></para>
+        /// <para>在指定区域内查找指定图片，找到后自动点击指定坐标并执行延迟。</para>
+        /// <para><b>使用说明:</b></para>
+        /// <para>图片文件需放置在 Output 目录下。支持 bmp, png, jpg 格式。</para>
+        /// <para><b>参数链式:</b> (x1, y1, x2, y2, "图片名", 点击x, 点击y, 延迟)</para>
+        /// <para><b>延迟类型:</b> 这里延迟是执行该代码后延迟执行 下一步</para>
+        /// <para><b>参数定义:</b></para>
+        /// <para>x1 (整型数): 查找区域左上角X坐标</para>
+        /// <para>y1 (整型数): 查找区域左上角Y坐标</para>
+        /// <para>x2 (整型数): 查找区域右下角X坐标</para>
+        /// <para>y2 (整型数): 查找区域右下角Y坐标</para>
+        /// <para>imgName (字符串): 图片文件名 (如 "test.bmp")</param>
+        /// <para>targetX (整型数): 找到后点击的X坐标</para>
+        /// <para>targetY (整型数): 找到后点击的Y坐标</para>
+        /// <para>delay (整型数): 点击后的延迟时间(ms)</para>
+        /// <para>offset (整型数): 点击坐标的随机偏移量(默认5)</param>
+        /// <para>sim (双精度浮点数): 图片相似度(默认0.85)</para>
+        /// <para><b>返回值:</b></para>
+        /// <para>布尔值 - true: 成功(找到并点击); false: 失败(未找到)</para>
+        /// <para>-------------------------------------------------------</para>
+        /// </summary>
+        public bool OL_MatchWindowsFromPath(
+            int x1, int y1, int x2, int y2,
+            string imgName,
+            int targetX, int targetY,
+            int delay,
+            int offset = 5,
+            double sim = 0.85)
+        {
+            var res = _ola!.MatchWindowsFromPath(x1, y1, x2, y2, imgName, sim, 0, 0, 1.0);
+            if (res != null && res.MatchState)
+            {
+                OL_LeftClick(targetX, targetY, offset);
+                SmartSleep(delay);
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// [封装] 多点找色并点击 (OL_CmpColor)
+        /// <para>-------------------------------------------------------</para>
+        /// <para><b>函数简介:</b></para>
+        /// <para>对比指定窗口坐标的颜色是否符合指定的颜色值。支持多点比色，全部符合才执行点击。</para>
+        /// <para><b>使用说明:</b></para>
+        /// <para>此函数是多点找色，如果需要找多个色彩的话请用|作为分隔符。</para>
+        /// <para>比如 "69,340,e1d7a7|141,299,fbf1bf"</para>
+        /// <para><b>参数链式:</b> ("颜色串", 点击x, 点击y, 延迟)</para>
+        /// <para><b>延迟类型:</b> 这里延迟是执行该代码后延迟执行 下一步</para>
+        /// <para><b>参数定义:</b></para>
+        /// <para>pointsStr (字符串): 多点颜色特征串，格式 "x,y,color|x,y,color"</para>
+        /// <para> - x (整型数): 要对比颜色的X坐标</para>
+        /// <para> - y (整型数): 要对比颜色的Y坐标</para>
+        /// <para> - color (字符串): 颜色格式 RRGGBB</para>
+        /// <para>targetX (整型数): 成功后点击的X坐标</para>
+        /// <para>targetY (整型数): 成功后点击的Y坐标</para>
+        /// <para>delay (整型数): 点击后的延迟时间(ms)</para>
+        /// <para>offset (整型数): 点击坐标的随机偏移量(默认5)</para>
+        /// <para><b>返回值:</b></para>
+        /// <para>布尔值 - true: 成功(所有点颜色匹配); false: 失败(任意点不匹配)</para>
+        /// <para>-------------------------------------------------------</para>
+        /// </summary>
+        public bool OL_CmpColor(string pointsStr, int targetX, int targetY, int delay, int offset = 5)
+        {
+            if (string.IsNullOrEmpty(pointsStr)) return false;
+
+            string[] points = pointsStr.Split('|');
+            foreach (string p in points)
+            {
+                string[] item = p.Split(',');
+                if (item.Length < 3) continue;
+
+                int x = int.Parse(item[0]);
+                int y = int.Parse(item[1]);
+                string color = item[2];
+
+                if (_ola!.CmpColor(x, y, color, color) == 0)
+                {
+                    return false;
+                }
+            }
+            OL_LeftClick(targetX, targetY, offset);
+            SmartSleep(delay);
+            return true;
+        }
+
+        /// <summary>
+        /// [封装] 找字并点击该字坐标 (OL_FindStr 重载1)
+        /// <para>-------------------------------------------------------</para>
+        /// <para><b>函数简介:</b></para>
+        /// <para>在指定区域内查找指定的文字，找到后点击文字所在的坐标。</para>
+        /// <para><b>使用说明:</b></para>
+        /// <para>需要配合字库文件使用 (默认无尽黑暗.txt)。适用于点击文字本身的场景。</para>
+        /// <para><b>参数链式:</b> (x1, y1, x2, y2, "找字内容", "颜色-色差", 延迟)</para>
+        /// <para><b>延迟类型:</b> 这里延迟是执行该代码后延迟执行 下一步</para>
+        /// <para><b>参数定义:</b></para>
+        /// <para>x1 (整型数): 查找区域左上角X</para>
+        /// <para>y1 (整型数): 查找区域左上角Y</para>
+        /// <para>x2 (整型数): 查找区域右下角X</para>
+        /// <para>y2 (整型数): 查找区域右下角Y</para>
+        /// <para>text (字符串): 要查找的文字内容</para>
+        /// <para>color (字符串): 颜色格式 "RRGGBB-DRDGDB" (颜色-偏色)</para>
+        /// <para>delay (整型数): 点击后的延迟时间(ms)</para>
+        /// <para><b>返回值:</b></para>
+        /// <para>布尔值 - true: 成功(找到文字并点击); false: 失败(未找到)</para>
+        /// <para>-------------------------------------------------------</para>
+        /// </summary>
+        public bool OL_FindStr(int x1, int y1, int x2, int y2, string text, string color, int delay)
+        {
+            int x, y;
+            if (_ola!.FindStr(x1, y1, x2, y2, text, color, "无尽黑暗.txt", 0.8, out x, out y) != -1)
+            {
+                LogCallback?.Invoke($"找到[{text}] -> 坐标({x},{y}) -> 点击自身");
+                OL_LeftClick(x, y);
+                SmartSleep(delay);
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// [封装] 找字并点击指定位置 (OL_FindStr 重载2)
+        /// <para>-------------------------------------------------------</para>
+        /// <para><b>函数简介:</b></para>
+        /// <para>在指定区域内查找指定的文字，找到后点击指定的坐标(非文字坐标)。</para>
+        /// <para><b>使用说明:</b></para>
+        /// <para>适用于通过文字判断界面状态，但实际需要点击其他按钮或位置的场景。</para>
+        /// <para><b>参数链式:</b> (x1, y1, x2, y2, "找字内容", "颜色-色差", 点击x, 点击y, 延迟)</para>
+        /// <para><b>延迟类型:</b> 这里延迟是执行该代码后延迟执行 下一步</para>
+        /// <para><b>参数定义:</b></para>
+        /// <para>x1 (整型数): 查找区域左上角X</para>
+        /// <para>y1 (整型数): 查找区域左上角Y</para>
+        /// <para>x2 (整型数): 查找区域右下角X</para>
+        /// <para>y2 (整型数): 查找区域右下角Y</para>
+        /// <para>text (字符串): 要查找的文字内容</para>
+        /// <para>color (字符串): 颜色格式 "RRGGBB-DRDGDB"</para>
+        /// <para>clickX (整型数): 指定点击的X坐标</para>
+        /// <para>clickY (整型数): 指定点击的Y坐标</para>
+        /// <para>delay (整型数): 点击后的延迟时间(ms)</para>
+        /// <para><b>返回值:</b></para>
+        /// <para>布尔值 - true: 成功(找到文字并点击指定位置); false: 失败(未找到)</para>
+        /// <para>-------------------------------------------------------</para>
+        /// </summary>
+        public bool OL_FindStr(int x1, int y1, int x2, int y2, string text, string color, int clickX, int clickY, int delay)
+        {
+            int x, y;
+            if (_ola!.FindStr(x1, y1, x2, y2, text, color, "无尽黑暗.txt", 0.8, out x, out y) != -1)
+            {
+                LogCallback?.Invoke($"找到[{text}] -> 点击指定位置({clickX},{clickY})");
+                OL_LeftClick(clickX, clickY);
+                SmartSleep(delay);
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// [封装] 区域OCR识字 (OL_OcrFromDict)
+        /// <para>-------------------------------------------------------</para>
+        /// <para><b>函数简介:</b></para>
+        /// <para>使用字库对指定区域进行文字识别，返回识别到的字符串。</para>
+        /// <para><b>使用说明:</b></para>
+        /// <para>仅进行识别，不执行任何点击操作。</para>
+        /// <para><b>参数链式:</b> (x1, y1, x2, y2, "颜色-色差")</para>
+        /// <para><b>参数定义:</b></para>
+        /// <para>x1 (整型数): 区域左上角X</para>
+        /// <para>y1 (整型数): 区域左上角Y</para>
+        /// <para>x2 (整型数): 区域右下角X</para>
+        /// <para>y2 (整型数): 区域右下角Y</para>
+        /// <para>color (字符串): 颜色格式 "RRGGBB-DRDGDB"</para>
+        /// <para><b>返回值:</b></para>
+        /// <para>字符串 - 返回识别到的文本。如未识别到，返回空字符串。</para>
+        /// <para>-------------------------------------------------------</para>
+        /// </summary>
+        public string OL_OcrFromDict(int x1, int y1, int x2, int y2, string color)
+        {
+            string text = _ola!.OcrFromDict(x1, y1, x2, y2, color, "无尽黑暗.txt", 0.8);
+            return text ?? "";
+        }
+
+        /// <summary>
+        /// [封装] 鼠标移动并左键点击 (OL_LeftClick)
+        /// <para>-------------------------------------------------------</para>
+        /// <para><b>函数简介:</b></para>
+        /// <para>模拟鼠标移动到指定坐标，并执行左键按下和弹起的操作。</para>
+        /// <para><b>使用说明:</b></para>
+        /// <para>内部包含随机偏移和按键延迟，用于模拟真实用户操作。</para>
+        /// <para><b>参数链式:</b> (点击x, 点击y, 随机偏移)</para>
+        /// <para><b>参数定义:</b></para>
+        /// <para>x (整型数): 目标X坐标</para>
+        /// <para>y (整型数): 目标Y坐标</para>
+        /// <para>range (整型数): 随机偏移范围(默认5像素)</para>
+        /// <para>-------------------------------------------------------</para>
+        /// </summary>
+        public void OL_LeftClick(int x, int y, int range = 5)
+        {
+            int rndX = x + _rnd.Next(-range, range + 1);
+            int rndY = y + _rnd.Next(-range, range + 1);
+            _ola!.MoveTo(rndX, rndY);
+            Thread.Sleep(_rnd.Next(30, 100));
+            _ola.LeftDown();
+            Thread.Sleep(_rnd.Next(50, 200));
+            _ola.LeftUp();
+        }
+
+        /// <summary>
+        /// [封装] 智能延迟 (SmartSleep)
+        /// <para>-------------------------------------------------------</para>
+        /// <para><b>函数简介:</b></para>
+        /// <para>执行指定时间的延迟，期间会持续检测任务的暂停或停止状态。</para>
+        /// <para><b>使用说明:</b></para>
+        /// <para>替代 Thread.Sleep，确保脚本可以随时响应用户的停止指令。</para>
+        /// <para><b>参数链式:</b> (延迟时间)</para>
+        /// <para><b>延迟类型:</b> 这里延迟是执行该代码后延迟执行 下一步</para>
+        /// <para><b>参数定义:</b></para>
+        /// <para>ms (整型数): 延迟时间(毫秒)</para>
+        /// <para><b>返回值:</b></para>
+        /// <para>布尔值 - true: 延迟正常结束; false: 任务被停止或中断</para>
+        /// <para>-------------------------------------------------------</para>
+        /// </summary>
+        public bool SmartSleep(int ms)
+        {
+            int slice = 100;
+            int count = ms / slice;
+            int remain = ms % slice;
+            for (int i = 0; i < count; i++) { if (CheckLoopState()) return false; Thread.Sleep(slice); }
+            if (remain > 0) { if (CheckLoopState()) return false; Thread.Sleep(remain); }
+            return true;
+        }
+
+        // =======================================================================
+        // 4. 内部辅助方法
+        // =======================================================================
         #region 内部辅助方法
         public void EnsureGameRunning()
         {
@@ -444,11 +429,11 @@ namespace OLA
                     string indexStr = "0";
                     if (EmulatorName.Contains("-")) indexStr = EmulatorName.Split('-')[1];
                     string cmdExe = Path.Combine(EmulatorBasePath, "ldconsole.exe");
-                    if (!File.Exists(cmdExe)) { LogCallback?.Invoke("⚠️ 未找到 ldconsole.exe"); return; }
+                    if (!File.Exists(cmdExe)) { LogCallback?.Invoke("未找到 ldconsole.exe"); return; }
                     Process.Start(new ProcessStartInfo { FileName = cmdExe, Arguments = $"launchex --index {indexStr} --packagename {this.PackageName}", UseShellExecute = false, CreateNoWindow = true });
-                    LogCallback?.Invoke($"🚀 正在拉起游戏: {this.PackageName}");
+                    LogCallback?.Invoke($"正在拉起游戏: {this.PackageName}");
                 }
-                catch (Exception ex) { LogCallback?.Invoke($"❌ 启动指令失败: {ex.Message}"); }
+                catch (Exception ex) { LogCallback?.Invoke($"启动指令失败: {ex.Message}"); }
             }
         }
 
@@ -512,7 +497,7 @@ namespace OLA
             }
             catch { }
         }
-        private void LogError(string msg) { LogCallback?.Invoke($"❌ {msg}"); UpdateStatus("错误", "0"); UpdateException(msg); }
+        private void LogError(string msg) { LogCallback?.Invoke($"{msg}"); UpdateStatus("错误", "0"); UpdateException(msg); }
         private void UpdateStatus(string status, string hwnd) { if (_lastStatusMsg != status) { _lastStatusMsg = status; StatusCallback?.Invoke(RowIndex, status, hwnd); } }
         private void UpdateException(string msg) { if (_lastExceptionMsg != msg) { _lastExceptionMsg = msg; ExceptionCallback?.Invoke(RowIndex, msg); } }
         private void Cleanup() { if (_ola != null) { _ola.UnBindWindow(); _ola.ReleaseObj(); _ola = null; } if (RunState == 4) { UpdateStatus("已停止", "0"); UpdateException(""); } }
