@@ -64,6 +64,7 @@
             huifu_suoyou = new Button();
             zanting_suoyou = new Button();
             quanbu_tingzhi = new Button();
+            yunxingshijian = new StatusStrip();
             ((System.ComponentModel.ISupportInitialize)moniqi_liebiao).BeginInit();
             tabControl1.SuspendLayout();
             tabPage1.SuspendLayout();
@@ -418,11 +419,20 @@
             quanbu_tingzhi.UseVisualStyleBackColor = true;
             quanbu_tingzhi.Click += quanbu_tingzhi_Click;
             // 
+            // yunxingshijian
+            // 
+            yunxingshijian.Location = new Point(0, 456);
+            yunxingshijian.Name = "yunxingshijian";
+            yunxingshijian.Size = new Size(701, 22);
+            yunxingshijian.TabIndex = 7;
+            yunxingshijian.Text = "statusStrip1";
+            // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(7F, 17F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(701, 457);
+            ClientSize = new Size(701, 478);
+            Controls.Add(yunxingshijian);
             Controls.Add(quanbu_tingzhi);
             Controls.Add(zanting_suoyou);
             Controls.Add(huifu_suoyou);
@@ -439,6 +449,7 @@
             tabPage1.ResumeLayout(false);
             tabPage1.PerformLayout();
             ResumeLayout(false);
+            PerformLayout();
         }
 
         #endregion
@@ -479,5 +490,6 @@
         private DataGridViewTextBoxColumn zhuangtai;
         private DataGridViewTextBoxColumn jubing;
         private DataGridViewTextBoxColumn yichang;
+        private StatusStrip yunxingshijian;
     }
 }
