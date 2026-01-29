@@ -5,7 +5,7 @@ namespace OLAPlug
 {
     public static class OLAPlugDLLHelper
     {
-        public const string DLL = "OLAPlug_x64.dll"; //支持修改DLL名称为任意值,只要跟文件对应好就行 比如abc.cdf。
+        public const string DLL = "OLA.dll"; //支持修改DLL名称为任意值,只要跟文件对应好就行 比如abc.cdf。
         //public const string DLL = "OLAPlug_x86.dll"; //支持修改DLL名称为任意值,只要跟文件对应好就行 比如abc.cdf。
 
         /// <summary>

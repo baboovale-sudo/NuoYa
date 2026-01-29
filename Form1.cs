@@ -18,12 +18,12 @@ namespace OLA
         // ==========================================
         public static class OLAConfig
         {
-            // 1. 注册码配置 (请在此处修改你的注册码)
+            // 1. 注册码配置
             public const string UserCode = "d841c28403974a56b31a74856542b6b7";
             public const string SoftCode = "c8285fc70089468f82cb927fee5fdf25";
             public const string Key = "OLA";
 
-            // 2. 窗口绑定参数 (修改此处可全局生效)
+            // 2. 窗口绑定参数
             public const string Bind_Display = "gdi";
             public const string Bind_Mouse = "windows3";
             public const string Bind_Keypad = "windows";
@@ -31,7 +31,7 @@ namespace OLA
         }
 
         // ==========================================
-        // 🔥 API 定义 
+        // 🔥 API 定义
         // ==========================================
         [DllImport("user32.dll", EntryPoint = "SetWindowPos")]
         public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
@@ -646,20 +646,66 @@ namespace OLA
             }
         }
 
+        // ==========================================
+        // 🔍 修改后的路径查找逻辑
+        // ==========================================
         private string Auto_Find_Path(string emulatorName)
         {
             string nameLower = emulatorName.ToLower();
+
+            if (nameLower.Contains("mumu"))
+            {
+                // 1. 优先检查默认安装地址
+                string defaultPath = @"D:\Program Files\Netease\MuMu";
+                if (Directory.Exists(defaultPath))
+                {
+                    return defaultPath;
+                }
+
+                // 2. 如果不存在，执行 D 盘全盘深度搜索
+                return Full_Search_MuMu(@"D:\");
+            }
+
             if (nameLower.Contains("雷电"))
             {
                 string res = Deep_Search_D_Drive("LDPlayer9");
                 if (!string.IsNullOrEmpty(res)) return res;
                 return Deep_Search_D_Drive("LDPlayer");
             }
-            else if (nameLower.Contains("mumu"))
+
+            return "";
+        }
+
+        // ==========================================
+        // 🚀 新增：深度递归搜索 D 盘
+        // ==========================================
+        private string Full_Search_MuMu(string rootPath)
+        {
+            try
             {
-                string res = Deep_Search_D_Drive("MuMuPlayer");
-                if (!string.IsNullOrEmpty(res)) return res;
-                return Deep_Search_D_Drive("MuMuPlayer-12.0");
+                string[] dirs = Directory.GetDirectories(rootPath);
+                foreach (string dir in dirs)
+                {
+                    if (Path.GetFileName(dir).Equals("MuMu", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return dir;
+                    }
+
+                    if (dir.Contains("$RECYCLE.BIN") || dir.Contains("System Volume Information"))
+                    {
+                        continue;
+                    }
+
+                    string found = Full_Search_MuMu(dir);
+                    if (!string.IsNullOrEmpty(found))
+                    {
+                        return found;
+                    }
+                }
+            }
+            catch
+            {
+                // 忽略权限受限的目录
             }
             return "";
         }
