@@ -28,7 +28,9 @@
         /// </summary>
         private void InitializeComponent()
         {
-            this.components = new System.ComponentModel.Container();
+            components = new System.ComponentModel.Container();
+            DataGridViewCellStyle dataGridViewCellStyle1 = new DataGridViewCellStyle();
+            DataGridViewCellStyle dataGridViewCellStyle2 = new DataGridViewCellStyle();
             moniqi_liebiao = new DataGridView();
             xuhao = new DataGridViewTextBoxColumn();
             moniqi = new DataGridViewTextBoxColumn();
@@ -69,9 +71,9 @@
             yunxingshijian = new ToolStripStatusLabel();
             timer_runtime = new System.Windows.Forms.Timer(components);
             ((System.ComponentModel.ISupportInitialize)moniqi_liebiao).BeginInit();
-            statusStrip1.SuspendLayout();
             tabControl1.SuspendLayout();
             tabPage1.SuspendLayout();
+            statusStrip1.SuspendLayout();
             SuspendLayout();
             // 
             // moniqi_liebiao
@@ -80,7 +82,17 @@
             moniqi_liebiao.AllowUserToDeleteRows = false;
             moniqi_liebiao.AllowUserToResizeColumns = false;
             moniqi_liebiao.AllowUserToResizeRows = false;
+            dataGridViewCellStyle1.Alignment = DataGridViewContentAlignment.TopCenter;
+            moniqi_liebiao.AlternatingRowsDefaultCellStyle = dataGridViewCellStyle1;
             moniqi_liebiao.BackgroundColor = Color.White;
+            dataGridViewCellStyle2.Alignment = DataGridViewContentAlignment.MiddleCenter;
+            dataGridViewCellStyle2.BackColor = SystemColors.Control;
+            dataGridViewCellStyle2.Font = new Font("Microsoft YaHei UI", 9F);
+            dataGridViewCellStyle2.ForeColor = SystemColors.WindowText;
+            dataGridViewCellStyle2.SelectionBackColor = SystemColors.Highlight;
+            dataGridViewCellStyle2.SelectionForeColor = SystemColors.HighlightText;
+            dataGridViewCellStyle2.WrapMode = DataGridViewTriState.True;
+            moniqi_liebiao.ColumnHeadersDefaultCellStyle = dataGridViewCellStyle2;
             moniqi_liebiao.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
             moniqi_liebiao.Columns.AddRange(new DataGridViewColumn[] { xuhao, moniqi, zhanghao, mima, zhuangtai, jubing, yichang });
             moniqi_liebiao.Location = new Point(-1, 2);
@@ -434,7 +446,7 @@
             // yunxingshijian
             // 
             yunxingshijian.Name = "yunxingshijian";
-            yunxingshijian.Size = new Size(131, 17);
+            yunxingshijian.Size = new Size(135, 17);
             yunxingshijian.Text = "脚本运行时间: 00:00:00";
             // 
             // timer_runtime
@@ -460,8 +472,6 @@
             Text = "武林外传_模拟器";
             Load += Form1_Load;
             ((System.ComponentModel.ISupportInitialize)moniqi_liebiao).EndInit();
-            statusStrip1.ResumeLayout(false);
-            statusStrip1.PerformLayout();
             tabControl1.ResumeLayout(false);
             tabPage1.ResumeLayout(false);
             tabPage1.PerformLayout();
