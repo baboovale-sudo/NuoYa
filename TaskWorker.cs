@@ -104,13 +104,13 @@ namespace OLA
                 {
                     if (token.IsCancellationRequested) return;
                     UpdateStatus("启动中...", "0");
-                    if (!LaunchEmulator()) { LogError("启动失败"); return; }
+                    if (!LaunchEmulator()) { LogError("启动失败: 请检查日志"); return; }
                     UpdateStatus("等待画面10s", "0");
                     try { Task.Delay(10000, token).Wait(); } catch { return; }
 
                     UpdateException("等待60秒监控介入...");
                     int retry = 0;
-                    while (parentHwnd == 0 && retry < 30)
+                    while (parentHwnd == 0 && retry < 60)
                     {
                         if (token.IsCancellationRequested) return;
                         parentHwnd = FindWindowWithPlugin();
@@ -180,246 +180,57 @@ namespace OLA
         #endregion
 
         // =======================================================================
-        // 🔥🔥🔥 OL_SDK 标准封装方法区 (官方文档级注释) 🔥🔥🔥
+        // 🔥🔥🔥 OL_SDK 标准封装方法区 🔥🔥🔥
         // =======================================================================
-
-        /// <summary>
-        /// [封装] 范围找图并点击 (OL_MatchWindowsFromPath)
-        /// <para>-------------------------------------------------------</para>
-        /// <para><b>函数简介:</b></para>
-        /// <para>在指定区域内查找指定图片，找到后自动点击指定坐标并执行延迟。</para>
-        /// <para><b>使用说明:</b></para>
-        /// <para>图片文件需放置在 Output 目录下。支持 bmp, png, jpg 格式。</para>
-        /// <para><b>参数链式:</b> (x1, y1, x2, y2, "图片名", 点击x, 点击y, 延迟)</para>
-        /// <para><b>延迟类型:</b> 这里延迟是执行该代码后延迟执行 下一步</para>
-        /// <para><b>参数定义:</b></para>
-        /// <para>x1 (整型数): 查找区域左上角X坐标</para>
-        /// <para>y1 (整型数): 查找区域左上角Y坐标</para>
-        /// <para>x2 (整型数): 查找区域右下角X坐标</para>
-        /// <para>y2 (整型数): 查找区域右下角Y坐标</para>
-        /// <para>imgName (字符串): 图片文件名 (如 "test.bmp")</param>
-        /// <para>targetX (整型数): 找到后点击的X坐标</para>
-        /// <para>targetY (整型数): 找到后点击的Y坐标</para>
-        /// <para>delay (整型数): 点击后的延迟时间(ms)</para>
-        /// <para>offset (整型数): 点击坐标的随机偏移量(默认5)</param>
-        /// <para>sim (双精度浮点数): 图片相似度(默认0.85)</para>
-        /// <para><b>返回值:</b></para>
-        /// <para>布尔值 - true: 成功(找到并点击); false: 失败(未找到)</para>
-        /// <para>-------------------------------------------------------</para>
-        /// </summary>
-        public bool OL_MatchWindowsFromPath(
-            int x1, int y1, int x2, int y2,
-            string imgName,
-            int targetX, int targetY,
-            int delay,
-            int offset = 5,
-            double sim = 0.85)
+        public bool OL_MatchWindowsFromPath(int x1, int y1, int x2, int y2, string imgName, int targetX, int targetY, int delay, int offset = 5, double sim = 0.85)
         {
             var res = _ola!.MatchWindowsFromPath(x1, y1, x2, y2, imgName, sim, 0, 0, 1.0);
-            if (res != null && res.MatchState)
-            {
-                OL_LeftClick(targetX, targetY, offset);
-                SmartSleep(delay);
-                return true;
-            }
+            if (res != null && res.MatchState) { OL_LeftClick(targetX, targetY, offset); SmartSleep(delay); return true; }
             return false;
         }
 
-        /// <summary>
-        /// [封装] 多点找色并点击 (OL_CmpColor)
-        /// <para>-------------------------------------------------------</para>
-        /// <para><b>函数简介:</b></para>
-        /// <para>对比指定窗口坐标的颜色是否符合指定的颜色值。支持多点比色，全部符合才执行点击。</para>
-        /// <para><b>使用说明:</b></para>
-        /// <para>此函数是多点找色，如果需要找多个色彩的话请用|作为分隔符。</para>
-        /// <para>比如 "69,340,e1d7a7|141,299,fbf1bf"</para>
-        /// <para><b>参数链式:</b> ("颜色串", 点击x, 点击y, 延迟)</para>
-        /// <para><b>延迟类型:</b> 这里延迟是执行该代码后延迟执行 下一步</para>
-        /// <para><b>参数定义:</b></para>
-        /// <para>pointsStr (字符串): 多点颜色特征串，格式 "x,y,color|x,y,color"</para>
-        /// <para> - x (整型数): 要对比颜色的X坐标</para>
-        /// <para> - y (整型数): 要对比颜色的Y坐标</para>
-        /// <para> - color (字符串): 颜色格式 RRGGBB</para>
-        /// <para>targetX (整型数): 成功后点击的X坐标</para>
-        /// <para>targetY (整型数): 成功后点击的Y坐标</para>
-        /// <para>delay (整型数): 点击后的延迟时间(ms)</para>
-        /// <para>offset (整型数): 点击坐标的随机偏移量(默认5)</para>
-        /// <para><b>返回值:</b></para>
-        /// <para>布尔值 - true: 成功(所有点颜色匹配); false: 失败(任意点不匹配)</para>
-        /// <para>-------------------------------------------------------</para>
-        /// </summary>
         public bool OL_CmpColor(string pointsStr, int targetX, int targetY, int delay, int offset = 5)
         {
             if (string.IsNullOrEmpty(pointsStr)) return false;
-
             string[] points = pointsStr.Split('|');
             foreach (string p in points)
             {
-                string[] item = p.Split(',');
-                if (item.Length < 3) continue;
-
-                int x = int.Parse(item[0]);
-                int y = int.Parse(item[1]);
-                string color = item[2];
-
-                if (_ola!.CmpColor(x, y, color, color) == 0)
-                {
-                    return false;
-                }
+                string[] item = p.Split(','); if (item.Length < 3) continue;
+                if (_ola!.CmpColor(int.Parse(item[0]), int.Parse(item[1]), item[2], item[2]) == 0) return false;
             }
-            OL_LeftClick(targetX, targetY, offset);
-            SmartSleep(delay);
-            return true;
+            OL_LeftClick(targetX, targetY, offset); SmartSleep(delay); return true;
         }
 
-        /// <summary>
-        /// [封装] 找字并点击该字坐标 (OL_FindStr 重载1)
-        /// <para>-------------------------------------------------------</para>
-        /// <para><b>函数简介:</b></para>
-        /// <para>在指定区域内查找指定的文字，找到后点击文字所在的坐标。</para>
-        /// <para><b>使用说明:</b></para>
-        /// <para>需要配合字库文件使用 (默认无尽黑暗.txt)。适用于点击文字本身的场景。</para>
-        /// <para><b>参数链式:</b> (x1, y1, x2, y2, "找字内容", "颜色-色差", 延迟)</para>
-        /// <para><b>延迟类型:</b> 这里延迟是执行该代码后延迟执行 下一步</para>
-        /// <para><b>参数定义:</b></para>
-        /// <para>x1 (整型数): 查找区域左上角X</para>
-        /// <para>y1 (整型数): 查找区域左上角Y</para>
-        /// <para>x2 (整型数): 查找区域右下角X</para>
-        /// <para>y2 (整型数): 查找区域右下角Y</para>
-        /// <para>text (字符串): 要查找的文字内容</para>
-        /// <para>color (字符串): 颜色格式 "RRGGBB-DRDGDB" (颜色-偏色)</para>
-        /// <para>delay (整型数): 点击后的延迟时间(ms)</para>
-        /// <para><b>返回值:</b></para>
-        /// <para>布尔值 - true: 成功(找到文字并点击); false: 失败(未找到)</para>
-        /// <para>-------------------------------------------------------</para>
-        /// </summary>
         public bool OL_FindStr(int x1, int y1, int x2, int y2, string text, string color, int delay)
         {
-            int x, y;
-            if (_ola!.FindStr(x1, y1, x2, y2, text, color, "无尽黑暗.txt", 0.8, out x, out y) != -1)
-            {
-                LogCallback?.Invoke($"找到[{text}] -> 坐标({x},{y}) -> 点击自身");
-                OL_LeftClick(x, y);
-                SmartSleep(delay);
-                return true;
-            }
+            int x, y; if (_ola!.FindStr(x1, y1, x2, y2, text, color, "无尽黑暗.txt", 0.8, out x, out y) != -1) { OL_LeftClick(x, y); SmartSleep(delay); return true; }
             return false;
         }
 
-        /// <summary>
-        /// [封装] 找字并点击指定位置 (OL_FindStr 重载2)
-        /// <para>-------------------------------------------------------</para>
-        /// <para><b>函数简介:</b></para>
-        /// <para>在指定区域内查找指定的文字，找到后点击指定的坐标(非文字坐标)。</para>
-        /// <para><b>使用说明:</b></para>
-        /// <para>适用于通过文字判断界面状态，但实际需要点击其他按钮或位置的场景。</para>
-        /// <para><b>参数链式:</b> (x1, y1, x2, y2, "找字内容", "颜色-色差", 点击x, 点击y, 延迟)</para>
-        /// <para><b>延迟类型:</b> 这里延迟是执行该代码后延迟执行 下一步</para>
-        /// <para><b>参数定义:</b></para>
-        /// <para>x1 (整型数): 查找区域左上角X</para>
-        /// <para>y1 (整型数): 查找区域左上角Y</para>
-        /// <para>x2 (整型数): 查找区域右下角X</para>
-        /// <para>y2 (整型数): 查找区域右下角Y</para>
-        /// <para>text (字符串): 要查找的文字内容</para>
-        /// <para>color (字符串): 颜色格式 "RRGGBB-DRDGDB"</para>
-        /// <para>clickX (整型数): 指定点击的X坐标</para>
-        /// <para>clickY (整型数): 指定点击的Y坐标</para>
-        /// <para>delay (整型数): 点击后的延迟时间(ms)</para>
-        /// <para><b>返回值:</b></para>
-        /// <para>布尔值 - true: 成功(找到文字并点击指定位置); false: 失败(未找到)</para>
-        /// <para>-------------------------------------------------------</para>
-        /// </summary>
         public bool OL_FindStr(int x1, int y1, int x2, int y2, string text, string color, int clickX, int clickY, int delay)
         {
-            int x, y;
-            if (_ola!.FindStr(x1, y1, x2, y2, text, color, "无尽黑暗.txt", 0.8, out x, out y) != -1)
-            {
-                LogCallback?.Invoke($"找到[{text}] -> 点击指定位置({clickX},{clickY})");
-                OL_LeftClick(clickX, clickY);
-                SmartSleep(delay);
-                return true;
-            }
+            int x, y; if (_ola!.FindStr(x1, y1, x2, y2, text, color, "无尽黑暗.txt", 0.8, out x, out y) != -1) { OL_LeftClick(clickX, clickY); SmartSleep(delay); return true; }
             return false;
         }
 
-        /// <summary>
-        /// [封装] 区域OCR识字 (OL_OcrFromDict)
-        /// <para>-------------------------------------------------------</para>
-        /// <para><b>函数简介:</b></para>
-        /// <para>使用字库对指定区域进行文字识别，返回识别到的字符串。</para>
-        /// <para><b>使用说明:</b></para>
-        /// <para>仅进行识别，不执行任何点击操作。</para>
-        /// <para><b>参数链式:</b> (x1, y1, x2, y2, "颜色-色差")</para>
-        /// <para><b>参数定义:</b></para>
-        /// <para>x1 (整型数): 区域左上角X</para>
-        /// <para>y1 (整型数): 区域左上角Y</para>
-        /// <para>x2 (整型数): 区域右下角X</para>
-        /// <para>y2 (整型数): 区域右下角Y</para>
-        /// <para>color (字符串): 颜色格式 "RRGGBB-DRDGDB"</para>
-        /// <para><b>返回值:</b></para>
-        /// <para>字符串 - 返回识别到的文本。如未识别到，返回空字符串。</para>
-        /// <para>-------------------------------------------------------</para>
-        /// </summary>
-        public string OL_OcrFromDict(int x1, int y1, int x2, int y2, string color)
-        {
-            string text = _ola!.OcrFromDict(x1, y1, x2, y2, color, "无尽黑暗.txt", 0.8);
-            return text ?? "";
-        }
+        public string OL_OcrFromDict(int x1, int y1, int x2, int y2, string color) => _ola!.OcrFromDict(x1, y1, x2, y2, color, "无尽黑暗.txt", 0.8) ?? "";
 
-        /// <summary>
-        /// [封装] 鼠标移动并左键点击 (OL_LeftClick)
-        /// <para>-------------------------------------------------------</para>
-        /// <para><b>函数简介:</b></para>
-        /// <para>模拟鼠标移动到指定坐标，并执行左键按下和弹起的操作。</para>
-        /// <para><b>使用说明:</b></para>
-        /// <para>内部包含随机偏移和按键延迟，用于模拟真实用户操作。</para>
-        /// <para><b>参数链式:</b> (点击x, 点击y, 随机偏移)</para>
-        /// <para><b>参数定义:</b></para>
-        /// <para>x (整型数): 目标X坐标</para>
-        /// <para>y (整型数): 目标Y坐标</para>
-        /// <para>range (整型数): 随机偏移范围(默认5像素)</para>
-        /// <para>-------------------------------------------------------</para>
-        /// </summary>
         public void OL_LeftClick(int x, int y, int range = 5)
         {
-            int rndX = x + _rnd.Next(-range, range + 1);
-            int rndY = y + _rnd.Next(-range, range + 1);
-            _ola!.MoveTo(rndX, rndY);
-            Thread.Sleep(_rnd.Next(30, 100));
-            _ola.LeftDown();
-            Thread.Sleep(_rnd.Next(50, 200));
-            _ola.LeftUp();
+            _ola!.MoveTo(x + _rnd.Next(-range, range + 1), y + _rnd.Next(-range, range + 1));
+            Thread.Sleep(_rnd.Next(30, 100)); _ola.LeftDown(); Thread.Sleep(_rnd.Next(50, 200)); _ola.LeftUp();
         }
 
-        /// <summary>
-        /// [封装] 智能延迟 (SmartSleep)
-        /// <para>-------------------------------------------------------</para>
-        /// <para><b>函数简介:</b></para>
-        /// <para>执行指定时间的延迟，期间会持续检测任务的暂停或停止状态。</para>
-        /// <para><b>使用说明:</b></para>
-        /// <para>替代 Thread.Sleep，确保脚本可以随时响应用户的停止指令。</para>
-        /// <para><b>参数链式:</b> (延迟时间)</para>
-        /// <para><b>延迟类型:</b> 这里延迟是执行该代码后延迟执行 下一步</para>
-        /// <para><b>参数定义:</b></para>
-        /// <para>ms (整型数): 延迟时间(毫秒)</para>
-        /// <para><b>返回值:</b></para>
-        /// <para>布尔值 - true: 延迟正常结束; false: 任务被停止或中断</para>
-        /// <para>-------------------------------------------------------</para>
-        /// </summary>
         public bool SmartSleep(int ms)
         {
-            int slice = 100;
-            int count = ms / slice;
-            int remain = ms % slice;
+            int slice = 100, count = ms / slice;
             for (int i = 0; i < count; i++) { if (CheckLoopState()) return false; Thread.Sleep(slice); }
-            if (remain > 0) { if (CheckLoopState()) return false; Thread.Sleep(remain); }
+            if ((ms % slice) > 0) { if (CheckLoopState()) return false; Thread.Sleep(ms % slice); }
             return true;
         }
 
-        // =======================================================================
-        // 4. 内部辅助方法
-        // =======================================================================
-        #region 内部辅助方法
+        #region 内部辅助方法 (MuMu 专用修正版)
+
         public void EnsureGameRunning()
         {
             if (EmulatorName.Contains("雷电"))
@@ -443,6 +254,7 @@ namespace OLA
             CheckPauseState();
             return RunState == 4;
         }
+
         private void CheckPauseState()
         {
             bool wasPaused = false;
@@ -451,6 +263,8 @@ namespace OLA
             if (wasPaused) UpdateStatus("运行中", CurrentBindHwnd.ToString());
             _currentToken.ThrowIfCancellationRequested();
         }
+
+        // 保持原样：插件找标题
         private long FindWindowWithPlugin()
         {
             if (_ola is null) return 0;
@@ -464,39 +278,125 @@ namespace OLA
             }
             return hwnd;
         }
+
+        // ----------------------------------------------------------------------------------
+        // [核心修正] MuMuManager 调用逻辑
+        // ----------------------------------------------------------------------------------
+        private string ExecuteMuMuManager(string args)
+        {
+            try
+            {
+                string managerPath = "";
+
+                // 1. 优先尝试拼接 nx_main (针对用户只填了安装根目录的情况)
+                string pathWithSub = Path.Combine(EmulatorBasePath, "nx_main", "MuMuManager.exe");
+
+                // 2. 备选尝试直接拼接 (针对用户已经填了 nx_main 目录的情况)
+                string pathDirect = Path.Combine(EmulatorBasePath, "MuMuManager.exe");
+
+                // 智能判断用哪个
+                if (File.Exists(pathWithSub))
+                {
+                    managerPath = pathWithSub;
+                }
+                else if (File.Exists(pathDirect))
+                {
+                    managerPath = pathDirect;
+                }
+                else
+                {
+                    // 都找不到，打印报错
+                    LogCallback?.Invoke($"[路径错误] 找不到 MuMuManager.exe");
+                    LogCallback?.Invoke($"已尝试: {pathWithSub}");
+                    LogCallback?.Invoke($"已尝试: {pathDirect}");
+                    return "";
+                }
+
+                LogCallback?.Invoke($"[调试] 运行工具: {managerPath} {args}");
+
+                Process p = new Process();
+                p.StartInfo.FileName = managerPath;
+                p.StartInfo.Arguments = args;
+
+                // 强制设置工作目录，防止缺少 DLL
+                p.StartInfo.WorkingDirectory = Path.GetDirectoryName(managerPath);
+
+                p.StartInfo.UseShellExecute = false;
+                p.StartInfo.RedirectStandardOutput = true;
+                p.StartInfo.RedirectStandardError = true; // 抓取错误输出
+                p.StartInfo.CreateNoWindow = true;
+                p.StartInfo.StandardOutputEncoding = System.Text.Encoding.UTF8;
+
+                p.Start();
+                string output = p.StandardOutput.ReadToEnd();
+                string error = p.StandardError.ReadToEnd(); // 看看有没有报错
+                p.WaitForExit();
+
+                if (!string.IsNullOrEmpty(error)) LogCallback?.Invoke($"[CMD报错] {error}");
+
+                return output;
+            }
+            catch (Exception ex)
+            {
+                LogCallback?.Invoke($"CMD异常: {ex.Message}");
+                return "";
+            }
+        }
+
         private bool LaunchEmulator()
         {
             try
             {
-                string cmdExe = "", args = "", indexStr = "0";
+                string indexStr = "0";
                 if (EmulatorName.Contains("-")) indexStr = EmulatorName.Split('-')[^1];
 
-                if (EmulatorName.Contains("雷电")) { cmdExe = Path.Combine(EmulatorBasePath, "ldconsole.exe"); args = $"launchex --index {indexStr} --packagename {this.PackageName}"; }
+                if (EmulatorName.Contains("雷电"))
+                {
+                    string cmdExe = Path.Combine(EmulatorBasePath, "ldconsole.exe");
+                    string args = $"launchex --index {indexStr} --packagename {this.PackageName}";
+                    if (File.Exists(cmdExe))
+                    {
+                        Process.Start(new ProcessStartInfo { FileName = cmdExe, Arguments = args, UseShellExecute = false, CreateNoWindow = true });
+                        return true;
+                    }
+                }
                 else if (EmulatorName.Contains("MuMu"))
                 {
-                    string shellPath = Path.Combine(Directory.GetParent(EmulatorBasePath)?.FullName ?? "", "shell");
-                    cmdExe = Path.Combine(shellPath, "MuMuManager.exe");
-                    if (!File.Exists(cmdExe)) cmdExe = Path.Combine(EmulatorBasePath, "MuMuManager.exe");
-                    args = $"player launch {indexStr}";
+                    // MuMu 启动：直接发送指令，不判断返回值（防止静默启动误判）
+                    ExecuteMuMuManager($"control -v {indexStr} launch");
+
+                    if (!string.IsNullOrEmpty(this.PackageName))
+                    {
+                        Thread.Sleep(2000);
+                        ExecuteMuMuManager($"control -v {indexStr} app launch -pkg {this.PackageName}");
+                    }
+                    return true;
                 }
-                if (!File.Exists(cmdExe)) return false;
-                Process.Start(new ProcessStartInfo { FileName = cmdExe, Arguments = args, UseShellExecute = false, CreateNoWindow = true });
-                return true;
+                return false;
             }
             catch { return false; }
         }
+
         private void CloseEmulator()
         {
             try
             {
-                string cmdExe = "", args = "", indexStr = "0";
+                string indexStr = "0";
                 if (EmulatorName.Contains("-")) indexStr = EmulatorName.Split('-')[^1];
-                if (EmulatorName.Contains("雷电")) { cmdExe = Path.Combine(EmulatorBasePath, "ldconsole.exe"); args = $"quit --index {indexStr}"; }
-                else if (EmulatorName.Contains("MuMu")) { /* 省略Mumu关闭逻辑以保持简洁，同上 */ }
-                if (File.Exists(cmdExe)) Process.Start(new ProcessStartInfo { FileName = cmdExe, Arguments = args, UseShellExecute = false, CreateNoWindow = true });
+
+                if (EmulatorName.Contains("雷电"))
+                {
+                    string cmdExe = Path.Combine(EmulatorBasePath, "ldconsole.exe");
+                    if (File.Exists(cmdExe)) Process.Start(new ProcessStartInfo { FileName = cmdExe, Arguments = $"quit --index {indexStr}", UseShellExecute = false, CreateNoWindow = true });
+                }
+                else if (EmulatorName.Contains("MuMu"))
+                {
+                    ExecuteMuMuManager($"control -v {indexStr} shutdown");
+                }
             }
             catch { }
         }
+
         private void LogError(string msg) { LogCallback?.Invoke($"{msg}"); UpdateStatus("错误", "0"); UpdateException(msg); }
         private void UpdateStatus(string status, string hwnd) { if (_lastStatusMsg != status) { _lastStatusMsg = status; StatusCallback?.Invoke(RowIndex, status, hwnd); } }
         private void UpdateException(string msg) { if (_lastExceptionMsg != msg) { _lastExceptionMsg = msg; ExceptionCallback?.Invoke(RowIndex, msg); } }

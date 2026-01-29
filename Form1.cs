@@ -769,7 +769,7 @@ namespace OLA
                 if (s.Length > 0)
                 {
                     string id = s[s.Length - 1];
-                    if (int.TryParse(id, out _) && id != "0") Tianjia_Hang((moniqi_liebiao.Rows.Count + 1).ToString(), $"MUMU模拟器-{id}", "未运行");
+                    if (int.TryParse(id, out _) && id != "0") Tianjia_Hang((moniqi_liebiao.Rows.Count + 1).ToString(), $"MuMu模拟器-{id}", "未运行");
                 }
             }
         }
