@@ -1,6 +1,6 @@
 ﻿namespace OLA
 {
-    partial class Form1  // <--- 之前这里写成了 OLA，我已经改回 Form1 了
+    partial class Form1
     {
         /// <summary>
         ///  Required designer variable.
@@ -28,6 +28,7 @@
         /// </summary>
         private void InitializeComponent()
         {
+            this.components = new System.ComponentModel.Container();
             moniqi_liebiao = new DataGridView();
             xuhao = new DataGridViewTextBoxColumn();
             moniqi = new DataGridViewTextBoxColumn();
@@ -64,8 +65,11 @@
             huifu_suoyou = new Button();
             zanting_suoyou = new Button();
             quanbu_tingzhi = new Button();
-            yunxingshijian = new StatusStrip();
+            statusStrip1 = new StatusStrip();
+            yunxingshijian = new ToolStripStatusLabel();
+            timer_runtime = new System.Windows.Forms.Timer(components);
             ((System.ComponentModel.ISupportInitialize)moniqi_liebiao).BeginInit();
+            statusStrip1.SuspendLayout();
             tabControl1.SuspendLayout();
             tabPage1.SuspendLayout();
             SuspendLayout();
@@ -419,20 +423,31 @@
             quanbu_tingzhi.UseVisualStyleBackColor = true;
             quanbu_tingzhi.Click += quanbu_tingzhi_Click;
             // 
+            // statusStrip1
+            // 
+            statusStrip1.Items.AddRange(new ToolStripItem[] { yunxingshijian });
+            statusStrip1.Location = new Point(0, 456);
+            statusStrip1.Name = "statusStrip1";
+            statusStrip1.Size = new Size(701, 22);
+            statusStrip1.TabIndex = 7;
+            // 
             // yunxingshijian
             // 
-            yunxingshijian.Location = new Point(0, 456);
             yunxingshijian.Name = "yunxingshijian";
-            yunxingshijian.Size = new Size(701, 22);
-            yunxingshijian.TabIndex = 7;
-            yunxingshijian.Text = "statusStrip1";
+            yunxingshijian.Size = new Size(131, 17);
+            yunxingshijian.Text = "脚本运行时间: 00:00:00";
+            // 
+            // timer_runtime
+            // 
+            timer_runtime.Interval = 1000;
+            timer_runtime.Tick += timer_runtime_Tick;
             // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(7F, 17F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(701, 478);
-            Controls.Add(yunxingshijian);
+            Controls.Add(statusStrip1);
             Controls.Add(quanbu_tingzhi);
             Controls.Add(zanting_suoyou);
             Controls.Add(huifu_suoyou);
@@ -445,9 +460,13 @@
             Text = "武林外传_模拟器";
             Load += Form1_Load;
             ((System.ComponentModel.ISupportInitialize)moniqi_liebiao).EndInit();
+            statusStrip1.ResumeLayout(false);
+            statusStrip1.PerformLayout();
             tabControl1.ResumeLayout(false);
             tabPage1.ResumeLayout(false);
             tabPage1.PerformLayout();
+            statusStrip1.ResumeLayout(false);
+            statusStrip1.PerformLayout();
             ResumeLayout(false);
             PerformLayout();
         }
@@ -490,6 +509,8 @@
         private DataGridViewTextBoxColumn zhuangtai;
         private DataGridViewTextBoxColumn jubing;
         private DataGridViewTextBoxColumn yichang;
-        private StatusStrip yunxingshijian;
+        private StatusStrip statusStrip1;
+        private ToolStripStatusLabel yunxingshijian;
+        private System.Windows.Forms.Timer timer_runtime;
     }
 }

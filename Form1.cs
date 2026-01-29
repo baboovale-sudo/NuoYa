@@ -50,6 +50,7 @@ namespace OLA
         private bool _isMonitorActive = false;
         private bool _isRowAlreadySelected = false;
         private bool _isScriptRunning = false;
+        private DateTime _scriptStartTime;
         private const string INI_SECTION = "Settings";
 
         public Form1()
@@ -118,6 +119,160 @@ namespace OLA
             }
         }
 
+        private void Form1_Load(object? sender, EventArgs e)
+        {
+            _scriptStartTime = DateTime.Now;
+            timer_runtime.Start();
+
+            LoadSettings();
+            if (Directory.Exists(this.lujing_shuru.Text))
+            {
+                shuaxin_liebiao_Click(null, EventArgs.Empty);
+            }
+            this.moniqi_liebiao.ClearSelection();
+            this.moniqi_liebiao.CurrentCell = null;
+        }
+
+        private void timer_runtime_Tick(object sender, EventArgs e)
+        {
+            TimeSpan ts = DateTime.Now - _scriptStartTime;
+            yunxingshijian.Text = string.Format("脚本运行时间: {0:D2}:{1:D2}:{2:D2}",
+                (int)ts.TotalHours, ts.Minutes, ts.Seconds);
+        }
+
+        private void quanbu_qidong_Click(object? sender, EventArgs e)
+        {
+            if (!timer_runtime.Enabled) { _scriptStartTime = DateTime.Now; timer_runtime.Start(); }
+            if (!int.TryParse(this.duokai_shuliang.Text, out int maxCount)) { MessageBox.Show("多开数量必须是数字！"); return; }
+            string basePath = this.lujing_shuru.Text.Trim();
+            if (!Directory.Exists(basePath)) { MessageBox.Show("模拟器路径不存在！"); return; }
+            if (this.moniqi_liebiao.Rows.Count == 0) { MessageBox.Show("列表为空！"); return; }
+
+            _isScriptRunning = true;
+
+            List<string> selectedTasks = new List<string>();
+            foreach (var item in this.yixuan_renwu.Items)
+            {
+                selectedTasks.Add(item.ToString() ?? "");
+            }
+
+            int runningCount = 0;
+            lock (workers)
+            {
+                foreach (var kvp in workers)
+                {
+                    if (kvp.Value.RunState != 4)
+                    {
+                        runningCount++;
+                    }
+                }
+            }
+
+            if (runningCount >= maxCount)
+            {
+                MessageBox.Show($"当前运行数量({runningCount})已达到设定上限({maxCount})，无法继续启动！");
+                return;
+            }
+
+            int currentCount = runningCount;
+            var rowsToStart = new List<(int index, string name, string className, string basePath)>();
+
+            for (int i = 0; i < this.moniqi_liebiao.Rows.Count; i++)
+            {
+                if (currentCount >= maxCount) break;
+                if (this.moniqi_liebiao.Rows[i].Selected)
+                {
+                    if (IsRowValidForStart(i))
+                    {
+                        AddToStartList(rowsToStart, i, basePath);
+                        currentCount++;
+                    }
+                }
+            }
+
+            if (currentCount < maxCount)
+            {
+                for (int i = 0; i < this.moniqi_liebiao.Rows.Count; i++)
+                {
+                    if (currentCount >= maxCount) break;
+                    if (!this.moniqi_liebiao.Rows[i].Selected)
+                    {
+                        if (IsRowValidForStart(i))
+                        {
+                            AddToStartList(rowsToStart, i, basePath);
+                            currentCount++;
+                        }
+                    }
+                }
+            }
+
+            if (rowsToStart.Count == 0) return;
+
+            Task.Run(() =>
+            {
+                foreach (var item in rowsToStart)
+                {
+                    TaskWorker worker;
+                    lock (workers)
+                    {
+                        if (workers.ContainsKey(item.index))
+                        {
+                            worker = workers[item.index];
+                        }
+                        else
+                        {
+                            worker = new TaskWorker(item.index, item.name, item.className, item.basePath)
+                            {
+                                StatusCallback = (r, status, hwnd) => UpdateRowStatus(r, status, hwnd),
+                                ExceptionCallback = (r, msg) => UpdateRowException(r, msg),
+                                LogCallback = (msg) =>
+                                {
+                                    string timeStr = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                                    System.Diagnostics.Debug.WriteLine($"[{timeStr}] [{item.name}] {msg}");
+                                }
+                            };
+                            workers[item.index] = worker;
+                        }
+
+                        worker.TaskList = new List<string>(selectedTasks);
+                    }
+
+                    long checkHwnd = 0;
+                    try
+                    {
+                        OLAPlugServer tempOla = new OLAPlugServer();
+                        if (tempOla.OLAObject != 0)
+                        {
+                            checkHwnd = tempOla.FindWindow(item.className, item.name);
+                            tempOla.ReleaseObj();
+                        }
+                    }
+                    catch { checkHwnd = 0; }
+
+                    worker.Start();
+                    this.Invoke(new Action(() => { StartGlobalMonitor(); }));
+
+                    if (checkHwnd > 0) System.Threading.Thread.Sleep(500);
+                    else System.Threading.Thread.Sleep(3000);
+                }
+            });
+        }
+
+        private void quanbu_tingzhi_Click(object? sender, EventArgs e)
+        {
+            timer_runtime.Stop();
+            StopGlobalMonitor();
+            lock (workers)
+            {
+                foreach (var kvp in workers)
+                {
+                    kvp.Value.Stop();
+                }
+                workers.Clear();
+            }
+            _isScriptRunning = false;
+        }
+
         private void queding_shezhi_Click(object? sender, EventArgs e)
         {
             SaveSettings();
@@ -176,17 +331,6 @@ namespace OLA
                 }
                 if (count == 0) MessageBox.Show("未检测到运行中的窗口，无法隐藏。");
             }
-        }
-
-        private void Form1_Load(object? sender, EventArgs e)
-        {
-            LoadSettings();
-            if (Directory.Exists(this.lujing_shuru.Text))
-            {
-                shuaxin_liebiao_Click(null, EventArgs.Empty);
-            }
-            this.moniqi_liebiao.ClearSelection();
-            this.moniqi_liebiao.CurrentCell = null;
         }
 
         private void LoadSettings()
@@ -321,128 +465,6 @@ namespace OLA
             _isMonitorActive = false;
         }
 
-        private void quanbu_qidong_Click(object? sender, EventArgs e)
-        {
-            if (!int.TryParse(this.duokai_shuliang.Text, out int maxCount)) { MessageBox.Show("多开数量必须是数字！"); return; }
-            string basePath = this.lujing_shuru.Text.Trim();
-            if (!Directory.Exists(basePath)) { MessageBox.Show("模拟器路径不存在！"); return; }
-            if (this.moniqi_liebiao.Rows.Count == 0) { MessageBox.Show("列表为空！"); return; }
-
-            _isScriptRunning = true;
-
-            List<string> selectedTasks = new List<string>();
-            foreach (var item in this.yixuan_renwu.Items)
-            {
-                selectedTasks.Add(item.ToString() ?? "");
-            }
-
-            int runningCount = 0;
-            lock (workers)
-            {
-                foreach (var kvp in workers)
-                {
-                    if (kvp.Value.RunState != 4)
-                    {
-                        runningCount++;
-                    }
-                }
-            }
-
-            if (runningCount >= maxCount)
-            {
-                MessageBox.Show($"当前运行数量({runningCount})已达到设定上限({maxCount})，无法继续启动！");
-                return;
-            }
-
-            int currentCount = runningCount;
-            var rowsToStart = new List<(int index, string name, string className, string basePath)>();
-
-            for (int i = 0; i < this.moniqi_liebiao.Rows.Count; i++)
-            {
-                if (currentCount >= maxCount) break;
-                if (this.moniqi_liebiao.Rows[i].Selected)
-                {
-                    if (IsRowValidForStart(i))
-                    {
-                        AddToStartList(rowsToStart, i, basePath);
-                        currentCount++;
-                    }
-                }
-            }
-
-            if (currentCount < maxCount)
-            {
-                for (int i = 0; i < this.moniqi_liebiao.Rows.Count; i++)
-                {
-                    if (currentCount >= maxCount) break;
-                    if (!this.moniqi_liebiao.Rows[i].Selected)
-                    {
-                        if (IsRowValidForStart(i))
-                        {
-                            AddToStartList(rowsToStart, i, basePath);
-                            currentCount++;
-                        }
-                    }
-                }
-            }
-
-            if (rowsToStart.Count == 0) return;
-
-            Task.Run(() =>
-            {
-                foreach (var item in rowsToStart)
-                {
-                    TaskWorker worker;
-                    lock (workers)
-                    {
-                        if (workers.ContainsKey(item.index))
-                        {
-                            worker = workers[item.index];
-                        }
-                        else
-                        {
-                            worker = new TaskWorker(item.index, item.name, item.className, item.basePath)
-                            {
-                                StatusCallback = (r, status, hwnd) => UpdateRowStatus(r, status, hwnd),
-                                ExceptionCallback = (r, msg) => UpdateRowException(r, msg),
-
-                                // 🔥🔥🔥 修改点：年月日 + 精确时间 + 模拟器名称 🔥🔥🔥
-                                // 输出示例：[2025-01-01 12:30:05] [雷电模拟器-1] 正在运行...
-                                LogCallback = (msg) =>
-                                {
-                                    string timeStr = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-                                    System.Diagnostics.Debug.WriteLine($"[{timeStr}] [{item.name}] {msg}");
-                                }
-                            };
-                            workers[item.index] = worker;
-                        }
-
-                        worker.TaskList = new List<string>(selectedTasks);
-                    }
-
-                    long checkHwnd = 0;
-                    try
-                    {
-                        // 🔥 使用新的 SDK 对象来检测窗口
-                        OLAPlugServer tempOla = new OLAPlugServer();
-                        if (tempOla.OLAObject != 0)
-                        {
-                            checkHwnd = tempOla.FindWindow(item.className, item.name);
-                            // 释放临时对象
-                            tempOla.ReleaseObj();
-                        }
-                    }
-                    catch { checkHwnd = 0; }
-
-                    worker.Start();
-                    this.Invoke(new Action(() => { StartGlobalMonitor(); }));
-
-                    if (checkHwnd > 0) System.Threading.Thread.Sleep(500);
-                    else System.Threading.Thread.Sleep(3000);
-                }
-            });
-        }
-
         private void renwu_liebiao_DoubleClick(object? sender, EventArgs e)
         {
             if (_isScriptRunning) return;
@@ -482,20 +504,6 @@ namespace OLA
             else if (name.Contains("夜神")) className = "NoxWndMainClass";
 
             list.Add((i, name, className, basePath));
-        }
-
-        private void quanbu_tingzhi_Click(object? sender, EventArgs e)
-        {
-            StopGlobalMonitor();
-            lock (workers)
-            {
-                foreach (var kvp in workers)
-                {
-                    kvp.Value.Stop();
-                }
-                workers.Clear();
-            }
-            _isScriptRunning = false;
         }
 
         private void tingzhi_xuanzhong_Click(object? sender, EventArgs e)
@@ -619,9 +627,7 @@ namespace OLA
         {
             try
             {
-                // 🔥 从配置中心读取注册码
                 int ret = OLAPlugDLLHelper.Reg(OLAConfig.UserCode, OLAConfig.SoftCode, OLAConfig.Key);
-
                 if (ret != 1) MessageBox.Show($"注册失败:{ret}");
             }
             catch (Exception ex)
@@ -735,6 +741,10 @@ namespace OLA
         {
             quanbu_tingzhi_Click(sender, EventArgs.Empty);
         }
-        private void label6_Click(object? sender, EventArgs e) { }
+
+        private void timer_runtime_Tick_1(object sender, EventArgs e)
+        {
+            timer_runtime_Tick(sender, e);
+        }
     }
 }
