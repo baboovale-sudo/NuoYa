@@ -31,6 +31,7 @@
             components = new System.ComponentModel.Container();
             DataGridViewCellStyle dataGridViewCellStyle1 = new DataGridViewCellStyle();
             DataGridViewCellStyle dataGridViewCellStyle2 = new DataGridViewCellStyle();
+            DataGridViewCellStyle dataGridViewCellStyle3 = new DataGridViewCellStyle();
             moniqi_liebiao = new DataGridView();
             xuhao = new DataGridViewTextBoxColumn();
             moniqi = new DataGridViewTextBoxColumn();
@@ -99,6 +100,8 @@
             moniqi_liebiao.Name = "moniqi_liebiao";
             moniqi_liebiao.ReadOnly = true;
             moniqi_liebiao.RowHeadersVisible = false;
+            dataGridViewCellStyle3.Alignment = DataGridViewContentAlignment.TopCenter;
+            moniqi_liebiao.RowsDefaultCellStyle = dataGridViewCellStyle3;
             moniqi_liebiao.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
             moniqi_liebiao.Size = new Size(706, 265);
             moniqi_liebiao.TabIndex = 0;
