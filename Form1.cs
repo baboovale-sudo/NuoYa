@@ -7,25 +7,23 @@ using System.Diagnostics;
 using System.Threading.Tasks;
 using System.Threading;
 using System.Runtime.InteropServices;
-using OLAPlug; // 确保引用了 SDK 命名空间
+using OLAPlug;
 
 namespace OLA
 {
     public partial class Form1 : Form
     {
         // ==========================================
-        // 🌍 全局配置中心 (Global Settings)
+        // 🌍 全局配置中心
         // ==========================================
         public static class OLAConfig
         {
-            // 1. 注册码配置
             public const string UserCode = "d841c28403974a56b31a74856542b6b7";
             public const string SoftCode = "c8285fc70089468f82cb927fee5fdf25";
             public const string Key = "OLA";
 
-            // 2. 窗口绑定参数
-            public const string Bind_Display = "gdi";
-            public const string Bind_Mouse = "windows3";
+            public const string Bind_Display = "dx";
+            public const string Bind_Mouse = "windows";
             public const string Bind_Keypad = "windows";
             public const int Bind_Mode = 0;
         }
@@ -72,15 +70,18 @@ namespace OLA
         private void InitializeSettings()
         {
             this.FormClosing += new FormClosingEventHandler(this.Form1_FormClosing);
+
+            // 初始化模拟器下拉框 (只保留雷电和MuMu)
             if (this.moniqi_xuanze.Items.Count == 0)
             {
                 this.moniqi_xuanze.Items.Add("雷电模拟器");
                 this.moniqi_xuanze.Items.Add("MuMu模拟器");
-                this.moniqi_xuanze.Items.Add("夜神模拟器");
             }
+
             this.moniqi_xuanze.SelectedIndexChanged += new EventHandler(this.moniqi_xuanze_SelectedIndexChanged);
             this.moniqi_xuanze.DropDown += new EventHandler(this.Control_Intercept_DropDown);
             this.moniqi_xuanze.SelectedIndex = 0;
+
             this.duokai_shuliang.Text = "2";
             this.duokai_shuliang.Enter += new EventHandler(this.Control_Intercept_Enter);
             this.duokai_shuliang.KeyPress += new KeyPressEventHandler(this.Control_Intercept_KeyPress);
@@ -94,11 +95,13 @@ namespace OLA
 
             this.lujing_shuru.Enter += new EventHandler(this.Control_Intercept_Enter);
             this.lujing_shuru.KeyPress += new KeyPressEventHandler(this.Control_Intercept_KeyPress);
+
             Control[] qufus = this.Controls.Find("qufu_xuanze", true);
             if (qufus.Length > 0 && qufus[0] is ComboBox cb)
             {
                 cb.DropDown += new EventHandler(this.Control_Intercept_DropDown);
             }
+
             this.moniqi_liebiao.CellMouseDown += new DataGridViewCellMouseEventHandler(this.moniqi_liebiao_CellMouseDown);
             this.moniqi_liebiao.CellMouseUp += new DataGridViewCellMouseEventHandler(this.moniqi_liebiao_CellMouseUp);
             this.tingzhi_xuanzhong.Click += new EventHandler(this.tingzhi_xuanzhong_Click);
@@ -142,11 +145,30 @@ namespace OLA
 
         private void quanbu_qidong_Click(object? sender, EventArgs e)
         {
-            if (!timer_runtime.Enabled) { _scriptStartTime = DateTime.Now; timer_runtime.Start(); }
-            if (!int.TryParse(this.duokai_shuliang.Text, out int maxCount)) { MessageBox.Show("多开数量必须是数字！"); return; }
+            if (!timer_runtime.Enabled)
+            {
+                _scriptStartTime = DateTime.Now;
+                timer_runtime.Start();
+            }
+
+            if (!int.TryParse(this.duokai_shuliang.Text, out int maxCount))
+            {
+                MessageBox.Show("多开数量必须是数字！");
+                return;
+            }
+
             string basePath = this.lujing_shuru.Text.Trim();
-            if (!Directory.Exists(basePath)) { MessageBox.Show("模拟器路径不存在！"); return; }
-            if (this.moniqi_liebiao.Rows.Count == 0) { MessageBox.Show("列表为空！"); return; }
+            if (!Directory.Exists(basePath))
+            {
+                MessageBox.Show("模拟器路径不存在！");
+                return;
+            }
+
+            if (this.moniqi_liebiao.Rows.Count == 0)
+            {
+                MessageBox.Show("列表为空！");
+                return;
+            }
 
             _isScriptRunning = true;
 
@@ -177,6 +199,7 @@ namespace OLA
             int currentCount = runningCount;
             var rowsToStart = new List<(int index, string name, string className, string basePath)>();
 
+            // 先添加选中的
             for (int i = 0; i < this.moniqi_liebiao.Rows.Count; i++)
             {
                 if (currentCount >= maxCount) break;
@@ -190,6 +213,7 @@ namespace OLA
                 }
             }
 
+            // 再添加剩下的
             if (currentCount < maxCount)
             {
                 for (int i = 0; i < this.moniqi_liebiao.Rows.Count; i++)
@@ -237,14 +261,17 @@ namespace OLA
                         worker.TaskList = new List<string>(selectedTasks);
                     }
 
+                    // ... 找到大约 234 行 ...
                     long checkHwnd = 0;
                     try
                     {
-                        OLAPlugServer tempOla = new OLAPlugServer();
+                        // ✅ 修改这里，加上 "OLA.dll"
+                        OLAPlugServer tempOla = new OLAPlugServer("OLA.dll");
+
                         if (tempOla.OLAObject != 0)
                         {
                             checkHwnd = tempOla.FindWindow(item.className, item.name);
-                            tempOla.ReleaseObj();
+                            tempOla.ReleaseObj(); // 探测完记得释放，新版SDK非常看重这个
                         }
                     }
                     catch { checkHwnd = 0; }
@@ -283,6 +310,9 @@ namespace OLA
 
             if (selectedMode.Contains("平铺"))
             {
+                // ==========================
+                // ⚡ 雷电模拟器
+                // ==========================
                 if (emuType.Contains("雷电"))
                 {
                     if (string.IsNullOrEmpty(basePath) || !Directory.Exists(basePath))
@@ -306,6 +336,45 @@ namespace OLA
                         {
                             MessageBox.Show("执行排序出错: " + ex.Message);
                         }
+                    }
+                }
+                // ==========================
+                // 🟡 MuMu模拟器
+                // ==========================
+                else if (emuType.Contains("MuMu"))
+                {
+                    // 智能查找 MuMuManager.exe
+                    string[] possiblePaths = new string[]
+                    {
+                        Path.Combine(basePath, "shell", "MuMuManager.exe"),
+                        Path.Combine(basePath, "MuMuManager.exe"),
+                        Path.Combine(basePath, "nx_main", "MuMuManager.exe")
+                    };
+
+                    string managerPath = "";
+                    foreach (var p in possiblePaths)
+                    {
+                        if (File.Exists(p))
+                        {
+                            managerPath = p;
+                            break;
+                        }
+                    }
+
+                    if (string.IsNullOrEmpty(managerPath))
+                    {
+                        MessageBox.Show("未找到 MuMuManager.exe，无法执行排序。");
+                        return;
+                    }
+
+                    // MuMu 官方排序命令
+                    try
+                    {
+                        Process.Start(new ProcessStartInfo { FileName = managerPath, Arguments = "sort", UseShellExecute = false, CreateNoWindow = true });
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show("MuMu排序出错: " + ex.Message);
                     }
                 }
             }
@@ -495,13 +564,23 @@ namespace OLA
             return true;
         }
 
+        // ==========================================
+        // 🔥 核心修改：设置 MuMu 类名
+        // ==========================================
         private void AddToStartList(List<(int, string, string, string)> list, int i, string basePath)
         {
             string name = this.moniqi_liebiao.Rows[i].Cells["moniqi"].Value?.ToString()!;
             string className = "";
-            if (name.Contains("雷电")) className = "LDPlayerMainFrame";
-            else if (name.Contains("MuMu")) className = "Qt5QWindowIcon";
-            else if (name.Contains("夜神")) className = "NoxWndMainClass";
+
+            if (name.Contains("雷电"))
+            {
+                className = "LDPlayerMainFrame";
+            }
+            else if (name.Contains("MuMu"))
+            {
+                // 使用你指定的 MuMu 类名
+                className = "Qt5156QWindowIcon";
+            }
 
             list.Add((i, name, className, basePath));
         }
@@ -543,38 +622,78 @@ namespace OLA
             }
         }
 
+        // ==========================================
+        // 🔥 核心修改：关闭所有 (MuMu 循环关闭)
+        // ==========================================
         private void guanbi_suoyou_Click(object? sender, EventArgs e)
         {
             quanbu_tingzhi_Click(null, EventArgs.Empty);
-            string basePath = this.lujing_shuru.Text.Trim()!;
-            string emuType = this.moniqi_xuanze.Text!;
-            string cmdExe = ""; string args = "";
-            if (emuType.Contains("雷电")) { cmdExe = Path.Combine(basePath, "ldconsole.exe"); args = "quitall"; }
+
+            string basePath = this.lujing_shuru.Text.Trim();
+            if (string.IsNullOrEmpty(basePath)) return;
+
+            string emuType = this.moniqi_xuanze.Text;
+
+            // 雷电逻辑
+            if (emuType.Contains("雷电"))
+            {
+                string cmdExe = Path.Combine(basePath, "ldconsole.exe");
+                if (File.Exists(cmdExe))
+                {
+                    try
+                    {
+                        Process.Start(new ProcessStartInfo { FileName = cmdExe, Arguments = "quitall", UseShellExecute = false, CreateNoWindow = true });
+                        MessageBox.Show("已发送雷电关闭指令");
+                    }
+                    catch (Exception ex) { MessageBox.Show("错误: " + ex.Message); }
+                }
+            }
+            // MuMu 逻辑 (循环关闭)
             else if (emuType.Contains("MuMu"))
             {
-                string parentDir = Directory.GetParent(basePath)?.FullName ?? "";
-                string shellPath = Path.Combine(parentDir, "shell");
-                cmdExe = Path.Combine(shellPath, "MuMuManager.exe");
-                if (!File.Exists(cmdExe)) cmdExe = Path.Combine(basePath, "MuMuManager.exe");
-                args = "control -v all shutdown";
-            }
-            else if (emuType.Contains("夜神"))
-            {
-                cmdExe = Path.Combine(basePath, "NoxConsole.exe");
-                if (!File.Exists(cmdExe)) cmdExe = Path.Combine(Directory.GetParent(basePath)?.FullName ?? "", "bin", "NoxConsole.exe");
-                args = "quitall";
-            }
-            if (!string.IsNullOrEmpty(cmdExe) && File.Exists(cmdExe))
-            {
-                try
+                string[] possiblePaths = new string[]
                 {
-                    Process.Start(new ProcessStartInfo { FileName = cmdExe, Arguments = args, UseShellExecute = false, CreateNoWindow = true });
-                    MessageBox.Show("已发送关闭指令");
-                }
-                catch (Exception ex)
+                    Path.Combine(basePath, "shell", "MuMuManager.exe"),
+                    Path.Combine(basePath, "MuMuManager.exe"),
+                    Path.Combine(basePath, "nx_main", "MuMuManager.exe")
+                };
+
+                string managerPath = "";
+                foreach (var p in possiblePaths)
                 {
-                    MessageBox.Show("错误: " + ex.Message);
+                    if (File.Exists(p))
+                    {
+                        managerPath = p;
+                        break;
+                    }
                 }
+
+                if (string.IsNullOrEmpty(managerPath))
+                {
+                    MessageBox.Show($"未找到 MuMuManager.exe\n请检查路径: {basePath}");
+                    return;
+                }
+
+                int count = 0;
+                foreach (DataGridViewRow row in this.moniqi_liebiao.Rows)
+                {
+                    if (row.IsNewRow) continue;
+                    string name = row.Cells["moniqi"].Value?.ToString() ?? "";
+                    if (string.IsNullOrEmpty(name)) continue;
+
+                    string indexStr = "0";
+                    if (name.Contains("-")) indexStr = name.Split('-')[^1];
+
+                    try
+                    {
+                        Process.Start(new ProcessStartInfo { FileName = managerPath, Arguments = $"api -v {indexStr} shutdown_player", UseShellExecute = false, CreateNoWindow = true });
+                        count++;
+                    }
+                    catch { }
+
+                    Thread.Sleep(20);
+                }
+                MessageBox.Show($"已发送关闭指令给 {count} 个模拟器 (MuMu)");
             }
         }
 
@@ -605,20 +724,51 @@ namespace OLA
             }
         }
 
-        private void Control_Intercept_DropDown(object? sender, EventArgs e) { if (_isScriptRunning) { (sender as ComboBox).DroppedDown = false; this.moniqi_liebiao.Focus(); MessageBox.Show("运行中禁止修改配置！"); } }
-        private void Control_Intercept_Enter(object? sender, EventArgs e) { if (_isScriptRunning) { this.moniqi_liebiao.Focus(); MessageBox.Show("运行中禁止修改配置！"); } }
-        private void Control_Intercept_KeyPress(object? sender, KeyPressEventArgs e) { if (_isScriptRunning) { e.Handled = true; this.moniqi_liebiao.Focus(); } }
+        private void Control_Intercept_DropDown(object? sender, EventArgs e)
+        {
+            if (_isScriptRunning)
+            {
+                (sender as ComboBox).DroppedDown = false;
+                this.moniqi_liebiao.Focus();
+                MessageBox.Show("运行中禁止修改配置！");
+            }
+        }
+
+        private void Control_Intercept_Enter(object? sender, EventArgs e)
+        {
+            if (_isScriptRunning)
+            {
+                this.moniqi_liebiao.Focus();
+                MessageBox.Show("运行中禁止修改配置！");
+            }
+        }
+
+        private void Control_Intercept_KeyPress(object? sender, KeyPressEventArgs e)
+        {
+            if (_isScriptRunning)
+            {
+                e.Handled = true;
+                this.moniqi_liebiao.Focus();
+            }
+        }
 
         private void moniqi_liebiao_CellMouseDown(object? sender, DataGridViewCellMouseEventArgs e)
         {
-            if (e.Button == MouseButtons.Left && e.RowIndex >= 0) _isRowAlreadySelected = this.moniqi_liebiao.Rows[e.RowIndex].Selected;
+            if (e.Button == MouseButtons.Left && e.RowIndex >= 0)
+            {
+                _isRowAlreadySelected = this.moniqi_liebiao.Rows[e.RowIndex].Selected;
+            }
         }
 
         private void moniqi_liebiao_CellMouseUp(object? sender, DataGridViewCellMouseEventArgs e)
         {
             if (e.Button == MouseButtons.Left && e.RowIndex >= 0)
             {
-                if (_isRowAlreadySelected) { this.moniqi_liebiao.Rows[e.RowIndex].Selected = false; this.moniqi_liebiao.CurrentCell = null; }
+                if (_isRowAlreadySelected)
+                {
+                    this.moniqi_liebiao.Rows[e.RowIndex].Selected = false;
+                    this.moniqi_liebiao.CurrentCell = null;
+                }
                 _isRowAlreadySelected = false;
             }
         }
@@ -627,8 +777,13 @@ namespace OLA
         {
             try
             {
-                int ret = OLAPlugDLLHelper.Reg(OLAConfig.UserCode, OLAConfig.SoftCode, OLAConfig.Key);
+                // 主要是改这一行，加上 "OLA.dll"
+                OLAPlugServer ola = new OLAPlugServer("OLA.dll");
+
+                int ret = ola.Reg(OLAConfig.UserCode, OLAConfig.SoftCode, OLAConfig.Key);
+
                 if (ret != 1) MessageBox.Show($"注册失败:{ret}");
+                else ola.ReleaseObj();
             }
             catch (Exception ex)
             {
@@ -646,23 +801,15 @@ namespace OLA
             }
         }
 
-        // ==========================================
-        // 🔍 修改后的路径查找逻辑
-        // ==========================================
         private string Auto_Find_Path(string emulatorName)
         {
             string nameLower = emulatorName.ToLower();
 
             if (nameLower.Contains("mumu"))
             {
-                // 1. 优先检查默认安装地址
                 string defaultPath = @"D:\Program Files\Netease\MuMu";
-                if (Directory.Exists(defaultPath))
-                {
-                    return defaultPath;
-                }
+                if (Directory.Exists(defaultPath)) return defaultPath;
 
-                // 2. 如果不存在，执行 D 盘全盘深度搜索
                 return Full_Search_MuMu(@"D:\");
             }
 
@@ -676,9 +823,6 @@ namespace OLA
             return "";
         }
 
-        // ==========================================
-        // 🚀 新增：深度递归搜索 D 盘
-        // ==========================================
         private string Full_Search_MuMu(string rootPath)
         {
             try
@@ -732,22 +876,41 @@ namespace OLA
 
         private void shuaxin_liebiao_Click(object? sender, EventArgs e)
         {
-            if (_isScriptRunning) { MessageBox.Show("运行中无法刷新"); return; }
+            if (_isScriptRunning)
+            {
+                MessageBox.Show("运行中无法刷新");
+                return;
+            }
+
             moniqi_liebiao.Rows.Clear();
             string path = lujing_shuru.Text.Trim();
+
             if (!Directory.Exists(path))
             {
                 MessageBox.Show("路径不存在！");
                 return;
             }
+
             string vms = Path.Combine(path, "vms");
-            if (!Directory.Exists(vms)) vms = Path.Combine(Directory.GetParent(path)?.FullName ?? "", "vms");
+            if (!Directory.Exists(vms))
+            {
+                vms = Path.Combine(Directory.GetParent(path)?.FullName ?? "", "vms");
+            }
+
             if (Directory.Exists(vms))
             {
-                if (moniqi_xuanze.Text.Contains("雷电")) Parse_Leidian_Vms(vms);
-                else if (moniqi_xuanze.Text.Contains("MuMu")) Parse_Mumu_Vms(vms);
+                if (moniqi_xuanze.Text.Contains("雷电"))
+                {
+                    Parse_Leidian_Vms(vms);
+                }
+                else if (moniqi_xuanze.Text.Contains("MuMu"))
+                {
+                    Parse_Mumu_Vms(vms);
+                }
             }
-            moniqi_liebiao.ClearSelection(); moniqi_liebiao.CurrentCell = null;
+
+            moniqi_liebiao.ClearSelection();
+            moniqi_liebiao.CurrentCell = null;
         }
 
         private void Parse_Leidian_Vms(string p)
@@ -756,7 +919,10 @@ namespace OLA
             {
                 string n = new DirectoryInfo(d).Name;
                 string id = n.StartsWith("leidian") ? n.Substring(7) : n;
-                if (int.TryParse(id, out _) && id != "0") Tianjia_Hang((moniqi_liebiao.Rows.Count + 1).ToString(), $"雷电模拟器-{id}", "未运行");
+                if (int.TryParse(id, out _) && id != "0")
+                {
+                    Tianjia_Hang((moniqi_liebiao.Rows.Count + 1).ToString(), $"雷电模拟器-{id}", "未运行");
+                }
             }
         }
 
@@ -769,7 +935,10 @@ namespace OLA
                 if (s.Length > 0)
                 {
                     string id = s[s.Length - 1];
-                    if (int.TryParse(id, out _) && id != "0") Tianjia_Hang((moniqi_liebiao.Rows.Count + 1).ToString(), $"MuMu模拟器-{id}", "未运行");
+                    if (int.TryParse(id, out _) && id != "0")
+                    {
+                        Tianjia_Hang((moniqi_liebiao.Rows.Count + 1).ToString(), $"MuMu模拟器-{id}", "未运行");
+                    }
                 }
             }
         }
@@ -778,9 +947,13 @@ namespace OLA
         {
             int i = moniqi_liebiao.Rows.Add();
             var r = moniqi_liebiao.Rows[i];
-            r.Cells["xuhao"].Value = a; r.Cells["moniqi"].Value = b; r.Cells["zhuangtai"].Value = c;
-            r.Cells["zhanghao"].Value = ""; r.Cells["mima"].Value = "";
-            r.Cells["jubing"].Value = "0"; r.Cells["yichang"].Value = "无异常";
+            r.Cells["xuhao"].Value = a;
+            r.Cells["moniqi"].Value = b;
+            r.Cells["zhuangtai"].Value = c;
+            r.Cells["zhanghao"].Value = "";
+            r.Cells["mima"].Value = "";
+            r.Cells["jubing"].Value = "0";
+            r.Cells["yichang"].Value = "无异常";
         }
 
         private void quanbu_tingzhi_Click_1(object? sender, EventArgs e)

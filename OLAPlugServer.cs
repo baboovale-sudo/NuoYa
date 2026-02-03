@@ -1,4 +1,5 @@
 ﻿using Newtonsoft.Json;
+using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
 using System.Text;
 using static OLAPlug.OLAPlugDLLHelper;
@@ -113,19 +114,23 @@ namespace OLAPlug
 
     public class OLAPlugServer
     {
+
         public long OLAObject;
 
         public string UserCode = "";
         public string SoftCode = "";
         public string FeatureList = "";
 
-        public OLAPlugServer()
+        public OLAPlugServer(string dllPath="olaplug/OLAPlug_x64.dll")
         {
+            OLAPlugDLLHelper.Initialize(dllPath);
             OLAObject = CreateCOLAPlugInterFace();
         }
 
         public string PtrToStringUTF8(long ptr)
         {
+            if (ptr==0)
+                return "";
             var str = Marshal.PtrToStringUTF8((IntPtr)ptr);
             FreeStringPtr(ptr);
             return str;
@@ -172,7 +177,7 @@ namespace OLAPlug
                 columnNames.Add(GetColumnName(stmt, i));
             }
             //读取数据
-            while (Read(stmt)==1)
+            while (Read(stmt) == 1)
             {
                 Dictionary<string, object> row = new Dictionary<string, object>();
                 foreach (string columnName in columnNames)
@@ -233,7 +238,8 @@ namespace OLAPlug
         /// <br/>1. DLL与COM的调用模式不一样。创建的对象需要使用 DestroyCOLAPlugInterFace 接口释放内存。
         /// </remarks>
         public long CreateCOLAPlugInterFace(){
-            return OLAPlugDLLHelper.CreateCOLAPlugInterFace();
+            var func = OLAPlugDLLHelper.GetFunction<CreateCOLAPlugInterFaceDelegate>("CreateCOLAPlugInterFace");
+            return func();
         }
 
         /// <summary>
@@ -247,7 +253,8 @@ namespace OLAPlug
         /// <br/>1. 该接口为DLL版本专用。
         /// </remarks>
         public int DestroyCOLAPlugInterFace(){
-            return OLAPlugDLLHelper.DestroyCOLAPlugInterFace(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<DestroyCOLAPlugInterFaceDelegate>("DestroyCOLAPlugInterFace");
+            return func(OLAObject);
         }
 
         /// <summary>
@@ -258,7 +265,8 @@ namespace OLAPlug
         /// <br/>1. DLL调用返回字符串指针地址，需要调用 FreeStringPtr 接口释放内存。
         /// </remarks>
         public string Ver(){
-            return PtrToStringUTF8(OLAPlugDLLHelper.Ver());
+            var func = OLAPlugDLLHelper.GetFunction<VerDelegate>("Ver");
+            return PtrToStringUTF8(func());
         }
 
         /// <summary>
@@ -273,7 +281,8 @@ namespace OLAPlug
         /// <br/>1. DLL调用返回字符串指针地址，需要调用 FreeStringPtr 接口释放内存。
         /// </remarks>
         public string GetPlugInfo(int type){
-            return PtrToStringUTF8(OLAPlugDLLHelper.GetPlugInfo(type));
+            var func = OLAPlugDLLHelper.GetFunction<GetPlugInfoDelegate>("GetPlugInfo");
+            return PtrToStringUTF8(func(type));
         }
 
         /// <summary>
@@ -285,7 +294,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int SetPath(string path){
-            return OLAPlugDLLHelper.SetPath(OLAObject, path);
+            var func = OLAPlugDLLHelper.GetFunction<SetPathDelegate>("SetPath");
+            return func(OLAObject, path);
         }
 
         /// <summary>
@@ -296,7 +306,8 @@ namespace OLAPlug
         /// <br/>1. DLL调用返回字符串指针地址，需要调用 FreeStringPtr 接口释放内存。
         /// </remarks>
         public string GetPath(){
-            return PtrToStringUTF8(OLAPlugDLLHelper.GetPath(OLAObject));
+            var func = OLAPlugDLLHelper.GetFunction<GetPathDelegate>("GetPath");
+            return PtrToStringUTF8(func(OLAObject));
         }
 
         /// <summary>
@@ -309,7 +320,8 @@ namespace OLAPlug
         /// <br/>3. 插拔任何USB设备，以及安装任何网卡驱动程序，都会导致机器码改变。
         /// </remarks>
         public string GetMachineCode(){
-            return PtrToStringUTF8(OLAPlugDLLHelper.GetMachineCode(OLAObject));
+            var func = OLAPlugDLLHelper.GetFunction<GetMachineCodeDelegate>("GetMachineCode");
+            return PtrToStringUTF8(func(OLAObject));
         }
 
         /// <summary>
@@ -320,7 +332,8 @@ namespace OLAPlug
         /// <br/>1. DLL调用返回字符串指针地址，需要调用 FreeStringPtr 接口释放内存。
         /// </remarks>
         public string GetBasePath(){
-            return PtrToStringUTF8(OLAPlugDLLHelper.GetBasePath(OLAObject));
+            var func = OLAPlugDLLHelper.GetFunction<GetBasePathDelegate>("GetBasePath");
+            return PtrToStringUTF8(func(OLAObject));
         }
 
         /// <summary>
@@ -334,7 +347,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int Reg(string userCode, string softCode, string featureList){
-            return OLAPlugDLLHelper.Reg(userCode, softCode, featureList);
+            var func = OLAPlugDLLHelper.GetFunction<RegDelegate>("Reg");
+            return func(userCode, softCode, featureList);
         }
 
         /// <summary>
@@ -351,6 +365,7 @@ namespace OLAPlug
         ///<br/> dxgi: DXGI模式, 支持小程序和浏览器截图,在windows10 1903及以上版本中支持
         ///<br/> vnc: vnc模式
         ///<br/> dx: dx模式（需要管理员权限）
+        ///<br/> vmware: 虚拟机模式（需要管理员权限）
         /// </param>
         /// <param name="mouse">鼠标仿真模式
         ///<br/> normal: 正常模式，平常我们用的前台鼠标模式
@@ -399,7 +414,8 @@ namespace OLAPlug
         /// <br/>1. dx模式组合可以使用"|"连接多个模式，例如："dx.mouse.position.lock.api|dx.mouse.focus.input.api"
         /// </remarks>
         public int BindWindow(long hwnd, string display, string mouse, string keypad, int mode){
-            return OLAPlugDLLHelper.BindWindow(OLAObject, hwnd, display, mouse, keypad, mode);
+            var func = OLAPlugDLLHelper.GetFunction<BindWindowDelegate>("BindWindow");
+            return func(OLAObject, hwnd, display, mouse, keypad, mode);
         }
 
         /// <summary>
@@ -416,6 +432,7 @@ namespace OLAPlug
         ///<br/> dxgi: DXGI模式, 支持小程序和浏览器截图,在windows10 1903及以上版本中支持
         ///<br/> vnc: vnc模式
         ///<br/> dx: dx模式（需要管理员权限）
+        ///<br/> vmware: 虚拟机模式（需要管理员权限）
         /// </param>
         /// <param name="mouse">鼠标仿真模式
         ///<br/> normal: 正常模式，平常我们用的前台鼠标模式
@@ -470,7 +487,8 @@ namespace OLAPlug
         /// <br/>1. dx模式组合可以使用"|"连接多个模式，例如："dx.mouse.position.lock.api|dx.mouse.focus.input.api"
         /// </remarks>
         public int BindWindowEx(long hwnd, string display, string mouse, string keypad, string pubstr, int mode){
-            return OLAPlugDLLHelper.BindWindowEx(OLAObject, hwnd, display, mouse, keypad, pubstr, mode);
+            var func = OLAPlugDLLHelper.GetFunction<BindWindowExDelegate>("BindWindowEx");
+            return func(OLAObject, hwnd, display, mouse, keypad, pubstr, mode);
         }
 
         /// <summary>
@@ -481,7 +499,8 @@ namespace OLAPlug
         ///<br/>1: 解绑成功
         /// </returns>
         public int UnBindWindow(){
-            return OLAPlugDLLHelper.UnBindWindow(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<UnBindWindowDelegate>("UnBindWindow");
+            return func(OLAObject);
         }
 
         /// <summary>
@@ -489,7 +508,8 @@ namespace OLAPlug
         /// </summary>
         /// <returns>返回当前绑定的窗口句柄。如果没有绑定窗口，则返回0。</returns>
         public long GetBindWindow(){
-            return OLAPlugDLLHelper.GetBindWindow(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<GetBindWindowDelegate>("GetBindWindow");
+            return func(OLAObject);
         }
 
         /// <summary>
@@ -511,7 +531,8 @@ namespace OLAPlug
         /// <br/>8. 在批量操作时要注意性能和稳定性。
         /// </remarks>
         public int ReleaseWindowsDll(long hwnd){
-            return OLAPlugDLLHelper.ReleaseWindowsDll(OLAObject, hwnd);
+            var func = OLAPlugDLLHelper.GetFunction<ReleaseWindowsDllDelegate>("ReleaseWindowsDll");
+            return func(OLAObject, hwnd);
         }
 
         /// <summary>
@@ -523,7 +544,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int FreeStringPtr(long ptr){
-            return OLAPlugDLLHelper.FreeStringPtr(ptr);
+            var func = OLAPlugDLLHelper.GetFunction<FreeStringPtrDelegate>("FreeStringPtr");
+            return func(ptr);
         }
 
         /// <summary>
@@ -535,7 +557,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int FreeMemoryPtr(long ptr){
-            return OLAPlugDLLHelper.FreeMemoryPtr(ptr);
+            var func = OLAPlugDLLHelper.GetFunction<FreeMemoryPtrDelegate>("FreeMemoryPtr");
+            return func(ptr);
         }
 
         /// <summary>
@@ -544,7 +567,8 @@ namespace OLAPlug
         /// <param name="ptr">字符串内存地址</param>
         /// <returns>字符串缓冲区大小</returns>
         public int GetStringSize(long ptr){
-            return OLAPlugDLLHelper.GetStringSize(ptr);
+            var func = OLAPlugDLLHelper.GetFunction<GetStringSizeDelegate>("GetStringSize");
+            return func(ptr);
         }
 
         /// <summary>
@@ -560,7 +584,8 @@ namespace OLAPlug
         /// <br/>3. 缓冲区大小不足可能导致字符串截断。
         /// </remarks>
         public int GetStringFromPtr(long ptr, StringBuilder lpString, int size){
-            return OLAPlugDLLHelper.GetStringFromPtr(ptr, lpString, size);
+            var func = OLAPlugDLLHelper.GetFunction<GetStringFromPtrDelegate>("GetStringFromPtr");
+            return func(ptr, lpString, size);
         }
 
         /// <summary>
@@ -572,7 +597,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int Delay(int millisecond){
-            return OLAPlugDLLHelper.Delay(millisecond);
+            var func = OLAPlugDLLHelper.GetFunction<DelayDelegate>("Delay");
+            return func(millisecond);
         }
 
         /// <summary>
@@ -585,7 +611,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int Delays(int minMillisecond, int maxMillisecond){
-            return OLAPlugDLLHelper.Delays(minMillisecond, maxMillisecond);
+            var func = OLAPlugDLLHelper.GetFunction<DelaysDelegate>("Delays");
+            return func(minMillisecond, maxMillisecond);
         }
 
         /// <summary>
@@ -597,7 +624,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int SetUAC(int enable){
-            return OLAPlugDLLHelper.SetUAC(OLAObject, enable);
+            var func = OLAPlugDLLHelper.GetFunction<SetUACDelegate>("SetUAC");
+            return func(OLAObject, enable);
         }
 
         /// <summary>
@@ -608,7 +636,8 @@ namespace OLAPlug
         ///<br/>1: 开启
         /// </returns>
         public int CheckUAC(){
-            return OLAPlugDLLHelper.CheckUAC(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<CheckUACDelegate>("CheckUAC");
+            return func(OLAObject);
         }
 
         /// <summary>
@@ -624,7 +653,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int RunApp(string appPath, int mode){
-            return OLAPlugDLLHelper.RunApp(OLAObject, appPath, mode);
+            var func = OLAPlugDLLHelper.GetFunction<RunAppDelegate>("RunApp");
+            return func(OLAObject, appPath, mode);
         }
 
         /// <summary>
@@ -638,7 +668,8 @@ namespace OLAPlug
         /// <br/>1. DLL调用返回字符串指针地址，需要调用 FreeStringPtr 接口释放内存。
         /// </remarks>
         public string ExecuteCmd(string cmd, string current_dir, int time_out){
-            return PtrToStringUTF8(OLAPlugDLLHelper.ExecuteCmd(OLAObject, cmd, current_dir, time_out));
+            var func = OLAPlugDLLHelper.GetFunction<ExecuteCmdDelegate>("ExecuteCmd");
+            return PtrToStringUTF8(func(OLAObject, cmd, current_dir, time_out));
         }
 
         /// <summary>
@@ -650,7 +681,8 @@ namespace OLAPlug
         /// <br/>1. DLL调用返回字符串指针地址，需要调用 FreeStringPtr 接口释放内存。
         /// </remarks>
         public string GetConfig(string configKey){
-            return PtrToStringUTF8(OLAPlugDLLHelper.GetConfig(OLAObject, configKey));
+            var func = OLAPlugDLLHelper.GetFunction<GetConfigDelegate>("GetConfig");
+            return PtrToStringUTF8(func(OLAObject, configKey));
         }
 
         /// <summary>
@@ -662,7 +694,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int SetConfig(string configStr){
-            return OLAPlugDLLHelper.SetConfig(OLAObject, configStr);
+            var func = OLAPlugDLLHelper.GetFunction<SetConfigDelegate>("SetConfig");
+            return func(OLAObject, configStr);
         }
 
         /// <summary>
@@ -675,7 +708,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int SetConfigByKey(string key, string value){
-            return OLAPlugDLLHelper.SetConfigByKey(OLAObject, key, value);
+            var func = OLAPlugDLLHelper.GetFunction<SetConfigByKeyDelegate>("SetConfigByKey");
+            return func(OLAObject, key, value);
         }
 
         /// <summary>
@@ -688,7 +722,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int SendDropFiles(long hwnd, string file_path){
-            return OLAPlugDLLHelper.SendDropFiles(OLAObject, hwnd, file_path);
+            var func = OLAPlugDLLHelper.GetFunction<SendDropFilesDelegate>("SendDropFiles");
+            return func(OLAObject, hwnd, file_path);
         }
 
         /// <summary>
@@ -709,7 +744,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int SetDefaultEncode(int inputEncoding, int outputEncoding){
-            return OLAPlugDLLHelper.SetDefaultEncode(inputEncoding, outputEncoding);
+            var func = OLAPlugDLLHelper.GetFunction<SetDefaultEncodeDelegate>("SetDefaultEncode");
+            return func(inputEncoding, outputEncoding);
         }
 
         /// <summary>
@@ -720,7 +756,8 @@ namespace OLAPlug
         /// <br/>1. 错误ID为0表示没有错误。
         /// </remarks>
         public int GetLastError(){
-            return OLAPlugDLLHelper.GetLastError();
+            var func = OLAPlugDLLHelper.GetFunction<GetLastErrorDelegate>("GetLastError");
+            return func();
         }
 
         /// <summary>
@@ -731,7 +768,8 @@ namespace OLAPlug
         /// <br/>1. DLL调用返回字符串指针地址，需要调用 FreeStringPtr 接口释放内存。
         /// </remarks>
         public string GetLastErrorString(){
-            return PtrToStringUTF8(OLAPlugDLLHelper.GetLastErrorString());
+            var func = OLAPlugDLLHelper.GetFunction<GetLastErrorStringDelegate>("GetLastErrorString");
+            return PtrToStringUTF8(func());
         }
 
         /// <summary>
@@ -744,7 +782,8 @@ namespace OLAPlug
         /// <br/>2. 隐藏上下文需要调用 UnhideModule 接口释放
         /// </remarks>
         public long HideModule(string moduleName){
-            return OLAPlugDLLHelper.HideModule(OLAObject, moduleName);
+            var func = OLAPlugDLLHelper.GetFunction<HideModuleDelegate>("HideModule");
+            return func(OLAObject, moduleName);
         }
 
         /// <summary>
@@ -760,7 +799,8 @@ namespace OLAPlug
         /// <br/>2. 释放后，模块将恢复显示
         /// </remarks>
         public int UnhideModule(long ctx){
-            return OLAPlugDLLHelper.UnhideModule(OLAObject, ctx);
+            var func = OLAPlugDLLHelper.GetFunction<UnhideModuleDelegate>("UnhideModule");
+            return func(OLAObject, ctx);
         }
 
         /// <summary>
@@ -777,7 +817,8 @@ namespace OLAPlug
         /// <br/>5. 建议在程序初始化时调用一次，确保随机种子正确初始化
         /// </remarks>
         public int GetRandomNumber(int min, int max){
-            return OLAPlugDLLHelper.GetRandomNumber(OLAObject, min, max);
+            var func = OLAPlugDLLHelper.GetFunction<GetRandomNumberDelegate>("GetRandomNumber");
+            return func(OLAObject, min, max);
         }
 
         /// <summary>
@@ -795,7 +836,8 @@ namespace OLAPlug
         /// <br/>6. 建议在程序初始化时调用一次，确保随机种子正确初始化
         /// </remarks>
         public double GetRandomDouble(double min, double max){
-            return OLAPlugDLLHelper.GetRandomDouble(OLAObject, min, max);
+            var func = OLAPlugDLLHelper.GetFunction<GetRandomDoubleDelegate>("GetRandomDouble");
+            return func(OLAObject, min, max);
         }
 
         /// <summary>
@@ -815,7 +857,8 @@ namespace OLAPlug
         /// <br/>1. DLL调用返回字符串指针地址，需要调用 FreeStringPtr 接口释放内存
         /// </remarks>
         public string ExcludePos(string json, int type, int x1, int y1, int x2, int y2){
-            return PtrToStringUTF8(OLAPlugDLLHelper.ExcludePos(OLAObject, json, type, x1, y1, x2, y2));
+            var func = OLAPlugDLLHelper.GetFunction<ExcludePosDelegate>("ExcludePos");
+            return PtrToStringUTF8(func(OLAObject, json, type, x1, y1, x2, y2));
         }
 
         /// <summary>
@@ -836,7 +879,8 @@ namespace OLAPlug
         /// <br/>4. 图像识别：{"MatchVal":0.85,"MatchState":true,"Index":0,"Angle":45.0,"MatchPoint":{"x":100,"y":200}}
         /// </remarks>
         public string FindNearestPos(string json, int type, int x, int y){
-            return PtrToStringUTF8(OLAPlugDLLHelper.FindNearestPos(OLAObject, json, type, x, y));
+            var func = OLAPlugDLLHelper.GetFunction<FindNearestPosDelegate>("FindNearestPos");
+            return PtrToStringUTF8(func(OLAObject, json, type, x, y));
         }
 
         /// <summary>
@@ -854,7 +898,8 @@ namespace OLAPlug
         /// <br/>1. DLL调用返回字符串指针地址，需要调用 FreeStringPtr 接口释放内存
         /// </remarks>
         public string SortPosDistance(string json, int type, int x, int y){
-            return PtrToStringUTF8(OLAPlugDLLHelper.SortPosDistance(OLAObject, json, type, x, y));
+            var func = OLAPlugDLLHelper.GetFunction<SortPosDistanceDelegate>("SortPosDistance");
+            return PtrToStringUTF8(func(OLAObject, json, type, x, y));
         }
 
         /// <summary>
@@ -872,7 +917,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int GetDenseRect(long image, int width, int height, out int x1, out int y1, out int x2, out int y2){
-            return OLAPlugDLLHelper.GetDenseRect(OLAObject, image, width, height, out x1, out y1, out x2, out y2);
+            var func = OLAPlugDLLHelper.GetFunction<GetDenseRectDelegate>("GetDenseRect");
+            return func(OLAObject, image, width, height, out x1, out y1, out x2, out y2);
         }
 
         /// <summary>
@@ -894,7 +940,8 @@ namespace OLAPlug
         /// <br/>5. 当 potentialRadius 或 searchRadius 为负数时，只返回JPS寻路数据，不做路径优化
         /// </remarks>
         public List<Point> PathPlanning(long image, int startX, int startY, int endX, int endY, double potentialRadius, double searchRadius){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.PathPlanning(OLAObject, image, startX, startY, endX, endY, potentialRadius, searchRadius));
+            var func = OLAPlugDLLHelper.GetFunction<PathPlanningDelegate>("PathPlanning");
+            var result = PtrToStringUTF8(func(OLAObject, image, startX, startY, endX, endY, potentialRadius, searchRadius));
             if (string.IsNullOrEmpty(result))
             {
                 return new List<Point>();
@@ -912,7 +959,8 @@ namespace OLAPlug
         /// <br/>2. 确保 JSON 格式正确，否则可能导致创建失败
         /// </remarks>
         public long CreateGraph(string json){
-            return OLAPlugDLLHelper.CreateGraph(OLAObject, json);
+            var func = OLAPlugDLLHelper.GetFunction<CreateGraphDelegate>("CreateGraph");
+            return func(OLAObject, json);
         }
 
         /// <summary>
@@ -926,7 +974,8 @@ namespace OLAPlug
         /// <br/>3. 在调用其他图操作函数前，建议先调用此函数验证图的有效性
         /// </remarks>
         public long GetGraph(long graphPtr){
-            return OLAPlugDLLHelper.GetGraph(OLAObject, graphPtr);
+            var func = OLAPlugDLLHelper.GetFunction<GetGraphDelegate>("GetGraph");
+            return func(OLAObject, graphPtr);
         }
 
         /// <summary>
@@ -948,7 +997,8 @@ namespace OLAPlug
         /// <br/>4. 重复添加相同的边可能会覆盖之前的权重设置
         /// </remarks>
         public int AddEdge(long graphPtr, string from, string to, double weight, bool isDirected){
-            return OLAPlugDLLHelper.AddEdge(OLAObject, graphPtr, from, to, weight, isDirected);
+            var func = OLAPlugDLLHelper.GetFunction<AddEdgeDelegate>("AddEdge");
+            return func(OLAObject, graphPtr, from, to, weight, isDirected);
         }
 
         /// <summary>
@@ -968,7 +1018,8 @@ namespace OLAPlug
         /// <br/>7. 对于大型图，计算时间可能较长
         /// </remarks>
         public string GetShortestPath(long graphPtr, string from, string to){
-            return PtrToStringUTF8(OLAPlugDLLHelper.GetShortestPath(OLAObject, graphPtr, from, to));
+            var func = OLAPlugDLLHelper.GetFunction<GetShortestPathDelegate>("GetShortestPath");
+            return PtrToStringUTF8(func(OLAObject, graphPtr, from, to));
         }
 
         /// <summary>
@@ -986,7 +1037,8 @@ namespace OLAPlug
         /// <br/>5. 对于无向图，from到to的距离等于to到from的距离
         /// </remarks>
         public double GetShortestDistance(long graphPtr, string from, string to){
-            return OLAPlugDLLHelper.GetShortestDistance(OLAObject, graphPtr, from, to);
+            var func = OLAPlugDLLHelper.GetFunction<GetShortestDistanceDelegate>("GetShortestDistance");
+            return func(OLAObject, graphPtr, from, to);
         }
 
         /// <summary>
@@ -1004,7 +1056,8 @@ namespace OLAPlug
         /// <br/>4. 建议在清空前备份重要的图数据
         /// </remarks>
         public int ClearGraph(long graphPtr){
-            return OLAPlugDLLHelper.ClearGraph(OLAObject, graphPtr);
+            var func = OLAPlugDLLHelper.GetFunction<ClearGraphDelegate>("ClearGraph");
+            return func(OLAObject, graphPtr);
         }
 
         /// <summary>
@@ -1023,7 +1076,8 @@ namespace OLAPlug
         /// <br/>5. 删除图对象后，相关的路径计算结果也会失效
         /// </remarks>
         public int DeleteGraph(long graphPtr){
-            return OLAPlugDLLHelper.DeleteGraph(OLAObject, graphPtr);
+            var func = OLAPlugDLLHelper.GetFunction<DeleteGraphDelegate>("DeleteGraph");
+            return func(OLAObject, graphPtr);
         }
 
         /// <summary>
@@ -1038,7 +1092,8 @@ namespace OLAPlug
         /// <br/>4. 建议在创建图后立即检查节点数量以验证图的正确性
         /// </remarks>
         public int GetNodeCount(long graphPtr){
-            return OLAPlugDLLHelper.GetNodeCount(OLAObject, graphPtr);
+            var func = OLAPlugDLLHelper.GetFunction<GetNodeCountDelegate>("GetNodeCount");
+            return func(OLAObject, graphPtr);
         }
 
         /// <summary>
@@ -1054,7 +1109,8 @@ namespace OLAPlug
         /// <br/>5. 建议在添加边后检查边数量以验证操作是否成功
         /// </remarks>
         public int GetEdgeCount(long graphPtr){
-            return OLAPlugDLLHelper.GetEdgeCount(OLAObject, graphPtr);
+            var func = OLAPlugDLLHelper.GetFunction<GetEdgeCountDelegate>("GetEdgeCount");
+            return func(OLAObject, graphPtr);
         }
 
         /// <summary>
@@ -1073,7 +1129,8 @@ namespace OLAPlug
         /// <br/>7. 对于大型图，计算时间可能较长
         /// </remarks>
         public string GetShortestPathToAllNodes(long graphPtr, string startNode){
-            return PtrToStringUTF8(OLAPlugDLLHelper.GetShortestPathToAllNodes(OLAObject, graphPtr, startNode));
+            var func = OLAPlugDLLHelper.GetFunction<GetShortestPathToAllNodesDelegate>("GetShortestPathToAllNodes");
+            return PtrToStringUTF8(func(OLAObject, graphPtr, startNode));
         }
 
         /// <summary>
@@ -1092,7 +1149,8 @@ namespace OLAPlug
         /// <br/>8. 返回的JSON包含总权重和所有边的详细信息
         /// </remarks>
         public string GetMinimumSpanningTree(long graphPtr){
-            return PtrToStringUTF8(OLAPlugDLLHelper.GetMinimumSpanningTree(OLAObject, graphPtr));
+            var func = OLAPlugDLLHelper.GetFunction<GetMinimumSpanningTreeDelegate>("GetMinimumSpanningTree");
+            return PtrToStringUTF8(func(OLAObject, graphPtr));
         }
 
         /// <summary>
@@ -1112,7 +1170,8 @@ namespace OLAPlug
         /// <br/>8. 有向路径考虑了边的方向性，与无向图的最短路径不同
         /// </remarks>
         public string GetDirectedPathToAllNodes(long graphPtr, string startNode){
-            return PtrToStringUTF8(OLAPlugDLLHelper.GetDirectedPathToAllNodes(OLAObject, graphPtr, startNode));
+            var func = OLAPlugDLLHelper.GetFunction<GetDirectedPathToAllNodesDelegate>("GetDirectedPathToAllNodes");
+            return PtrToStringUTF8(func(OLAObject, graphPtr, startNode));
         }
 
         /// <summary>
@@ -1131,7 +1190,8 @@ namespace OLAPlug
         /// <br/>7. 对于有向图，最小树形图可能不唯一
         /// </remarks>
         public string GetMinimumArborescence(long graphPtr, string root){
-            return PtrToStringUTF8(OLAPlugDLLHelper.GetMinimumArborescence(OLAObject, graphPtr, root));
+            var func = OLAPlugDLLHelper.GetFunction<GetMinimumArborescenceDelegate>("GetMinimumArborescence");
+            return PtrToStringUTF8(func(OLAObject, graphPtr, root));
         }
 
         /// <summary>
@@ -1151,7 +1211,8 @@ namespace OLAPlug
         /// <br/>6. useEuclideanDistance为true时，边权重为节点间的欧几里得距离
         /// </remarks>
         public long CreateGraphFromCoordinates(string json, bool connectAll, double maxDistance, bool useEuclideanDistance){
-            return OLAPlugDLLHelper.CreateGraphFromCoordinates(OLAObject, json, connectAll, maxDistance, useEuclideanDistance);
+            var func = OLAPlugDLLHelper.GetFunction<CreateGraphFromCoordinatesDelegate>("CreateGraphFromCoordinates");
+            return func(OLAObject, json, connectAll, maxDistance, useEuclideanDistance);
         }
 
         /// <summary>
@@ -1174,7 +1235,8 @@ namespace OLAPlug
         /// <br/>3. connectToExisting为true时，新节点会连接到距离小于maxDistance的现有节点
         /// </remarks>
         public int AddCoordinateNode(long graphPtr, string name, double x, double y, bool connectToExisting, double maxDistance, bool useEuclideanDistance){
-            return OLAPlugDLLHelper.AddCoordinateNode(OLAObject, graphPtr, name, x, y, connectToExisting, maxDistance, useEuclideanDistance);
+            var func = OLAPlugDLLHelper.GetFunction<AddCoordinateNodeDelegate>("AddCoordinateNode");
+            return func(OLAObject, graphPtr, name, x, y, connectToExisting, maxDistance, useEuclideanDistance);
         }
 
         /// <summary>
@@ -1190,7 +1252,8 @@ namespace OLAPlug
         /// <br/>4. 如果节点不存在，返回0
         /// </remarks>
         public string GetNodeCoordinates(long graphPtr, string name){
-            return PtrToStringUTF8(OLAPlugDLLHelper.GetNodeCoordinates(OLAObject, graphPtr, name));
+            var func = OLAPlugDLLHelper.GetFunction<GetNodeCoordinatesDelegate>("GetNodeCoordinates");
+            return PtrToStringUTF8(func(OLAObject, graphPtr, name));
         }
 
         /// <summary>
@@ -1212,7 +1275,8 @@ namespace OLAPlug
         /// <br/>4. 如果canConnect为false，会删除对应的边
         /// </remarks>
         public int SetNodeConnection(long graphPtr, string from, string to, bool canConnect, double weight){
-            return OLAPlugDLLHelper.SetNodeConnection(OLAObject, graphPtr, from, to, canConnect, weight);
+            var func = OLAPlugDLLHelper.GetFunction<SetNodeConnectionDelegate>("SetNodeConnection");
+            return func(OLAObject, graphPtr, from, to, canConnect, weight);
         }
 
         /// <summary>
@@ -1230,7 +1294,8 @@ namespace OLAPlug
         /// <br/>1. 确保 graphPtr 是有效的图指针
         /// </remarks>
         public int GetNodeConnectionStatus(long graphPtr, string from, string to){
-            return OLAPlugDLLHelper.GetNodeConnectionStatus(OLAObject, graphPtr, from, to);
+            var func = OLAPlugDLLHelper.GetFunction<GetNodeConnectionStatusDelegate>("GetNodeConnectionStatus");
+            return func(OLAObject, graphPtr, from, to);
         }
 
         /// <summary>
@@ -1259,7 +1324,8 @@ namespace OLAPlug
         /// <br/>7. 建议在使用前备份重要数据
         /// </remarks>
         public long AsmCall(long hwnd, string asmStr, int type, long baseAddr){
-            return OLAPlugDLLHelper.AsmCall(OLAObject, hwnd, asmStr, type, baseAddr);
+            var func = OLAPlugDLLHelper.GetFunction<AsmCallDelegate>("AsmCall");
+            return func(OLAObject, hwnd, asmStr, type, baseAddr);
         }
 
         /// <summary>
@@ -1288,7 +1354,8 @@ namespace OLAPlug
         /// <br/>7. 此函数适用于代码分析和逆向工程工具开发
         /// </remarks>
         public string Assemble(string asmStr, long baseAddr, int arch, int mode){
-            return PtrToStringUTF8(OLAPlugDLLHelper.Assemble(OLAObject, asmStr, baseAddr, arch, mode));
+            var func = OLAPlugDLLHelper.GetFunction<AssembleDelegate>("Assemble");
+            return PtrToStringUTF8(func(OLAObject, asmStr, baseAddr, arch, mode));
         }
 
         /// <summary>
@@ -1322,7 +1389,8 @@ namespace OLAPlug
         /// <br/>8. 此函数适用于逆向工程、代码分析和调试工具开发
         /// </remarks>
         public string Disassemble(string asmCode, long baseAddr, int arch, int mode, int showType){
-            return PtrToStringUTF8(OLAPlugDLLHelper.Disassemble(OLAObject, asmCode, baseAddr, arch, mode, showType));
+            var func = OLAPlugDLLHelper.GetFunction<DisassembleDelegate>("Disassemble");
+            return PtrToStringUTF8(func(OLAObject, asmCode, baseAddr, arch, mode, showType));
         }
 
         /// <summary>
@@ -1335,7 +1403,8 @@ namespace OLAPlug
         /// <param name="dealerCode">(字符串): 经销商码。</param>
         /// <returns>JSON字符串: 登录结果。</returns>
         public string Login(string userCode, string softCode, string featureList, string softVersion, string dealerCode){
-            return PtrToStringUTF8(OLAPlugDLLHelper.Login(userCode, softCode, featureList, softVersion, dealerCode));
+            var func = OLAPlugDLLHelper.GetFunction<LoginDelegate>("Login");
+            return PtrToStringUTF8(func(userCode, softCode, featureList, softVersion, dealerCode));
         }
 
         /// <summary>
@@ -1348,7 +1417,849 @@ namespace OLAPlug
         /// <param name="licenseKey">(字符串): 激活码。</param>
         /// <returns>JSON字符串: 激活结果。</returns>
         public string Activate(string userCode, string softCode, string softVersion, string dealerCode, string licenseKey){
-            return PtrToStringUTF8(OLAPlugDLLHelper.Activate(userCode, softCode, softVersion, dealerCode, licenseKey));
+            var func = OLAPlugDLLHelper.GetFunction<ActivateDelegate>("Activate");
+            return PtrToStringUTF8(func(userCode, softCode, softVersion, dealerCode, licenseKey));
+        }
+
+        /// <summary>
+        /// 添加VMware DMA设备(默认连接字符串)
+        /// </summary>
+        /// <param name="vmId">VMware虚拟机ID</param>
+        /// <returns>成功返回设备ID(>=0), 失败返回-1</returns>
+        public long DmaAddDevice(int vmId){
+            var func = OLAPlugDLLHelper.GetFunction<DmaAddDeviceDelegate>("DmaAddDevice");
+            return func(OLAObject, vmId);
+        }
+
+        /// <summary>
+        /// 添加自定义DMA设备
+        /// </summary>
+        /// <param name="connectionString">设备连接字符串(如"vmware://rw=1,id=1", "fpga://algo=4"等)</param>
+        /// <returns>成功返回设备ID(>=0), 失败返回-1</returns>
+        public long DmaAddDeviceEx(string connectionString){
+            var func = OLAPlugDLLHelper.GetFunction<DmaAddDeviceExDelegate>("DmaAddDeviceEx");
+            return func(OLAObject, connectionString);
+        }
+
+        /// <summary>
+        /// 删除DMA设备
+        /// </summary>
+        /// <param name="deviceId">设备ID</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        public int DmaRemoveDevice(long deviceId){
+            var func = OLAPlugDLLHelper.GetFunction<DmaRemoveDeviceDelegate>("DmaRemoveDevice");
+            return func(OLAObject, deviceId);
+        }
+
+        /// <summary>
+        /// 根据进程名获取PID
+        /// </summary>
+        /// <param name="deviceId">设备ID</param>
+        /// <param name="processName">进程名(支持部分匹配)</param>
+        /// <returns>成功返回PID, 失败返回0</returns>
+        public int DmaGetPidFromName(long deviceId, string processName){
+            var func = OLAPlugDLLHelper.GetFunction<DmaGetPidFromNameDelegate>("DmaGetPidFromName");
+            return func(OLAObject, deviceId, processName);
+        }
+
+        /// <summary>
+        /// 获取所有进程PID列表
+        /// </summary>
+        /// <param name="deviceId">设备ID</param>
+        /// <returns>返回二进制字符串的指针，数据格式:"pid1|pid2|pid3...",失败返回空字符串</returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
+        /// </remarks>
+        public string DmaGetPidList(long deviceId){
+            var func = OLAPlugDLLHelper.GetFunction<DmaGetPidListDelegate>("DmaGetPidList");
+            return PtrToStringUTF8(func(OLAObject, deviceId));
+        }
+
+        /// <summary>
+        /// 获取进程基本信息
+        /// </summary>
+        /// <param name="deviceId">设备ID</param>
+        /// <param name="pid">进程PID</param>
+        /// <returns>返回二进制字符串的指针，数据格式:"进程名,镜像基址,镜像大小",失败返回空字符串</returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
+        /// </remarks>
+        public string DmaGetProcessInfo(long deviceId, int pid){
+            var func = OLAPlugDLLHelper.GetFunction<DmaGetProcessInfoDelegate>("DmaGetProcessInfo");
+            return PtrToStringUTF8(func(OLAObject, deviceId, pid));
+        }
+
+        /// <summary>
+        /// 获取模块基址
+        /// </summary>
+        /// <param name="deviceId">设备ID</param>
+        /// <param name="pid">进程PID</param>
+        /// <param name="moduleName">模块名(空字符串表示主模块)</param>
+        /// <returns>成功返回模块基址, 失败返回0</returns>
+        public long DmaGetModuleBase(long deviceId, int pid, string moduleName){
+            var func = OLAPlugDLLHelper.GetFunction<DmaGetModuleBaseDelegate>("DmaGetModuleBase");
+            return func(OLAObject, deviceId, pid, moduleName);
+        }
+
+        /// <summary>
+        /// 获取模块大小
+        /// </summary>
+        /// <param name="deviceId">设备ID</param>
+        /// <param name="pid">进程PID</param>
+        /// <param name="moduleName">模块名</param>
+        /// <returns>成功返回模块大小, 失败返回0</returns>
+        public int DmaGetModuleSize(long deviceId, int pid, string moduleName){
+            var func = OLAPlugDLLHelper.GetFunction<DmaGetModuleSizeDelegate>("DmaGetModuleSize");
+            return func(OLAObject, deviceId, pid, moduleName);
+        }
+
+        /// <summary>
+        /// 获取模块导出函数地址
+        /// </summary>
+        /// <param name="deviceId">设备ID</param>
+        /// <param name="pid">进程PID</param>
+        /// <param name="moduleName">模块名</param>
+        /// <param name="functionName">函数名</param>
+        /// <returns>成功返回函数地址, 失败返回0</returns>
+        public long DmaGetProcAddress(long deviceId, int pid, string moduleName, string functionName){
+            var func = OLAPlugDLLHelper.GetFunction<DmaGetProcAddressDelegate>("DmaGetProcAddress");
+            return func(OLAObject, deviceId, pid, moduleName, functionName);
+        }
+
+        /// <summary>
+        /// 创建散列读句柄
+        /// </summary>
+        /// <param name="deviceId">设备ID</param>
+        /// <param name="pid">进程PID</param>
+        /// <returns>成功返回散列句柄, 失败返回0</returns>
+        public long DmaScatterCreate(long deviceId, int pid){
+            var func = OLAPlugDLLHelper.GetFunction<DmaScatterCreateDelegate>("DmaScatterCreate");
+            return func(OLAObject, deviceId, pid);
+        }
+
+        /// <summary>
+        /// 准备散列读地址
+        /// </summary>
+        /// <param name="scatterHandle">散列句柄</param>
+        /// <param name="address">地址</param>
+        /// <param name="size">大小</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        public int DmaScatterPrepare(long scatterHandle, long address, int size){
+            var func = OLAPlugDLLHelper.GetFunction<DmaScatterPrepareDelegate>("DmaScatterPrepare");
+            return func(OLAObject, scatterHandle, address, size);
+        }
+
+        /// <summary>
+        /// 执行散列读
+        /// </summary>
+        /// <param name="scatterHandle">散列句柄</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        public int DmaScatterExecute(long scatterHandle){
+            var func = OLAPlugDLLHelper.GetFunction<DmaScatterExecuteDelegate>("DmaScatterExecute");
+            return func(OLAObject, scatterHandle);
+        }
+
+        /// <summary>
+        /// 从散列读结果中读取数据
+        /// </summary>
+        /// <param name="scatterHandle">散列句柄</param>
+        /// <param name="address">地址</param>
+        /// <param name="buffer">输出缓冲区地址</param>
+        /// <param name="size">读取大小</param>
+        /// <returns>实际读取的字节数</returns>
+        public int DmaScatterRead(long scatterHandle, long address, long buffer, int size){
+            var func = OLAPlugDLLHelper.GetFunction<DmaScatterReadDelegate>("DmaScatterRead");
+            return func(OLAObject, scatterHandle, address, buffer, size);
+        }
+
+        /// <summary>
+        /// 清除散列读准备的数据
+        /// </summary>
+        /// <param name="scatterHandle">散列句柄</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        public int DmaScatterClear(long scatterHandle){
+            var func = OLAPlugDLLHelper.GetFunction<DmaScatterClearDelegate>("DmaScatterClear");
+            return func(OLAObject, scatterHandle);
+        }
+
+        /// <summary>
+        /// 关闭散列读句柄
+        /// </summary>
+        /// <param name="scatterHandle">散列句柄</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        public int DmaScatterClose(long scatterHandle){
+            var func = OLAPlugDLLHelper.GetFunction<DmaScatterCloseDelegate>("DmaScatterClose");
+            return func(OLAObject, scatterHandle);
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="deviceId">设备ID</param>
+        /// <param name="pid">进程PID</param>
+        /// <param name="addr_range">地址范围</param>
+        /// <param name="data">要搜索的二进制数据,支持CE数据格式 比如"00 01 23 45 * ?? ?b c? * f1"等.</param>
+        /// <returns>返回二进制字符串的指针</returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
+        /// </remarks>
+        public string DmaFindData(long deviceId, int pid, string addr_range, string data){
+            var func = OLAPlugDLLHelper.GetFunction<DmaFindDataDelegate>("DmaFindData");
+            return PtrToStringUTF8(func(OLAObject, deviceId, pid, addr_range, data));
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="deviceId">设备ID</param>
+        /// <param name="pid">进程PID</param>
+        /// <param name="addr_range">地址范围</param>
+        /// <param name="data">要搜索的二进制数据,支持CE数据格式 比如"00 01 23 45 * ?? ?b c? * f1"等.</param>
+        /// <param name="step">步长</param>
+        /// <param name="multi_thread">是否开启多线程</param>
+        /// <param name="mode">搜索模式
+        ///<br/> 0: 搜索全部内存类型
+        ///<br/> 1: 搜索可写内存
+        ///<br/> 2: 不搜索可写内存
+        ///<br/> 4: 搜索可执行内存
+        ///<br/> 8: 不搜索可执行内存
+        ///<br/> 16: 搜索写时复制内存
+        ///<br/> 32: 不搜索写时复制内存
+        /// </param>
+        /// <returns>返回二进制字符串的指针，数据格式:字符串"addr1|addr2|addr3...|addrn"比如"123456|ff001122|dc12366"</returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
+        /// </remarks>
+        public string DmaFindDataEx(long deviceId, int pid, string addr_range, string data, int step, int multi_thread, int mode){
+            var func = OLAPlugDLLHelper.GetFunction<DmaFindDataExDelegate>("DmaFindDataEx");
+            return PtrToStringUTF8(func(OLAObject, deviceId, pid, addr_range, data, step, multi_thread, mode));
+        }
+
+        /// <summary>
+        /// 通过DMA搜索指定范围内的双精度浮点数
+        /// </summary>
+        /// <param name="deviceId">设备ID</param>
+        /// <param name="pid">进程PID</param>
+        /// <param name="addr_range">地址范围</param>
+        /// <param name="double_value_min">最小值</param>
+        /// <param name="double_value_max">最大值</param>
+        /// <returns>返回二进制字符串的指针，数据格式:字符串"addr1|addr2|addr3...|addrn"比如"123456|ff001122|dc12366"</returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
+        /// </remarks>
+        public string DmaFindDouble(long deviceId, int pid, string addr_range, double double_value_min, double double_value_max){
+            var func = OLAPlugDLLHelper.GetFunction<DmaFindDoubleDelegate>("DmaFindDouble");
+            return PtrToStringUTF8(func(OLAObject, deviceId, pid, addr_range, double_value_min, double_value_max));
+        }
+
+        /// <summary>
+        /// 通过DMA搜索指定范围内的双精度浮点数
+        /// </summary>
+        /// <param name="deviceId">设备ID</param>
+        /// <param name="pid">进程PID</param>
+        /// <param name="addr_range">地址范围</param>
+        /// <param name="double_value_min">最小值</param>
+        /// <param name="double_value_max">最大值</param>
+        /// <param name="step">步长</param>
+        /// <param name="multi_thread">是否开启多线程</param>
+        /// <param name="mode">搜索模式
+        ///<br/> 0: 搜索全部内存类型
+        ///<br/> 1: 搜索可写内存
+        ///<br/> 2: 不搜索可写内存
+        ///<br/> 4: 搜索可执行内存
+        ///<br/> 8: 不搜索可执行内存
+        ///<br/> 16: 搜索写时复制内存
+        ///<br/> 32: 不搜索写时复制内存
+        /// </param>
+        /// <returns>返回二进制字符串的指针，数据格式:字符串"addr1|addr2|addr3...|addrn"比如"123456|ff001122|dc12366"</returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
+        /// </remarks>
+        public string DmaFindDoubleEx(long deviceId, int pid, string addr_range, double double_value_min, double double_value_max, int step, int multi_thread, int mode){
+            var func = OLAPlugDLLHelper.GetFunction<DmaFindDoubleExDelegate>("DmaFindDoubleEx");
+            return PtrToStringUTF8(func(OLAObject, deviceId, pid, addr_range, double_value_min, double_value_max, step, multi_thread, mode));
+        }
+
+        /// <summary>
+        /// 通过DMA搜索指定范围内的单精度浮点数
+        /// </summary>
+        /// <param name="deviceId">设备ID</param>
+        /// <param name="pid">进程PID</param>
+        /// <param name="addr_range">地址范围</param>
+        /// <param name="float_value_min">最小值</param>
+        /// <param name="float_value_max">最大值</param>
+        /// <returns>返回二进制字符串的指针，数据格式:字符串"addr1|addr2|addr3...|addrn"比如"123456|ff001122|dc12366"</returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
+        /// </remarks>
+        public string DmaFindFloat(long deviceId, int pid, string addr_range, float float_value_min, float float_value_max){
+            var func = OLAPlugDLLHelper.GetFunction<DmaFindFloatDelegate>("DmaFindFloat");
+            return PtrToStringUTF8(func(OLAObject, deviceId, pid, addr_range, float_value_min, float_value_max));
+        }
+
+        /// <summary>
+        /// 通过DMA搜索指定范围内的单精度浮点数
+        /// </summary>
+        /// <param name="deviceId">设备ID</param>
+        /// <param name="pid">进程PID</param>
+        /// <param name="addr_range">地址范围</param>
+        /// <param name="float_value_min">最小值</param>
+        /// <param name="float_value_max">最大值</param>
+        /// <param name="step">步长</param>
+        /// <param name="multi_thread">是否开启多线程</param>
+        /// <param name="mode">搜索模式
+        ///<br/> 0: 搜索全部内存类型
+        ///<br/> 1: 搜索可写内存
+        ///<br/> 2: 不搜索可写内存
+        ///<br/> 4: 搜索可执行内存
+        ///<br/> 8: 不搜索可执行内存
+        ///<br/> 16: 搜索写时复制内存
+        ///<br/> 32: 不搜索写时复制内存
+        /// </param>
+        /// <returns>返回二进制字符串的指针，数据格式:字符串"addr1|addr2|addr3...|addrn"比如"123456|ff001122|dc12366"</returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
+        /// </remarks>
+        public string DmaFindFloatEx(long deviceId, int pid, string addr_range, float float_value_min, float float_value_max, int step, int multi_thread, int mode){
+            var func = OLAPlugDLLHelper.GetFunction<DmaFindFloatExDelegate>("DmaFindFloatEx");
+            return PtrToStringUTF8(func(OLAObject, deviceId, pid, addr_range, float_value_min, float_value_max, step, multi_thread, mode));
+        }
+
+        /// <summary>
+        /// 通过DMA搜索指定范围内的整数
+        /// </summary>
+        /// <param name="deviceId">设备ID</param>
+        /// <param name="pid">进程PID</param>
+        /// <param name="addr_range">地址范围</param>
+        /// <param name="int_value_min">最小值</param>
+        /// <param name="int_value_max">最大值</param>
+        /// <param name="type">搜索的整数类型,取值如下
+        ///<br/> 0: 32位
+        ///<br/> 1: 16位
+        ///<br/> 2: 8位
+        ///<br/> 3: 64位
+        /// </param>
+        /// <returns>返回二进制字符串的指针，数据格式:字符串"addr1|addr2|addr3...|addrn"比如"123456|ff001122|dc12366"</returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
+        /// </remarks>
+        public string DmaFindInt(long deviceId, int pid, string addr_range, long int_value_min, long int_value_max, int type){
+            var func = OLAPlugDLLHelper.GetFunction<DmaFindIntDelegate>("DmaFindInt");
+            return PtrToStringUTF8(func(OLAObject, deviceId, pid, addr_range, int_value_min, int_value_max, type));
+        }
+
+        /// <summary>
+        /// 通过DMA搜索指定范围内的整数
+        /// </summary>
+        /// <param name="deviceId">设备ID</param>
+        /// <param name="pid">进程PID</param>
+        /// <param name="addr_range">地址范围</param>
+        /// <param name="int_value_min">最小值</param>
+        /// <param name="int_value_max">最大值</param>
+        /// <param name="type">搜索的整数类型,取值如下
+        ///<br/> 0: 32位
+        ///<br/> 1: 16位
+        ///<br/> 2: 8位
+        ///<br/> 3: 64位
+        /// </param>
+        /// <param name="step">步长</param>
+        /// <param name="multi_thread">是否开启多线程</param>
+        /// <param name="mode">搜索模式
+        ///<br/> 0: 搜索全部内存类型
+        ///<br/> 1: 搜索可写内存
+        ///<br/> 2: 不搜索可写内存
+        ///<br/> 4: 搜索可执行内存
+        ///<br/> 8: 不搜索可执行内存
+        ///<br/> 16: 搜索写时复制内存
+        ///<br/> 32: 不搜索写时复制内存
+        /// </param>
+        /// <returns>返回二进制字符串的指针，数据格式:字符串"addr1|addr2|addr3...|addrn"比如"123456|ff001122|dc12366"</returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
+        /// </remarks>
+        public string DmaFindIntEx(long deviceId, int pid, string addr_range, long int_value_min, long int_value_max, int type, int step, int multi_thread, int mode){
+            var func = OLAPlugDLLHelper.GetFunction<DmaFindIntExDelegate>("DmaFindIntEx");
+            return PtrToStringUTF8(func(OLAObject, deviceId, pid, addr_range, int_value_min, int_value_max, type, step, multi_thread, mode));
+        }
+
+        /// <summary>
+        /// 通过DMA搜索指定范围内的字符串
+        /// </summary>
+        /// <param name="deviceId">设备ID</param>
+        /// <param name="pid">进程PID</param>
+        /// <param name="addr_range">地址范围</param>
+        /// <param name="string_value">要搜索的字符串</param>
+        /// <param name="type">类型
+        ///<br/> 0: 返回Ascii表达的字符串
+        ///<br/> 1: 返回Unicode表达的字符串
+        ///<br/> 2: 返回UTF8表达的字符串
+        /// </param>
+        /// <returns>返回二进制字符串的指针，数据格式:字符串"addr1|addr2|addr3...|addrn"比如"123456|ff001122|dc12366"</returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
+        /// </remarks>
+        public string DmaFindString(long deviceId, int pid, string addr_range, string string_value, int type){
+            var func = OLAPlugDLLHelper.GetFunction<DmaFindStringDelegate>("DmaFindString");
+            return PtrToStringUTF8(func(OLAObject, deviceId, pid, addr_range, string_value, type));
+        }
+
+        /// <summary>
+        /// 通过DMA搜索指定范围内的字符串
+        /// </summary>
+        /// <param name="deviceId">设备ID</param>
+        /// <param name="pid">进程PID</param>
+        /// <param name="addr_range">地址范围</param>
+        /// <param name="string_value">要搜索的字符串</param>
+        /// <param name="type">类型
+        ///<br/> 0: 返回Ascii表达的字符串
+        ///<br/> 1: 返回Unicode表达的字符串
+        ///<br/> 2: 返回UTF8表达的字符串
+        /// </param>
+        /// <param name="step">步长</param>
+        /// <param name="multi_thread">是否开启多线程</param>
+        /// <param name="mode">搜索模式
+        ///<br/> 0: 搜索全部内存类型
+        ///<br/> 1: 搜索可写内存
+        ///<br/> 2: 不搜索可写内存
+        ///<br/> 4: 搜索可执行内存
+        ///<br/> 8: 不搜索可执行内存
+        ///<br/> 16: 搜索写时复制内存
+        ///<br/> 32: 不搜索写时复制内存
+        /// </param>
+        /// <returns>返回二进制字符串的指针，数据格式:字符串"addr1|addr2|addr3...|addrn"比如"123456|ff001122|dc12366"</returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
+        /// </remarks>
+        public string DmaFindStringEx(long deviceId, int pid, string addr_range, string string_value, int type, int step, int multi_thread, int mode){
+            var func = OLAPlugDLLHelper.GetFunction<DmaFindStringExDelegate>("DmaFindStringEx");
+            return PtrToStringUTF8(func(OLAObject, deviceId, pid, addr_range, string_value, type, step, multi_thread, mode));
+        }
+
+        /// <summary>
+        /// 通过DMA读取指定地址的数据
+        /// </summary>
+        /// <param name="deviceId">设备ID</param>
+        /// <param name="pid">进程PID</param>
+        /// <param name="addr">地址，支持CE数据格式比如：[[[<module>+offset1]+offset2]+offset3]，<Game.exe>+1234+8+4，[<Game.exe>+1234]+8+4，[[<Game.exe>+1234]+8 ]+4，<Game.exe>+1234，[0x12345678]+10</param>
+        /// <param name="len">长度</param>
+        /// <returns>返回二进制字符串的指针，数据格式:读取到的数值,以16进制表示的字符串 每个字节以空格相隔比如"12 34 56 78 ab cd ef"</returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
+        /// </remarks>
+        public string DmaReadData(long deviceId, int pid, string addr, int len){
+            var func = OLAPlugDLLHelper.GetFunction<DmaReadDataDelegate>("DmaReadData");
+            return PtrToStringUTF8(func(OLAObject, deviceId, pid, addr, len));
+        }
+
+        /// <summary>
+        /// 通过DMA读取指定地址的数据
+        /// </summary>
+        /// <param name="deviceId">设备ID</param>
+        /// <param name="pid">进程PID</param>
+        /// <param name="addr">地址</param>
+        /// <param name="len">长度</param>
+        /// <returns>返回二进制字符串的指针，数据格式:读取到的数值,以16进制表示的字符串 每个字节以空格相隔比如"12 34 56 78 ab cd ef"</returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
+        /// </remarks>
+        public string DmaReadDataAddr(long deviceId, int pid, long addr, int len){
+            var func = OLAPlugDLLHelper.GetFunction<DmaReadDataAddrDelegate>("DmaReadDataAddr");
+            return PtrToStringUTF8(func(OLAObject, deviceId, pid, addr, len));
+        }
+
+        /// <summary>
+        /// 通过DMA读取指定地址的数据到本地缓冲区
+        /// </summary>
+        /// <param name="deviceId">设备ID</param>
+        /// <param name="pid">进程PID</param>
+        /// <param name="addr">地址</param>
+        /// <param name="len">长度</param>
+        /// <returns>读取到的数据字符串指针. 返回0表示读取失败.</returns>
+        public long DmaReadDataAddrToBin(long deviceId, int pid, long addr, int len){
+            var func = OLAPlugDLLHelper.GetFunction<DmaReadDataAddrToBinDelegate>("DmaReadDataAddrToBin");
+            return func(OLAObject, deviceId, pid, addr, len);
+        }
+
+        /// <summary>
+        /// 通过DMA读取指定地址的数据到本地缓冲区
+        /// </summary>
+        /// <param name="deviceId">设备ID</param>
+        /// <param name="pid">进程PID</param>
+        /// <param name="addr">地址，支持CE数据格式比如：[[[<module>+offset1]+offset2]+offset3]，<Game.exe>+1234+8+4，[<Game.exe>+1234]+8+4，[[<Game.exe>+1234]+8 ]+4，<Game.exe>+1234，[0x12345678]+10</param>
+        /// <param name="len">长度</param>
+        /// <returns>读取到的内存地址</returns>
+        public long DmaReadDataToBin(long deviceId, int pid, string addr, int len){
+            var func = OLAPlugDLLHelper.GetFunction<DmaReadDataToBinDelegate>("DmaReadDataToBin");
+            return func(OLAObject, deviceId, pid, addr, len);
+        }
+
+        /// <summary>
+        /// 通过DMA读取指定地址的双精度浮点数
+        /// </summary>
+        /// <param name="deviceId">设备ID</param>
+        /// <param name="pid">进程PID</param>
+        /// <param name="addr">地址，支持CE数据格式比如：[[[<module>+offset1]+offset2]+offset3]，<Game.exe>+1234+8+4，[<Game.exe>+1234]+8+4，[[<Game.exe>+1234]+8 ]+4，<Game.exe>+1234，[0x12345678]+10</param>
+        /// <returns>读取到的双精度浮点数</returns>
+        public double DmaReadDouble(long deviceId, int pid, string addr){
+            var func = OLAPlugDLLHelper.GetFunction<DmaReadDoubleDelegate>("DmaReadDouble");
+            return func(OLAObject, deviceId, pid, addr);
+        }
+
+        /// <summary>
+        /// 通过DMA读取指定地址的双精度浮点数
+        /// </summary>
+        /// <param name="deviceId">设备ID</param>
+        /// <param name="pid">进程PID</param>
+        /// <param name="addr">地址</param>
+        /// <returns>读取到的双精度浮点数</returns>
+        public double DmaReadDoubleAddr(long deviceId, int pid, long addr){
+            var func = OLAPlugDLLHelper.GetFunction<DmaReadDoubleAddrDelegate>("DmaReadDoubleAddr");
+            return func(OLAObject, deviceId, pid, addr);
+        }
+
+        /// <summary>
+        /// 通过DMA读取指定地址的单精度浮点数
+        /// </summary>
+        /// <param name="deviceId">设备ID</param>
+        /// <param name="pid">进程PID</param>
+        /// <param name="addr">地址，支持CE数据格式比如：[[[<module>+offset1]+offset2]+offset3]，<Game.exe>+1234+8+4，[<Game.exe>+1234]+8+4，[[<Game.exe>+1234]+8 ]+4，<Game.exe>+1234，[0x12345678]+10</param>
+        /// <returns>读取到的单精度浮点数</returns>
+        public float DmaReadFloat(long deviceId, int pid, string addr){
+            var func = OLAPlugDLLHelper.GetFunction<DmaReadFloatDelegate>("DmaReadFloat");
+            return func(OLAObject, deviceId, pid, addr);
+        }
+
+        /// <summary>
+        /// 通过DMA读取指定地址的单精度浮点数
+        /// </summary>
+        /// <param name="deviceId">设备ID</param>
+        /// <param name="pid">进程PID</param>
+        /// <param name="addr">地址</param>
+        /// <returns>读取到的单精度浮点数</returns>
+        public float DmaReadFloatAddr(long deviceId, int pid, long addr){
+            var func = OLAPlugDLLHelper.GetFunction<DmaReadFloatAddrDelegate>("DmaReadFloatAddr");
+            return func(OLAObject, deviceId, pid, addr);
+        }
+
+        /// <summary>
+        /// 通过DMA读取指定地址的整数
+        /// </summary>
+        /// <param name="deviceId">设备ID</param>
+        /// <param name="pid">进程PID</param>
+        /// <param name="addr">地址，支持CE数据格式比如：[[[<module>+offset1]+offset2]+offset3]，<Game.exe>+1234+8+4，[<Game.exe>+1234]+8+4，[[<Game.exe>+1234]+8 ]+4，<Game.exe>+1234，[0x12345678]+10</param>
+        /// <param name="type">类型
+        ///<br/> 0: 32位有符号
+        ///<br/> 1: 16位有符号
+        ///<br/> 2: 8位有符号
+        ///<br/> 3: 64位
+        ///<br/> 4: 32位无符号
+        ///<br/> 5: 16位无符号
+        ///<br/> 6: 8位无符号
+        /// </param>
+        /// <returns>读取到的整数值64位</returns>
+        public long DmaReadInt(long deviceId, int pid, string addr, int type){
+            var func = OLAPlugDLLHelper.GetFunction<DmaReadIntDelegate>("DmaReadInt");
+            return func(OLAObject, deviceId, pid, addr, type);
+        }
+
+        /// <summary>
+        /// 通过DMA读取指定地址的整数
+        /// </summary>
+        /// <param name="deviceId">设备ID</param>
+        /// <param name="pid">进程PID</param>
+        /// <param name="addr">地址</param>
+        /// <param name="type">类型
+        ///<br/> 0: 32位有符号
+        ///<br/> 1: 16位有符号
+        ///<br/> 2: 8位有符号
+        ///<br/> 3: 64位
+        ///<br/> 4: 32位无符号
+        ///<br/> 5: 16位无符号
+        ///<br/> 6: 8位无符号
+        /// </param>
+        /// <returns>读取到的整数值64位</returns>
+        public long DmaReadIntAddr(long deviceId, int pid, long addr, int type){
+            var func = OLAPlugDLLHelper.GetFunction<DmaReadIntAddrDelegate>("DmaReadIntAddr");
+            return func(OLAObject, deviceId, pid, addr, type);
+        }
+
+        /// <summary>
+        /// 通过DMA读取指定地址的字符串
+        /// </summary>
+        /// <param name="deviceId">设备ID</param>
+        /// <param name="pid">进程PID</param>
+        /// <param name="addr">地址，支持CE数据格式比如：[[[<module>+offset1]+offset2]+offset3]，<Game.exe>+1234+8+4，[<Game.exe>+1234]+8+4，[[<Game.exe>+1234]+8 ]+4，<Game.exe>+1234，[0x12345678]+10</param>
+        /// <param name="type">字符串类型,取值如下
+        ///<br/> 0: GBK字符串
+        ///<br/> 1: Unicode字符串
+        ///<br/> 2: UTF8字符串
+        /// </param>
+        /// <param name="len">需要读取的字节数目.如果为0，则自动判定字符串长度.</param>
+        /// <returns>返回二进制字符串的指针，数据格式:读取到的字符串,以UTF-8编码</returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
+        /// </remarks>
+        public string DmaReadString(long deviceId, int pid, string addr, int type, int len){
+            var func = OLAPlugDLLHelper.GetFunction<DmaReadStringDelegate>("DmaReadString");
+            return PtrToStringUTF8(func(OLAObject, deviceId, pid, addr, type, len));
+        }
+
+        /// <summary>
+        /// 通过DMA读取指定地址的字符串
+        /// </summary>
+        /// <param name="deviceId">设备ID</param>
+        /// <param name="pid">进程PID</param>
+        /// <param name="addr">地址</param>
+        /// <param name="type">字符串类型,取值如下
+        ///<br/> 0: GBK字符串
+        ///<br/> 1: Unicode字符串
+        ///<br/> 2: UTF8字符串
+        /// </param>
+        /// <param name="len">需要读取的字节数目.如果为0，则自动判定字符串长度.</param>
+        /// <returns>返回二进制字符串的指针，数据格式:读取到的字符串,以UTF-8编码</returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
+        /// </remarks>
+        public string DmaReadStringAddr(long deviceId, int pid, long addr, int type, int len){
+            var func = OLAPlugDLLHelper.GetFunction<DmaReadStringAddrDelegate>("DmaReadStringAddr");
+            return PtrToStringUTF8(func(OLAObject, deviceId, pid, addr, type, len));
+        }
+
+        /// <summary>
+        /// 通过DMA写入指定地址的数据
+        /// </summary>
+        /// <param name="deviceId">设备ID</param>
+        /// <param name="pid">进程PID</param>
+        /// <param name="addr">地址，支持CE数据格式比如：[[[<module>+offset1]+offset2]+offset3]，<Game.exe>+1234+8+4，[<Game.exe>+1234]+8+4，[[<Game.exe>+1234]+8 ]+4，<Game.exe>+1234，[0x12345678]+10</param>
+        /// <param name="data">二进制数据，以字符串形式描述，比如"12 34 56 78 90 ab cd"</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        public int DmaWriteData(long deviceId, int pid, string addr, string data){
+            var func = OLAPlugDLLHelper.GetFunction<DmaWriteDataDelegate>("DmaWriteData");
+            return func(OLAObject, deviceId, pid, addr, data);
+        }
+
+        /// <summary>
+        /// 通过DMA写入指定地址的数据(源为本地缓冲区)
+        /// </summary>
+        /// <param name="deviceId">设备ID</param>
+        /// <param name="pid">进程PID</param>
+        /// <param name="addr">地址，支持CE数据格式比如：[[[<module>+offset1]+offset2]+offset3]，<Game.exe>+1234+8+4，[<Game.exe>+1234]+8+4，[[<Game.exe>+1234]+8 ]+4，<Game.exe>+1234，[0x12345678]+10</param>
+        /// <param name="data">字符串数据地址</param>
+        /// <param name="len">数据长度</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        public int DmaWriteDataFromBin(long deviceId, int pid, string addr, long data, int len){
+            var func = OLAPlugDLLHelper.GetFunction<DmaWriteDataFromBinDelegate>("DmaWriteDataFromBin");
+            return func(OLAObject, deviceId, pid, addr, data, len);
+        }
+
+        /// <summary>
+        /// 通过DMA写入指定地址的数据
+        /// </summary>
+        /// <param name="deviceId">设备ID</param>
+        /// <param name="pid">进程PID</param>
+        /// <param name="addr">地址</param>
+        /// <param name="data">二进制数据，以字符串形式描述，比如"12 34 56 78 90 ab cd"</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        public int DmaWriteDataAddr(long deviceId, int pid, long addr, string data){
+            var func = OLAPlugDLLHelper.GetFunction<DmaWriteDataAddrDelegate>("DmaWriteDataAddr");
+            return func(OLAObject, deviceId, pid, addr, data);
+        }
+
+        /// <summary>
+        /// 通过DMA写入指定地址的数据(源为本地缓冲区)
+        /// </summary>
+        /// <param name="deviceId">设备ID</param>
+        /// <param name="pid">进程PID</param>
+        /// <param name="addr">地址</param>
+        /// <param name="data">数据 二进制数据地址</param>
+        /// <param name="len">数据长度</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        public int DmaWriteDataAddrFromBin(long deviceId, int pid, long addr, long data, int len){
+            var func = OLAPlugDLLHelper.GetFunction<DmaWriteDataAddrFromBinDelegate>("DmaWriteDataAddrFromBin");
+            return func(OLAObject, deviceId, pid, addr, data, len);
+        }
+
+        /// <summary>
+        /// 通过DMA写入指定地址的双精度浮点数
+        /// </summary>
+        /// <param name="deviceId">设备ID</param>
+        /// <param name="pid">进程PID</param>
+        /// <param name="addr">地址，支持CE数据格式比如：[[[<module>+offset1]+offset2]+offset3]，<Game.exe>+1234+8+4，[<Game.exe>+1234]+8+4，[[<Game.exe>+1234]+8 ]+4，<Game.exe>+1234，[0x12345678]+10</param>
+        /// <param name="double_value">双精度浮点数</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        public int DmaWriteDouble(long deviceId, int pid, string addr, double double_value){
+            var func = OLAPlugDLLHelper.GetFunction<DmaWriteDoubleDelegate>("DmaWriteDouble");
+            return func(OLAObject, deviceId, pid, addr, double_value);
+        }
+
+        /// <summary>
+        /// 通过DMA写入指定地址的双精度浮点数
+        /// </summary>
+        /// <param name="deviceId">设备ID</param>
+        /// <param name="pid">进程PID</param>
+        /// <param name="addr">地址</param>
+        /// <param name="double_value">双精度浮点数</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        public int DmaWriteDoubleAddr(long deviceId, int pid, long addr, double double_value){
+            var func = OLAPlugDLLHelper.GetFunction<DmaWriteDoubleAddrDelegate>("DmaWriteDoubleAddr");
+            return func(OLAObject, deviceId, pid, addr, double_value);
+        }
+
+        /// <summary>
+        /// 通过DMA写入指定地址的单精度浮点数
+        /// </summary>
+        /// <param name="deviceId">设备ID</param>
+        /// <param name="pid">进程PID</param>
+        /// <param name="addr">地址，支持CE数据格式比如：[[[<module>+offset1]+offset2]+offset3]，<Game.exe>+1234+8+4，[<Game.exe>+1234]+8+4，[[<Game.exe>+1234]+8 ]+4，<Game.exe>+1234，[0x12345678]+10</param>
+        /// <param name="float_value">单精度浮点数</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        public int DmaWriteFloat(long deviceId, int pid, string addr, float float_value){
+            var func = OLAPlugDLLHelper.GetFunction<DmaWriteFloatDelegate>("DmaWriteFloat");
+            return func(OLAObject, deviceId, pid, addr, float_value);
+        }
+
+        /// <summary>
+        /// 通过DMA写入指定地址的单精度浮点数
+        /// </summary>
+        /// <param name="deviceId">设备ID</param>
+        /// <param name="pid">进程PID</param>
+        /// <param name="addr">地址</param>
+        /// <param name="float_value">单精度浮点数</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        public int DmaWriteFloatAddr(long deviceId, int pid, long addr, float float_value){
+            var func = OLAPlugDLLHelper.GetFunction<DmaWriteFloatAddrDelegate>("DmaWriteFloatAddr");
+            return func(OLAObject, deviceId, pid, addr, float_value);
+        }
+
+        /// <summary>
+        /// 通过DMA写入指定地址的整数
+        /// </summary>
+        /// <param name="deviceId">设备ID</param>
+        /// <param name="pid">进程PID</param>
+        /// <param name="addr">地址，支持CE数据格式比如：[[[<module>+offset1]+offset2]+offset3]，<Game.exe>+1234+8+4，[<Game.exe>+1234]+8+4，[[<Game.exe>+1234]+8 ]+4，<Game.exe>+1234，[0x12345678]+10</param>
+        /// <param name="type">类型
+        ///<br/> 0: 32位有符号
+        ///<br/> 1: 16位有符号
+        ///<br/> 2: 8位有符号
+        ///<br/> 3: 64位
+        ///<br/> 4: 32位无符号
+        ///<br/> 5: 16位无符号
+        ///<br/> 6: 8位无符号
+        /// </param>
+        /// <param name="value">要写入的整数值</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        public int DmaWriteInt(long deviceId, int pid, string addr, int type, long value){
+            var func = OLAPlugDLLHelper.GetFunction<DmaWriteIntDelegate>("DmaWriteInt");
+            return func(OLAObject, deviceId, pid, addr, type, value);
+        }
+
+        /// <summary>
+        /// 通过DMA写入指定地址的整数
+        /// </summary>
+        /// <param name="deviceId">设备ID</param>
+        /// <param name="pid">进程PID</param>
+        /// <param name="addr">地址</param>
+        /// <param name="type">类型
+        ///<br/> 0: 32位有符号
+        ///<br/> 1: 16位有符号
+        ///<br/> 2: 8位有符号
+        ///<br/> 3: 64位
+        ///<br/> 4: 32位无符号
+        ///<br/> 5: 16位无符号
+        ///<br/> 6: 8位无符号
+        /// </param>
+        /// <param name="value">要写入的整数值</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        public int DmaWriteIntAddr(long deviceId, int pid, long addr, int type, long value){
+            var func = OLAPlugDLLHelper.GetFunction<DmaWriteIntAddrDelegate>("DmaWriteIntAddr");
+            return func(OLAObject, deviceId, pid, addr, type, value);
+        }
+
+        /// <summary>
+        /// 通过DMA写入指定地址的字符串
+        /// </summary>
+        /// <param name="deviceId">设备ID</param>
+        /// <param name="pid">进程PID</param>
+        /// <param name="addr">地址，支持CE数据格式比如：[[[<module>+offset1]+offset2]+offset3]，<Game.exe>+1234+8+4，[<Game.exe>+1234]+8+4，[[<Game.exe>+1234]+8 ]+4，<Game.exe>+1234，[0x12345678]+10</param>
+        /// <param name="type">字符串类型,取值如下
+        ///<br/> 0: Ascii字符串
+        ///<br/> 1: Unicode字符串
+        ///<br/> 2: UTF8字符串
+        /// </param>
+        /// <param name="value">要写入的字符串</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        public int DmaWriteString(long deviceId, int pid, string addr, int type, string value){
+            var func = OLAPlugDLLHelper.GetFunction<DmaWriteStringDelegate>("DmaWriteString");
+            return func(OLAObject, deviceId, pid, addr, type, value);
+        }
+
+        /// <summary>
+        /// 通过DMA写入指定地址的字符串
+        /// </summary>
+        /// <param name="deviceId">设备ID</param>
+        /// <param name="pid">进程PID</param>
+        /// <param name="addr">地址</param>
+        /// <param name="type">字符串类型,取值如下
+        ///<br/> 0: Ascii字符串
+        ///<br/> 1: Unicode字符串
+        ///<br/> 2: UTF8字符串
+        /// </param>
+        /// <param name="value">要写入的字符串</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        public int DmaWriteStringAddr(long deviceId, int pid, long addr, int type, string value){
+            var func = OLAPlugDLLHelper.GetFunction<DmaWriteStringAddrDelegate>("DmaWriteStringAddr");
+            return func(OLAObject, deviceId, pid, addr, type, value);
         }
 
         /// <summary>
@@ -1359,7 +2270,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int DrawGuiCleanup(){
-            return OLAPlugDLLHelper.DrawGuiCleanup(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<DrawGuiCleanupDelegate>("DrawGuiCleanup");
+            return func(OLAObject);
         }
 
         /// <summary>
@@ -1371,7 +2283,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int DrawGuiSetGuiActive(int active){
-            return OLAPlugDLLHelper.DrawGuiSetGuiActive(OLAObject, active);
+            var func = OLAPlugDLLHelper.GetFunction<DrawGuiSetGuiActiveDelegate>("DrawGuiSetGuiActive");
+            return func(OLAObject, active);
         }
 
         /// <summary>
@@ -1379,7 +2292,8 @@ namespace OLAPlug
         /// </summary>
         /// <returns>状态，0 未启用，1 已启用</returns>
         public int DrawGuiIsGuiActive(){
-            return OLAPlugDLLHelper.DrawGuiIsGuiActive(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<DrawGuiIsGuiActiveDelegate>("DrawGuiIsGuiActive");
+            return func(OLAObject);
         }
 
         /// <summary>
@@ -1391,7 +2305,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int DrawGuiSetGuiClickThrough(int enabled){
-            return OLAPlugDLLHelper.DrawGuiSetGuiClickThrough(OLAObject, enabled);
+            var func = OLAPlugDLLHelper.GetFunction<DrawGuiSetGuiClickThroughDelegate>("DrawGuiSetGuiClickThrough");
+            return func(OLAObject, enabled);
         }
 
         /// <summary>
@@ -1402,7 +2317,8 @@ namespace OLAPlug
         ///<br/>1: 是
         /// </returns>
         public int DrawGuiIsGuiClickThrough(){
-            return OLAPlugDLLHelper.DrawGuiIsGuiClickThrough(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<DrawGuiIsGuiClickThroughDelegate>("DrawGuiIsGuiClickThrough");
+            return func(OLAObject);
         }
 
         /// <summary>
@@ -1416,7 +2332,8 @@ namespace OLAPlug
         /// <param name="lineThickness">线宽（像素），对描边模式有效</param>
         /// <returns>对象句柄，失败返回0</returns>
         public long DrawGuiRectangle(int x, int y, int width, int height, int mode, double lineThickness){
-            return OLAPlugDLLHelper.DrawGuiRectangle(OLAObject, x, y, width, height, mode, lineThickness);
+            var func = OLAPlugDLLHelper.GetFunction<DrawGuiRectangleDelegate>("DrawGuiRectangle");
+            return func(OLAObject, x, y, width, height, mode, lineThickness);
         }
 
         /// <summary>
@@ -1429,7 +2346,8 @@ namespace OLAPlug
         /// <param name="lineThickness">线宽（像素），对描边模式有效</param>
         /// <returns>对象句柄，失败返回0</returns>
         public long DrawGuiCircle(int x, int y, int radius, int mode, double lineThickness){
-            return OLAPlugDLLHelper.DrawGuiCircle(OLAObject, x, y, radius, mode, lineThickness);
+            var func = OLAPlugDLLHelper.GetFunction<DrawGuiCircleDelegate>("DrawGuiCircle");
+            return func(OLAObject, x, y, radius, mode, lineThickness);
         }
 
         /// <summary>
@@ -1442,7 +2360,8 @@ namespace OLAPlug
         /// <param name="lineThickness">线宽（像素）</param>
         /// <returns>对象句柄，失败返回0</returns>
         public long DrawGuiLine(int x1, int y1, int x2, int y2, double lineThickness){
-            return OLAPlugDLLHelper.DrawGuiLine(OLAObject, x1, y1, x2, y2, lineThickness);
+            var func = OLAPlugDLLHelper.GetFunction<DrawGuiLineDelegate>("DrawGuiLine");
+            return func(OLAObject, x1, y1, x2, y2, lineThickness);
         }
 
         /// <summary>
@@ -1456,7 +2375,8 @@ namespace OLAPlug
         /// <param name="align">对齐方式，见TextAlign</param>
         /// <returns>对象句柄，失败返回0</returns>
         public long DrawGuiText(string text, int x, int y, string fontPath, int fontSize, int align){
-            return OLAPlugDLLHelper.DrawGuiText(OLAObject, text, x, y, fontPath, fontSize, align);
+            var func = OLAPlugDLLHelper.GetFunction<DrawGuiTextDelegate>("DrawGuiText");
+            return func(OLAObject, text, x, y, fontPath, fontSize, align);
         }
 
         /// <summary>
@@ -1467,7 +2387,8 @@ namespace OLAPlug
         /// <param name="y">左上角Y</param>
         /// <returns>对象句柄，失败返回0</returns>
         public long DrawGuiImage(string imagePath, int x, int y){
-            return OLAPlugDLLHelper.DrawGuiImage(OLAObject, imagePath, x, y);
+            var func = OLAPlugDLLHelper.GetFunction<DrawGuiImageDelegate>("DrawGuiImage");
+            return func(OLAObject, imagePath, x, y);
         }
 
         /// <summary>
@@ -1478,7 +2399,8 @@ namespace OLAPlug
         /// <param name="y">左上角Y</param>
         /// <returns>对象句柄，失败返回0</returns>
         public long DrawGuiImagePtr(long imagePtr, int x, int y){
-            return OLAPlugDLLHelper.DrawGuiImagePtr(OLAObject, imagePtr, x, y);
+            var func = OLAPlugDLLHelper.GetFunction<DrawGuiImagePtrDelegate>("DrawGuiImagePtr");
+            return func(OLAObject, imagePtr, x, y);
         }
 
         /// <summary>
@@ -1492,7 +2414,8 @@ namespace OLAPlug
         /// <param name="style">窗口样式，见WindowStyle</param>
         /// <returns>窗口句柄，失败返回0</returns>
         public long DrawGuiWindow(string title, int x, int y, int width, int height, int style){
-            return OLAPlugDLLHelper.DrawGuiWindow(OLAObject, title, x, y, width, height, style);
+            var func = OLAPlugDLLHelper.GetFunction<DrawGuiWindowDelegate>("DrawGuiWindow");
+            return func(OLAObject, title, x, y, width, height, style);
         }
 
         /// <summary>
@@ -1505,7 +2428,8 @@ namespace OLAPlug
         /// <param name="height">高度</param>
         /// <returns>面板句柄，失败返回0</returns>
         public long DrawGuiPanel(long parentHandle, int x, int y, int width, int height){
-            return OLAPlugDLLHelper.DrawGuiPanel(OLAObject, parentHandle, x, y, width, height);
+            var func = OLAPlugDLLHelper.GetFunction<DrawGuiPanelDelegate>("DrawGuiPanel");
+            return func(OLAObject, parentHandle, x, y, width, height);
         }
 
         /// <summary>
@@ -1519,7 +2443,8 @@ namespace OLAPlug
         /// <param name="height">高度</param>
         /// <returns>按钮句柄，失败返回0</returns>
         public long DrawGuiButton(long parentHandle, string text, int x, int y, int width, int height){
-            return OLAPlugDLLHelper.DrawGuiButton(OLAObject, parentHandle, text, x, y, width, height);
+            var func = OLAPlugDLLHelper.GetFunction<DrawGuiButtonDelegate>("DrawGuiButton");
+            return func(OLAObject, parentHandle, text, x, y, width, height);
         }
 
         /// <summary>
@@ -1533,7 +2458,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int DrawGuiSetPosition(long handle, int x, int y){
-            return OLAPlugDLLHelper.DrawGuiSetPosition(OLAObject, handle, x, y);
+            var func = OLAPlugDLLHelper.GetFunction<DrawGuiSetPositionDelegate>("DrawGuiSetPosition");
+            return func(OLAObject, handle, x, y);
         }
 
         /// <summary>
@@ -1547,7 +2473,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int DrawGuiSetSize(long handle, int width, int height){
-            return OLAPlugDLLHelper.DrawGuiSetSize(OLAObject, handle, width, height);
+            var func = OLAPlugDLLHelper.GetFunction<DrawGuiSetSizeDelegate>("DrawGuiSetSize");
+            return func(OLAObject, handle, width, height);
         }
 
         /// <summary>
@@ -1563,7 +2490,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int DrawGuiSetColor(long handle, int r, int g, int b, int a){
-            return OLAPlugDLLHelper.DrawGuiSetColor(OLAObject, handle, r, g, b, a);
+            var func = OLAPlugDLLHelper.GetFunction<DrawGuiSetColorDelegate>("DrawGuiSetColor");
+            return func(OLAObject, handle, r, g, b, a);
         }
 
         /// <summary>
@@ -1576,7 +2504,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int DrawGuiSetAlpha(long handle, int alpha){
-            return OLAPlugDLLHelper.DrawGuiSetAlpha(OLAObject, handle, alpha);
+            var func = OLAPlugDLLHelper.GetFunction<DrawGuiSetAlphaDelegate>("DrawGuiSetAlpha");
+            return func(OLAObject, handle, alpha);
         }
 
         /// <summary>
@@ -1589,7 +2518,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int DrawGuiSetDrawMode(long handle, int mode){
-            return OLAPlugDLLHelper.DrawGuiSetDrawMode(OLAObject, handle, mode);
+            var func = OLAPlugDLLHelper.GetFunction<DrawGuiSetDrawModeDelegate>("DrawGuiSetDrawMode");
+            return func(OLAObject, handle, mode);
         }
 
         /// <summary>
@@ -1602,7 +2532,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int DrawGuiSetLineThickness(long handle, double thickness){
-            return OLAPlugDLLHelper.DrawGuiSetLineThickness(OLAObject, handle, thickness);
+            var func = OLAPlugDLLHelper.GetFunction<DrawGuiSetLineThicknessDelegate>("DrawGuiSetLineThickness");
+            return func(OLAObject, handle, thickness);
         }
 
         /// <summary>
@@ -1616,7 +2547,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int DrawGuiSetFont(long handle, string fontPath, int fontSize){
-            return OLAPlugDLLHelper.DrawGuiSetFont(OLAObject, handle, fontPath, fontSize);
+            var func = OLAPlugDLLHelper.GetFunction<DrawGuiSetFontDelegate>("DrawGuiSetFont");
+            return func(OLAObject, handle, fontPath, fontSize);
         }
 
         /// <summary>
@@ -1629,7 +2561,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int DrawGuiSetTextAlign(long handle, int align){
-            return OLAPlugDLLHelper.DrawGuiSetTextAlign(OLAObject, handle, align);
+            var func = OLAPlugDLLHelper.GetFunction<DrawGuiSetTextAlignDelegate>("DrawGuiSetTextAlign");
+            return func(OLAObject, handle, align);
         }
 
         /// <summary>
@@ -1642,7 +2575,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int DrawGuiSetText(long handle, string text){
-            return OLAPlugDLLHelper.DrawGuiSetText(OLAObject, handle, text);
+            var func = OLAPlugDLLHelper.GetFunction<DrawGuiSetTextDelegate>("DrawGuiSetText");
+            return func(OLAObject, handle, text);
         }
 
         /// <summary>
@@ -1655,7 +2589,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int DrawGuiSetWindowTitle(long handle, string title){
-            return OLAPlugDLLHelper.DrawGuiSetWindowTitle(OLAObject, handle, title);
+            var func = OLAPlugDLLHelper.GetFunction<DrawGuiSetWindowTitleDelegate>("DrawGuiSetWindowTitle");
+            return func(OLAObject, handle, title);
         }
 
         /// <summary>
@@ -1668,7 +2603,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int DrawGuiSetWindowStyle(long handle, int style){
-            return OLAPlugDLLHelper.DrawGuiSetWindowStyle(OLAObject, handle, style);
+            var func = OLAPlugDLLHelper.GetFunction<DrawGuiSetWindowStyleDelegate>("DrawGuiSetWindowStyle");
+            return func(OLAObject, handle, style);
         }
 
         /// <summary>
@@ -1681,7 +2617,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int DrawGuiSetWindowTopMost(long handle, int topMost){
-            return OLAPlugDLLHelper.DrawGuiSetWindowTopMost(OLAObject, handle, topMost);
+            var func = OLAPlugDLLHelper.GetFunction<DrawGuiSetWindowTopMostDelegate>("DrawGuiSetWindowTopMost");
+            return func(OLAObject, handle, topMost);
         }
 
         /// <summary>
@@ -1694,7 +2631,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int DrawGuiSetWindowTransparency(long handle, int alpha){
-            return OLAPlugDLLHelper.DrawGuiSetWindowTransparency(OLAObject, handle, alpha);
+            var func = OLAPlugDLLHelper.GetFunction<DrawGuiSetWindowTransparencyDelegate>("DrawGuiSetWindowTransparency");
+            return func(OLAObject, handle, alpha);
         }
 
         /// <summary>
@@ -1706,7 +2644,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int DrawGuiDeleteObject(long handle){
-            return OLAPlugDLLHelper.DrawGuiDeleteObject(OLAObject, handle);
+            var func = OLAPlugDLLHelper.GetFunction<DrawGuiDeleteObjectDelegate>("DrawGuiDeleteObject");
+            return func(OLAObject, handle);
         }
 
         /// <summary>
@@ -1717,7 +2656,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int DrawGuiClearAll(){
-            return OLAPlugDLLHelper.DrawGuiClearAll(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<DrawGuiClearAllDelegate>("DrawGuiClearAll");
+            return func(OLAObject);
         }
 
         /// <summary>
@@ -1730,7 +2670,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int DrawGuiSetVisible(long handle, int visible){
-            return OLAPlugDLLHelper.DrawGuiSetVisible(OLAObject, handle, visible);
+            var func = OLAPlugDLLHelper.GetFunction<DrawGuiSetVisibleDelegate>("DrawGuiSetVisible");
+            return func(OLAObject, handle, visible);
         }
 
         /// <summary>
@@ -1743,7 +2684,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int DrawGuiSetZOrder(long handle, int zOrder){
-            return OLAPlugDLLHelper.DrawGuiSetZOrder(OLAObject, handle, zOrder);
+            var func = OLAPlugDLLHelper.GetFunction<DrawGuiSetZOrderDelegate>("DrawGuiSetZOrder");
+            return func(OLAObject, handle, zOrder);
         }
 
         /// <summary>
@@ -1756,7 +2698,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int DrawGuiSetParent(long handle, long parentHandle){
-            return OLAPlugDLLHelper.DrawGuiSetParent(OLAObject, handle, parentHandle);
+            var func = OLAPlugDLLHelper.GetFunction<DrawGuiSetParentDelegate>("DrawGuiSetParent");
+            return func(OLAObject, handle, parentHandle);
         }
 
         /// <summary>
@@ -1769,7 +2712,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int DrawGuiSetButtonCallback(long handle, DrawGuiButtonCallback callback){
-            return OLAPlugDLLHelper.DrawGuiSetButtonCallback(OLAObject, handle, callback);
+            var func = OLAPlugDLLHelper.GetFunction<DrawGuiSetButtonCallbackDelegate>("DrawGuiSetButtonCallback");
+            return func(OLAObject, handle, callback);
         }
 
         /// <summary>
@@ -1782,7 +2726,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int DrawGuiSetMouseCallback(long handle, DrawGuiMouseCallback callback){
-            return OLAPlugDLLHelper.DrawGuiSetMouseCallback(OLAObject, handle, callback);
+            var func = OLAPlugDLLHelper.GetFunction<DrawGuiSetMouseCallbackDelegate>("DrawGuiSetMouseCallback");
+            return func(OLAObject, handle, callback);
         }
 
         /// <summary>
@@ -1791,7 +2736,8 @@ namespace OLAPlug
         /// <param name="handle">对象句柄</param>
         /// <returns>对象类型，见DrawType</returns>
         public int DrawGuiGetDrawObjectType(long handle){
-            return OLAPlugDLLHelper.DrawGuiGetDrawObjectType(OLAObject, handle);
+            var func = OLAPlugDLLHelper.GetFunction<DrawGuiGetDrawObjectTypeDelegate>("DrawGuiGetDrawObjectType");
+            return func(OLAObject, handle);
         }
 
         /// <summary>
@@ -1805,7 +2751,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int DrawGuiGetPosition(long handle, out int x, out int y){
-            return OLAPlugDLLHelper.DrawGuiGetPosition(OLAObject, handle, out x, out y);
+            var func = OLAPlugDLLHelper.GetFunction<DrawGuiGetPositionDelegate>("DrawGuiGetPosition");
+            return func(OLAObject, handle, out x, out y);
         }
 
         /// <summary>
@@ -1819,7 +2766,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int DrawGuiGetSize(long handle, out int width, out int height){
-            return OLAPlugDLLHelper.DrawGuiGetSize(OLAObject, handle, out width, out height);
+            var func = OLAPlugDLLHelper.GetFunction<DrawGuiGetSizeDelegate>("DrawGuiGetSize");
+            return func(OLAObject, handle, out width, out height);
         }
 
         /// <summary>
@@ -1830,7 +2778,8 @@ namespace OLAPlug
         /// <param name="y">Y坐标</param>
         /// <returns>结果enum 0 否enum 1 是</returns>
         public int DrawGuiIsPointInObject(long handle, int x, int y){
-            return OLAPlugDLLHelper.DrawGuiIsPointInObject(OLAObject, handle, x, y);
+            var func = OLAPlugDLLHelper.GetFunction<DrawGuiIsPointInObjectDelegate>("DrawGuiIsPointInObject");
+            return func(OLAObject, handle, x, y);
         }
 
         /// <summary>
@@ -1844,7 +2793,8 @@ namespace OLAPlug
         /// </param>
         /// <returns>1成功 其他失败</returns>
         public int SetMemoryMode(int mode){
-            return OLAPlugDLLHelper.SetMemoryMode(OLAObject, mode);
+            var func = OLAPlugDLLHelper.GetFunction<SetMemoryModeDelegate>("SetMemoryMode");
+            return func(OLAObject, mode);
         }
 
         /// <summary>
@@ -1854,7 +2804,8 @@ namespace OLAPlug
         /// <param name="type">驱动类型</param>
         /// <returns>1成功 其他失败</returns>
         public int ExportDriver(string driver_path, int type){
-            return OLAPlugDLLHelper.ExportDriver(OLAObject, driver_path, type);
+            var func = OLAPlugDLLHelper.GetFunction<ExportDriverDelegate>("ExportDriver");
+            return func(OLAObject, driver_path, type);
         }
 
         /// <summary>
@@ -1864,7 +2815,8 @@ namespace OLAPlug
         /// <param name="driver_path">驱动路径</param>
         /// <returns>1成功 其他失败</returns>
         public int LoadDriver(string driver_name, string driver_path){
-            return OLAPlugDLLHelper.LoadDriver(OLAObject, driver_name, driver_path);
+            var func = OLAPlugDLLHelper.GetFunction<LoadDriverDelegate>("LoadDriver");
+            return func(OLAObject, driver_name, driver_path);
         }
 
         /// <summary>
@@ -1873,7 +2825,8 @@ namespace OLAPlug
         /// <param name="driver_name">驱动名称</param>
         /// <returns>1成功 其他失败</returns>
         public int UnloadDriver(string driver_name){
-            return OLAPlugDLLHelper.UnloadDriver(OLAObject, driver_name);
+            var func = OLAPlugDLLHelper.GetFunction<UnloadDriverDelegate>("UnloadDriver");
+            return func(OLAObject, driver_name);
         }
 
         /// <summary>
@@ -1881,7 +2834,8 @@ namespace OLAPlug
         /// </summary>
         /// <returns>1成功 其他失败</returns>
         public int DriverTest(){
-            return OLAPlugDLLHelper.DriverTest(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<DriverTestDelegate>("DriverTest");
+            return func(OLAObject);
         }
 
         /// <summary>
@@ -1889,7 +2843,21 @@ namespace OLAPlug
         /// </summary>
         /// <returns>1成功 其他失败</returns>
         public int LoadPdb(){
-            return OLAPlugDLLHelper.LoadPdb(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<LoadPdbDelegate>("LoadPdb");
+            return func(OLAObject);
+        }
+
+        /// <summary>
+        /// 获取PDB文件下载URL和保存路径列表
+        /// </summary>
+        /// <returns>PDB文件下载URL|保存路径列表</returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 返回的URL列表格式为： url1|path1\nurl2|path2\nurl3|path3\n...
+        /// <br/>2. 需要调用 FreeStringPtr 释放返回的URL列表
+        /// </remarks>
+        public string GetPdbDownloadUrls(){
+            var func = OLAPlugDLLHelper.GetFunction<GetPdbDownloadUrlsDelegate>("GetPdbDownloadUrls");
+            return PtrToStringUTF8(func(OLAObject));
         }
 
         /// <summary>
@@ -1899,7 +2867,8 @@ namespace OLAPlug
         /// <param name="enable">是否隐藏</param>
         /// <returns>1成功 其他失败</returns>
         public int HideProcess(long pid, int enable){
-            return OLAPlugDLLHelper.HideProcess(OLAObject, pid, enable);
+            var func = OLAPlugDLLHelper.GetFunction<HideProcessDelegate>("HideProcess");
+            return func(OLAObject, pid, enable);
         }
 
         /// <summary>
@@ -1909,7 +2878,8 @@ namespace OLAPlug
         /// <param name="enable">是否保护</param>
         /// <returns>1成功 其他失败</returns>
         public int ProtectProcess(long pid, int enable){
-            return OLAPlugDLLHelper.ProtectProcess(OLAObject, pid, enable);
+            var func = OLAPlugDLLHelper.GetFunction<ProtectProcessDelegate>("ProtectProcess");
+            return func(OLAObject, pid, enable);
         }
 
         /// <summary>
@@ -1919,7 +2889,8 @@ namespace OLAPlug
         /// <param name="enable">是否保护</param>
         /// <returns>1成功 其他失败</returns>
         public int ProtectProcess2(long pid, int enable){
-            return OLAPlugDLLHelper.ProtectProcess2(OLAObject, pid, enable);
+            var func = OLAPlugDLLHelper.GetFunction<ProtectProcess2Delegate>("ProtectProcess2");
+            return func(OLAObject, pid, enable);
         }
 
         /// <summary>
@@ -1930,7 +2901,8 @@ namespace OLAPlug
         /// <param name="allow_pid">允许的进程ID</param>
         /// <returns>1成功 其他失败</returns>
         public int AddProtectPID(long pid, long mode, long allow_pid){
-            return OLAPlugDLLHelper.AddProtectPID(OLAObject, pid, mode, allow_pid);
+            var func = OLAPlugDLLHelper.GetFunction<AddProtectPIDDelegate>("AddProtectPID");
+            return func(OLAObject, pid, mode, allow_pid);
         }
 
         /// <summary>
@@ -1939,7 +2911,8 @@ namespace OLAPlug
         /// <param name="pid">进程ID</param>
         /// <returns>1成功 其他失败</returns>
         public int RemoveProtectPID(long pid){
-            return OLAPlugDLLHelper.RemoveProtectPID(OLAObject, pid);
+            var func = OLAPlugDLLHelper.GetFunction<RemoveProtectPIDDelegate>("RemoveProtectPID");
+            return func(OLAObject, pid);
         }
 
         /// <summary>
@@ -1948,7 +2921,8 @@ namespace OLAPlug
         /// <param name="pid">进程ID</param>
         /// <returns>1成功 其他失败</returns>
         public int AddAllowPID(long pid){
-            return OLAPlugDLLHelper.AddAllowPID(OLAObject, pid);
+            var func = OLAPlugDLLHelper.GetFunction<AddAllowPIDDelegate>("AddAllowPID");
+            return func(OLAObject, pid);
         }
 
         /// <summary>
@@ -1957,7 +2931,8 @@ namespace OLAPlug
         /// <param name="pid">进程ID</param>
         /// <returns>1成功 其他失败</returns>
         public int RemoveAllowPID(long pid){
-            return OLAPlugDLLHelper.RemoveAllowPID(OLAObject, pid);
+            var func = OLAPlugDLLHelper.GetFunction<RemoveAllowPIDDelegate>("RemoveAllowPID");
+            return func(OLAObject, pid);
         }
 
         /// <summary>
@@ -1967,7 +2942,8 @@ namespace OLAPlug
         /// <param name="fake_pid">伪装的目标进程ID</param>
         /// <returns>1成功 其他失败</returns>
         public int FakeProcess(long pid, long fake_pid){
-            return OLAPlugDLLHelper.FakeProcess(OLAObject, pid, fake_pid);
+            var func = OLAPlugDLLHelper.GetFunction<FakeProcessDelegate>("FakeProcess");
+            return func(OLAObject, pid, fake_pid);
         }
 
         /// <summary>
@@ -1977,7 +2953,8 @@ namespace OLAPlug
         /// <param name="flag">保护标志 0还原 1黑屏 2透明</param>
         /// <returns>1成功 其他失败</returns>
         public int ProtectWindow(long hwnd, int flag){
-            return OLAPlugDLLHelper.ProtectWindow(OLAObject, hwnd, flag);
+            var func = OLAPlugDLLHelper.GetFunction<ProtectWindowDelegate>("ProtectWindow");
+            return func(OLAObject, hwnd, flag);
         }
 
         /// <summary>
@@ -1987,7 +2964,8 @@ namespace OLAPlug
         /// <param name="process_handle">进程句柄</param>
         /// <returns>1成功 其他失败</returns>
         public int KeOpenProcess(long pid, out long process_handle){
-            return OLAPlugDLLHelper.KeOpenProcess(OLAObject, pid, out process_handle);
+            var func = OLAPlugDLLHelper.GetFunction<KeOpenProcessDelegate>("KeOpenProcess");
+            return func(OLAObject, pid, out process_handle);
         }
 
         /// <summary>
@@ -1997,7 +2975,8 @@ namespace OLAPlug
         /// <param name="thread_handle">线程句柄</param>
         /// <returns>1成功 其他失败</returns>
         public int KeOpenThread(long thread_id, out long thread_handle){
-            return OLAPlugDLLHelper.KeOpenThread(OLAObject, thread_id, out thread_handle);
+            var func = OLAPlugDLLHelper.GetFunction<KeOpenThreadDelegate>("KeOpenThread");
+            return func(OLAObject, thread_id, out thread_handle);
         }
 
         /// <summary>
@@ -2005,7 +2984,8 @@ namespace OLAPlug
         /// </summary>
         /// <returns>1成功 其他失败</returns>
         public int StartSecurityGuard(){
-            return OLAPlugDLLHelper.StartSecurityGuard(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<StartSecurityGuardDelegate>("StartSecurityGuard");
+            return func(OLAObject);
         }
 
         /// <summary>
@@ -2013,7 +2993,8 @@ namespace OLAPlug
         /// </summary>
         /// <returns>1成功 其他失败</returns>
         public int ProtectFileTestDriver(){
-            return OLAPlugDLLHelper.ProtectFileTestDriver(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<ProtectFileTestDriverDelegate>("ProtectFileTestDriver");
+            return func(OLAObject);
         }
 
         /// <summary>
@@ -2021,7 +3002,8 @@ namespace OLAPlug
         /// </summary>
         /// <returns>1成功 其他失败</returns>
         public int ProtectFileEnableDriver(){
-            return OLAPlugDLLHelper.ProtectFileEnableDriver(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<ProtectFileEnableDriverDelegate>("ProtectFileEnableDriver");
+            return func(OLAObject);
         }
 
         /// <summary>
@@ -2029,7 +3011,8 @@ namespace OLAPlug
         /// </summary>
         /// <returns>1成功 其他失败</returns>
         public int ProtectFileDisableDriver(){
-            return OLAPlugDLLHelper.ProtectFileDisableDriver(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<ProtectFileDisableDriverDelegate>("ProtectFileDisableDriver");
+            return func(OLAObject);
         }
 
         /// <summary>
@@ -2037,7 +3020,8 @@ namespace OLAPlug
         /// </summary>
         /// <returns>1成功 其他失败</returns>
         public int ProtectFileStartFilter(){
-            return OLAPlugDLLHelper.ProtectFileStartFilter(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<ProtectFileStartFilterDelegate>("ProtectFileStartFilter");
+            return func(OLAObject);
         }
 
         /// <summary>
@@ -2045,7 +3029,8 @@ namespace OLAPlug
         /// </summary>
         /// <returns>1成功 其他失败</returns>
         public int ProtectFileStopFilter(){
-            return OLAPlugDLLHelper.ProtectFileStopFilter(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<ProtectFileStopFilterDelegate>("ProtectFileStopFilter");
+            return func(OLAObject);
         }
 
         /// <summary>
@@ -2056,7 +3041,8 @@ namespace OLAPlug
         /// <param name="is_directory">是否为目录 (1-目录, 0-文件)</param>
         /// <returns>1成功 其他失败</returns>
         public int ProtectFileAddProtectedPath(string path, int mode, int is_directory){
-            return OLAPlugDLLHelper.ProtectFileAddProtectedPath(OLAObject, path, mode, is_directory);
+            var func = OLAPlugDLLHelper.GetFunction<ProtectFileAddProtectedPathDelegate>("ProtectFileAddProtectedPath");
+            return func(OLAObject, path, mode, is_directory);
         }
 
         /// <summary>
@@ -2065,7 +3051,8 @@ namespace OLAPlug
         /// <param name="path">要移除保护的文件或文件夹路径</param>
         /// <returns>1成功 其他失败</returns>
         public int ProtectFileRemoveProtectedPath(string path){
-            return OLAPlugDLLHelper.ProtectFileRemoveProtectedPath(OLAObject, path);
+            var func = OLAPlugDLLHelper.GetFunction<ProtectFileRemoveProtectedPathDelegate>("ProtectFileRemoveProtectedPath");
+            return func(OLAObject, path);
         }
 
         /// <summary>
@@ -2073,7 +3060,8 @@ namespace OLAPlug
         /// </summary>
         /// <returns>1成功 其他失败</returns>
         public int ProtectFileClearProtectedPaths(){
-            return OLAPlugDLLHelper.ProtectFileClearProtectedPaths(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<ProtectFileClearProtectedPathsDelegate>("ProtectFileClearProtectedPaths");
+            return func(OLAObject);
         }
 
         /// <summary>
@@ -2083,7 +3071,8 @@ namespace OLAPlug
         /// <param name="mode">输出参数，用于接收该路径的保护模式（可为NULL）</param>
         /// <returns>1-路径受保护, 0-路径未受保护或查询失败</returns>
         public int ProtectFileQueryProtectedPath(string path, out int mode){
-            return OLAPlugDLLHelper.ProtectFileQueryProtectedPath(OLAObject, path, out mode);
+            var func = OLAPlugDLLHelper.GetFunction<ProtectFileQueryProtectedPathDelegate>("ProtectFileQueryProtectedPath");
+            return func(OLAObject, path, out mode);
         }
 
         /// <summary>
@@ -2092,7 +3081,8 @@ namespace OLAPlug
         /// <param name="pid">进程ID</param>
         /// <returns>1成功 其他失败</returns>
         public int ProtectFileAddWhitelist(long pid){
-            return OLAPlugDLLHelper.ProtectFileAddWhitelist(OLAObject, pid);
+            var func = OLAPlugDLLHelper.GetFunction<ProtectFileAddWhitelistDelegate>("ProtectFileAddWhitelist");
+            return func(OLAObject, pid);
         }
 
         /// <summary>
@@ -2101,7 +3091,8 @@ namespace OLAPlug
         /// <param name="pid">进程ID</param>
         /// <returns>1成功 其他失败</returns>
         public int ProtectFileRemoveWhitelist(long pid){
-            return OLAPlugDLLHelper.ProtectFileRemoveWhitelist(OLAObject, pid);
+            var func = OLAPlugDLLHelper.GetFunction<ProtectFileRemoveWhitelistDelegate>("ProtectFileRemoveWhitelist");
+            return func(OLAObject, pid);
         }
 
         /// <summary>
@@ -2109,7 +3100,8 @@ namespace OLAPlug
         /// </summary>
         /// <returns>1成功 其他失败</returns>
         public int ProtectFileClearWhitelist(){
-            return OLAPlugDLLHelper.ProtectFileClearWhitelist(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<ProtectFileClearWhitelistDelegate>("ProtectFileClearWhitelist");
+            return func(OLAObject);
         }
 
         /// <summary>
@@ -2118,7 +3110,8 @@ namespace OLAPlug
         /// <param name="pid">进程ID</param>
         /// <returns>1-在白名单中, 0-不在白名单中或查询失败</returns>
         public int ProtectFileQueryWhitelist(long pid){
-            return OLAPlugDLLHelper.ProtectFileQueryWhitelist(OLAObject, pid);
+            var func = OLAPlugDLLHelper.GetFunction<ProtectFileQueryWhitelistDelegate>("ProtectFileQueryWhitelist");
+            return func(OLAObject, pid);
         }
 
         /// <summary>
@@ -2127,7 +3120,8 @@ namespace OLAPlug
         /// <param name="pid">进程ID</param>
         /// <returns>1成功 其他失败</returns>
         public int ProtectFileAddBlacklist(long pid){
-            return OLAPlugDLLHelper.ProtectFileAddBlacklist(OLAObject, pid);
+            var func = OLAPlugDLLHelper.GetFunction<ProtectFileAddBlacklistDelegate>("ProtectFileAddBlacklist");
+            return func(OLAObject, pid);
         }
 
         /// <summary>
@@ -2136,7 +3130,8 @@ namespace OLAPlug
         /// <param name="pid">进程ID</param>
         /// <returns>1成功 其他失败</returns>
         public int ProtectFileRemoveBlacklist(long pid){
-            return OLAPlugDLLHelper.ProtectFileRemoveBlacklist(OLAObject, pid);
+            var func = OLAPlugDLLHelper.GetFunction<ProtectFileRemoveBlacklistDelegate>("ProtectFileRemoveBlacklist");
+            return func(OLAObject, pid);
         }
 
         /// <summary>
@@ -2144,7 +3139,8 @@ namespace OLAPlug
         /// </summary>
         /// <returns>1成功 其他失败</returns>
         public int ProtectFileClearBlacklist(){
-            return OLAPlugDLLHelper.ProtectFileClearBlacklist(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<ProtectFileClearBlacklistDelegate>("ProtectFileClearBlacklist");
+            return func(OLAObject);
         }
 
         /// <summary>
@@ -2153,7 +3149,108 @@ namespace OLAPlug
         /// <param name="pid">进程ID</param>
         /// <returns>1-在黑名单中, 0-不在黑名单中或查询失败</returns>
         public int ProtectFileQueryBlacklist(long pid){
-            return OLAPlugDLLHelper.ProtectFileQueryBlacklist(OLAObject, pid);
+            var func = OLAPlugDLLHelper.GetFunction<ProtectFileQueryBlacklistDelegate>("ProtectFileQueryBlacklist");
+            return func(OLAObject, pid);
+        }
+
+        /// <summary>
+        /// 启用VT驱动
+        /// </summary>
+        /// <param name="enable">是否启用VT驱动</param>
+        /// <returns>1加载VT驱动成功 其他失败</returns>
+        public int EnabletVtDriver(int enable){
+            var func = OLAPlugDLLHelper.GetFunction<EnabletVtDriverDelegate>("EnabletVtDriver");
+            return func(OLAObject, enable);
+        }
+
+        /// <summary>
+        /// 写入指定地址的数据. 可以让执行和读写分离，可以有效的解决CRC检测
+        /// </summary>
+        /// <param name="hwnd">窗口句柄</param>
+        /// <param name="addr">地址，支持CE数据格式比如：[[[<module>+offset1]+offset2]+offset3]，<Game.exe>+1234+8+4，[<Game.exe>+1234]+8+4，[[<Game.exe>+1234]+8 ]+4，<Game.exe>+1234，[0x12345678]+10</param>
+        /// <param name="data">数据 二进制数据，以字符串形式描述，比如"12 34 56 78 90 ab cd"</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        public int VtFakeWriteData(long hwnd, string addr, string data){
+            var func = OLAPlugDLLHelper.GetFunction<VtFakeWriteDataDelegate>("VtFakeWriteData");
+            return func(OLAObject, hwnd, addr, data);
+        }
+
+        /// <summary>
+        /// 写入指定地址的数据. 可以让执行和读写分离，可以有效的解决CRC检测
+        /// </summary>
+        /// <param name="hwnd">窗口句柄</param>
+        /// <param name="addr">地址，支持CE数据格式比如：[[[<module>+offset1]+offset2]+offset3]，<Game.exe>+1234+8+4，[<Game.exe>+1234]+8+4，[[<Game.exe>+1234]+8 ]+4，<Game.exe>+1234，[0x12345678]+10</param>
+        /// <param name="data">字符串数据地址</param>
+        /// <param name="len">数据长度</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        public int VtFakeWriteDataFromBin(long hwnd, string addr, long data, int len){
+            var func = OLAPlugDLLHelper.GetFunction<VtFakeWriteDataFromBinDelegate>("VtFakeWriteDataFromBin");
+            return func(OLAObject, hwnd, addr, data, len);
+        }
+
+        /// <summary>
+        /// 写入指定地址的数据. 可以让执行和读写分离，可以有效的解决CRC检测
+        /// </summary>
+        /// <param name="hwnd">窗口句柄</param>
+        /// <param name="addr">地址</param>
+        /// <param name="data">二进制数据，以字符串形式描述，比如"12 34 56 78 90 ab cd"</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        public int VtFakeWriteDataAddr(long hwnd, long addr, string data){
+            var func = OLAPlugDLLHelper.GetFunction<VtFakeWriteDataAddrDelegate>("VtFakeWriteDataAddr");
+            return func(OLAObject, hwnd, addr, data);
+        }
+
+        /// <summary>
+        /// 写入指定地址的数据. 可以让执行和读写分离，可以有效的解决CRC检测
+        /// </summary>
+        /// <param name="hwnd">窗口句柄</param>
+        /// <param name="addr">地址</param>
+        /// <param name="data">数据 二进制数据，以字符串形式描述，比如"12 34 56 78 90 ab cd"</param>
+        /// <param name="len">数据长度</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        public int VtFakeWriteDataAddrFromBin(long hwnd, long addr, long data, int len){
+            var func = OLAPlugDLLHelper.GetFunction<VtFakeWriteDataAddrFromBinDelegate>("VtFakeWriteDataAddrFromBin");
+            return func(OLAObject, hwnd, addr, data, len);
+        }
+
+        /// <summary>
+        /// 卸载伪造内存
+        /// </summary>
+        /// <param name="hwnd">窗口句柄</param>
+        /// <param name="addr">地址</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        public int VtUnFakeMemoryAddr(long hwnd, long addr){
+            var func = OLAPlugDLLHelper.GetFunction<VtUnFakeMemoryAddrDelegate>("VtUnFakeMemoryAddr");
+            return func(OLAObject, hwnd, addr);
+        }
+
+        /// <summary>
+        /// 卸载伪造内存
+        /// </summary>
+        /// <param name="hwnd">窗口句柄</param>
+        /// <param name="addr">地址</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        public int VtUnFakeMemory(long hwnd, string addr){
+            var func = OLAPlugDLLHelper.GetFunction<VtUnFakeMemoryDelegate>("VtUnFakeMemory");
+            return func(OLAObject, hwnd, addr);
         }
 
         /// <summary>
@@ -2161,7 +3258,8 @@ namespace OLAPlug
         /// </summary>
         /// <returns>1成功 其他失败</returns>
         public int VipProtectEnableDriver(){
-            return OLAPlugDLLHelper.VipProtectEnableDriver(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<VipProtectEnableDriverDelegate>("VipProtectEnableDriver");
+            return func(OLAObject);
         }
 
         /// <summary>
@@ -2169,7 +3267,8 @@ namespace OLAPlug
         /// </summary>
         /// <returns>1成功 其他失败</returns>
         public int VipProtectDisableDriver(){
-            return OLAPlugDLLHelper.VipProtectDisableDriver(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<VipProtectDisableDriverDelegate>("VipProtectDisableDriver");
+            return func(OLAObject);
         }
 
         /// <summary>
@@ -2181,7 +3280,8 @@ namespace OLAPlug
         /// <param name="permission">保护权限：位标志组合，VIP_PERMISSION_BLOCK_OPEN |VIP_PERMISSION_HIDE_INFORMATION | VIP_PERMISSION_BLOCK_MEMORY | VIP_PERMISSION_BLOCK_WINDOWS</param>
         /// <returns>1成功 其他失败</returns>
         public int VipProtectAddProtect(long pid, string path, int mode, int permission){
-            return OLAPlugDLLHelper.VipProtectAddProtect(OLAObject, pid, path, mode, permission);
+            var func = OLAPlugDLLHelper.GetFunction<VipProtectAddProtectDelegate>("VipProtectAddProtect");
+            return func(OLAObject, pid, path, mode, permission);
         }
 
         /// <summary>
@@ -2191,7 +3291,8 @@ namespace OLAPlug
         /// <param name="path">需要移除保护的文件或文件夹路径</param>
         /// <returns>1成功 其他失败</returns>
         public int VipProtectRemoveProtect(long pid, string path){
-            return OLAPlugDLLHelper.VipProtectRemoveProtect(OLAObject, pid, path);
+            var func = OLAPlugDLLHelper.GetFunction<VipProtectRemoveProtectDelegate>("VipProtectRemoveProtect");
+            return func(OLAObject, pid, path);
         }
 
         /// <summary>
@@ -2199,7 +3300,8 @@ namespace OLAPlug
         /// </summary>
         /// <returns>1成功 其他失败</returns>
         public int VipProtectClearAll(){
-            return OLAPlugDLLHelper.VipProtectClearAll(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<VipProtectClearAllDelegate>("VipProtectClearAll");
+            return func(OLAObject);
         }
 
         /// <summary>
@@ -2209,7 +3311,8 @@ namespace OLAPlug
         /// <param name="path">需要添加白名单的文件或文件夹路径</param>
         /// <returns>1成功 其他失败</returns>
         public int VipProtectAddWhitelist(long pid, string path){
-            return OLAPlugDLLHelper.VipProtectAddWhitelist(OLAObject, pid, path);
+            var func = OLAPlugDLLHelper.GetFunction<VipProtectAddWhitelistDelegate>("VipProtectAddWhitelist");
+            return func(OLAObject, pid, path);
         }
 
         /// <summary>
@@ -2219,7 +3322,8 @@ namespace OLAPlug
         /// <param name="path">需要移除白名单的文件或文件夹路径</param>
         /// <returns>1成功 其他失败</returns>
         public int VipProtectRemoveWhitelist(long pid, string path){
-            return OLAPlugDLLHelper.VipProtectRemoveWhitelist(OLAObject, pid, path);
+            var func = OLAPlugDLLHelper.GetFunction<VipProtectRemoveWhitelistDelegate>("VipProtectRemoveWhitelist");
+            return func(OLAObject, pid, path);
         }
 
         /// <summary>
@@ -2227,7 +3331,8 @@ namespace OLAPlug
         /// </summary>
         /// <returns>1成功 其他失败</returns>
         public int VipProtectClearWhitelist(){
-            return OLAPlugDLLHelper.VipProtectClearWhitelist(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<VipProtectClearWhitelistDelegate>("VipProtectClearWhitelist");
+            return func(OLAObject);
         }
 
         /// <summary>
@@ -2237,7 +3342,8 @@ namespace OLAPlug
         /// <param name="path">需要添加黑名单的文件或文件夹路径</param>
         /// <returns>1成功 其他失败</returns>
         public int VipProtectAddBlacklist(long pid, string path){
-            return OLAPlugDLLHelper.VipProtectAddBlacklist(OLAObject, pid, path);
+            var func = OLAPlugDLLHelper.GetFunction<VipProtectAddBlacklistDelegate>("VipProtectAddBlacklist");
+            return func(OLAObject, pid, path);
         }
 
         /// <summary>
@@ -2247,7 +3353,8 @@ namespace OLAPlug
         /// <param name="path">需要移除黑名单的文件或文件夹路径</param>
         /// <returns>1成功 其他失败</returns>
         public int VipProtectRemoveBlacklist(long pid, string path){
-            return OLAPlugDLLHelper.VipProtectRemoveBlacklist(OLAObject, pid, path);
+            var func = OLAPlugDLLHelper.GetFunction<VipProtectRemoveBlacklistDelegate>("VipProtectRemoveBlacklist");
+            return func(OLAObject, pid, path);
         }
 
         /// <summary>
@@ -2255,7 +3362,8 @@ namespace OLAPlug
         /// </summary>
         /// <returns>1成功 其他失败</returns>
         public int VipProtectClearBlacklist(){
-            return OLAPlugDLLHelper.VipProtectClearBlacklist(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<VipProtectClearBlacklistDelegate>("VipProtectClearBlacklist");
+            return func(OLAObject);
         }
 
         /// <summary>
@@ -2276,7 +3384,8 @@ namespace OLAPlug
         /// </param>
         /// <returns>0 成功,其他 失败</returns>
         public int GenerateRSAKey(string publicKeyPath, string privateKeyPath, int type, int keySize){
-            return OLAPlugDLLHelper.GenerateRSAKey(OLAObject, publicKeyPath, privateKeyPath, type, keySize);
+            var func = OLAPlugDLLHelper.GetFunction<GenerateRSAKeyDelegate>("GenerateRSAKey");
+            return func(OLAObject, publicKeyPath, privateKeyPath, type, keySize);
         }
 
         /// <summary>
@@ -2298,7 +3407,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串指针需要调用 FreeStringPtr 释放内存
         /// </remarks>
         public string ConvertRSAPublicKey(string publicKey, int inputType, int outputType){
-            return PtrToStringUTF8(OLAPlugDLLHelper.ConvertRSAPublicKey(OLAObject, publicKey, inputType, outputType));
+            var func = OLAPlugDLLHelper.GetFunction<ConvertRSAPublicKeyDelegate>("ConvertRSAPublicKey");
+            return PtrToStringUTF8(func(OLAObject, publicKey, inputType, outputType));
         }
 
         /// <summary>
@@ -2320,7 +3430,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串指针需要调用 FreeStringPtr 释放内存
         /// </remarks>
         public string ConvertRSAPrivateKey(string privateKey, int inputType, int outputType){
-            return PtrToStringUTF8(OLAPlugDLLHelper.ConvertRSAPrivateKey(OLAObject, privateKey, inputType, outputType));
+            var func = OLAPlugDLLHelper.GetFunction<ConvertRSAPrivateKeyDelegate>("ConvertRSAPrivateKey");
+            return PtrToStringUTF8(func(OLAObject, privateKey, inputType, outputType));
         }
 
         /// <summary>
@@ -2337,7 +3448,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串指针需要调用 FreeStringPtr 释放内存
         /// </remarks>
         public string EncryptWithRsa(string message, string publicKey, int paddingType){
-            return PtrToStringUTF8(OLAPlugDLLHelper.EncryptWithRsa(OLAObject, message, publicKey, paddingType));
+            var func = OLAPlugDLLHelper.GetFunction<EncryptWithRsaDelegate>("EncryptWithRsa");
+            return PtrToStringUTF8(func(OLAObject, message, publicKey, paddingType));
         }
 
         /// <summary>
@@ -2354,7 +3466,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串指针需要调用 FreeStringPtr 释放内存
         /// </remarks>
         public string DecryptWithRsa(string cipher, string privateKey, int paddingType){
-            return PtrToStringUTF8(OLAPlugDLLHelper.DecryptWithRsa(OLAObject, cipher, privateKey, paddingType));
+            var func = OLAPlugDLLHelper.GetFunction<DecryptWithRsaDelegate>("DecryptWithRsa");
+            return PtrToStringUTF8(func(OLAObject, cipher, privateKey, paddingType));
         }
 
         /// <summary>
@@ -2381,7 +3494,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串指针需要调用 FreeStringPtr 释放内存
         /// </remarks>
         public string SignWithRsa(string message, string privateCer, int shaType, int paddingType){
-            return PtrToStringUTF8(OLAPlugDLLHelper.SignWithRsa(OLAObject, message, privateCer, shaType, paddingType));
+            var func = OLAPlugDLLHelper.GetFunction<SignWithRsaDelegate>("SignWithRsa");
+            return PtrToStringUTF8(func(OLAObject, message, privateCer, shaType, paddingType));
         }
 
         /// <summary>
@@ -2409,7 +3523,8 @@ namespace OLAPlug
         ///<br/>1: 验证成功
         /// </returns>
         public int VerifySignWithRsa(string message, string signature, int shaType, int paddingType, string publicCer){
-            return OLAPlugDLLHelper.VerifySignWithRsa(OLAObject, message, signature, shaType, paddingType, publicCer);
+            var func = OLAPlugDLLHelper.GetFunction<VerifySignWithRsaDelegate>("VerifySignWithRsa");
+            return func(OLAObject, message, signature, shaType, paddingType, publicCer);
         }
 
         /// <summary>
@@ -2423,7 +3538,8 @@ namespace OLAPlug
         /// <br/>2. 此接口使用CBC模式和PKCS7填充，默认IV为0。如需自定义参数请使用 AESEncryptEx
         /// </remarks>
         public string AESEncrypt(string source, string key){
-            return PtrToStringUTF8(OLAPlugDLLHelper.AESEncrypt(OLAObject, source, key));
+            var func = OLAPlugDLLHelper.GetFunction<AESEncryptDelegate>("AESEncrypt");
+            return PtrToStringUTF8(func(OLAObject, source, key));
         }
 
         /// <summary>
@@ -2437,7 +3553,8 @@ namespace OLAPlug
         /// <br/>2. 此接口使用CBC模式和PKCS7填充，默认IV为0。如需自定义参数请使用 AESDecryptEx
         /// </remarks>
         public string AESDecrypt(string source, string key){
-            return PtrToStringUTF8(OLAPlugDLLHelper.AESDecrypt(OLAObject, source, key));
+            var func = OLAPlugDLLHelper.GetFunction<AESDecryptDelegate>("AESDecrypt");
+            return PtrToStringUTF8(func(OLAObject, source, key));
         }
 
         /// <summary>
@@ -2465,7 +3582,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串指针需要调用 FreeStringPtr 释放内存
         /// </remarks>
         public string AESEncryptEx(string source, string key, string iv, int mode, int paddingType){
-            return PtrToStringUTF8(OLAPlugDLLHelper.AESEncryptEx(OLAObject, source, key, iv, mode, paddingType));
+            var func = OLAPlugDLLHelper.GetFunction<AESEncryptExDelegate>("AESEncryptEx");
+            return PtrToStringUTF8(func(OLAObject, source, key, iv, mode, paddingType));
         }
 
         /// <summary>
@@ -2493,7 +3611,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串指针需要调用 FreeStringPtr 释放内存
         /// </remarks>
         public string AESDecryptEx(string source, string key, string iv, int mode, int paddingType){
-            return PtrToStringUTF8(OLAPlugDLLHelper.AESDecryptEx(OLAObject, source, key, iv, mode, paddingType));
+            var func = OLAPlugDLLHelper.GetFunction<AESDecryptExDelegate>("AESDecryptEx");
+            return PtrToStringUTF8(func(OLAObject, source, key, iv, mode, paddingType));
         }
 
         /// <summary>
@@ -2505,7 +3624,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串指针需要调用 FreeStringPtr 释放内存
         /// </remarks>
         public string MD5Encrypt(string source){
-            return PtrToStringUTF8(OLAPlugDLLHelper.MD5Encrypt(OLAObject, source));
+            var func = OLAPlugDLLHelper.GetFunction<MD5EncryptDelegate>("MD5Encrypt");
+            return PtrToStringUTF8(func(OLAObject, source));
         }
 
         /// <summary>
@@ -2527,7 +3647,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串指针需要调用 FreeStringPtr 释放内存
         /// </remarks>
         public string SHAHash(string source, int shaType){
-            return PtrToStringUTF8(OLAPlugDLLHelper.SHAHash(OLAObject, source, shaType));
+            var func = OLAPlugDLLHelper.GetFunction<SHAHashDelegate>("SHAHash");
+            return PtrToStringUTF8(func(OLAObject, source, shaType));
         }
 
         /// <summary>
@@ -2550,7 +3671,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串指针需要调用 FreeStringPtr 释放内存
         /// </remarks>
         public string HMAC(string source, string key, int shaType){
-            return PtrToStringUTF8(OLAPlugDLLHelper.HMAC(OLAObject, source, key, shaType));
+            var func = OLAPlugDLLHelper.GetFunction<HMACDelegate>("HMAC");
+            return PtrToStringUTF8(func(OLAObject, source, key, shaType));
         }
 
         /// <summary>
@@ -2570,7 +3692,8 @@ namespace OLAPlug
         /// <br/>2. 返回的字符串指针需要调用 FreeStringPtr 释放内存
         /// </remarks>
         public string GenerateRandomBytes(int length, int type){
-            return PtrToStringUTF8(OLAPlugDLLHelper.GenerateRandomBytes(OLAObject, length, type));
+            var func = OLAPlugDLLHelper.GetFunction<GenerateRandomBytesDelegate>("GenerateRandomBytes");
+            return PtrToStringUTF8(func(OLAObject, length, type));
         }
 
         /// <summary>
@@ -2585,7 +3708,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串指针需要调用 FreeStringPtr 释放内存
         /// </remarks>
         public string GenerateGuid(int type){
-            return PtrToStringUTF8(OLAPlugDLLHelper.GenerateGuid(OLAObject, type));
+            var func = OLAPlugDLLHelper.GetFunction<GenerateGuidDelegate>("GenerateGuid");
+            return PtrToStringUTF8(func(OLAObject, type));
         }
 
         /// <summary>
@@ -2597,7 +3721,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串指针需要调用 FreeStringPtr 释放内存
         /// </remarks>
         public string Base64Encode(string source){
-            return PtrToStringUTF8(OLAPlugDLLHelper.Base64Encode(OLAObject, source));
+            var func = OLAPlugDLLHelper.GetFunction<Base64EncodeDelegate>("Base64Encode");
+            return PtrToStringUTF8(func(OLAObject, source));
         }
 
         /// <summary>
@@ -2609,7 +3734,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串指针需要调用 FreeStringPtr 释放内存
         /// </remarks>
         public string Base64Decode(string source){
-            return PtrToStringUTF8(OLAPlugDLLHelper.Base64Decode(OLAObject, source));
+            var func = OLAPlugDLLHelper.GetFunction<Base64DecodeDelegate>("Base64Decode");
+            return PtrToStringUTF8(func(OLAObject, source));
         }
 
         /// <summary>
@@ -2630,7 +3756,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串指针需要调用 FreeStringPtr 释放内存
         /// </remarks>
         public string PBKDF2(string password, string salt, int iterations, int keyLength, int shaType){
-            return PtrToStringUTF8(OLAPlugDLLHelper.PBKDF2(OLAObject, password, salt, iterations, keyLength, shaType));
+            var func = OLAPlugDLLHelper.GetFunction<PBKDF2Delegate>("PBKDF2");
+            return PtrToStringUTF8(func(OLAObject, password, salt, iterations, keyLength, shaType));
         }
 
         /// <summary>
@@ -2642,7 +3769,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串指针需要调用 FreeStringPtr 释放内存
         /// </remarks>
         public string MD5File(string filePath){
-            return PtrToStringUTF8(OLAPlugDLLHelper.MD5File(OLAObject, filePath));
+            var func = OLAPlugDLLHelper.GetFunction<MD5FileDelegate>("MD5File");
+            return PtrToStringUTF8(func(OLAObject, filePath));
         }
 
         /// <summary>
@@ -2664,7 +3792,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串指针需要调用 FreeStringPtr 释放内存
         /// </remarks>
         public string SHAFile(string filePath, int shaType){
-            return PtrToStringUTF8(OLAPlugDLLHelper.SHAFile(OLAObject, filePath, shaType));
+            var func = OLAPlugDLLHelper.GetFunction<SHAFileDelegate>("SHAFile");
+            return PtrToStringUTF8(func(OLAObject, filePath, shaType));
         }
 
         /// <summary>
@@ -2676,7 +3805,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int CreateFolder(string path){
-            return OLAPlugDLLHelper.CreateFolder(OLAObject, path);
+            var func = OLAPlugDLLHelper.GetFunction<CreateFolderDelegate>("CreateFolder");
+            return func(OLAObject, path);
         }
 
         /// <summary>
@@ -2688,7 +3818,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int DeleteFolder(string path){
-            return OLAPlugDLLHelper.DeleteFolder(OLAObject, path);
+            var func = OLAPlugDLLHelper.GetFunction<DeleteFolderDelegate>("DeleteFolder");
+            return func(OLAObject, path);
         }
 
         /// <summary>
@@ -2701,7 +3832,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串指针需调用FreeStringPtr接口释放内存
         /// </remarks>
         public string GetFolderList(string path, string baseDir){
-            return PtrToStringUTF8(OLAPlugDLLHelper.GetFolderList(OLAObject, path, baseDir));
+            var func = OLAPlugDLLHelper.GetFunction<GetFolderListDelegate>("GetFolderList");
+            return PtrToStringUTF8(func(OLAObject, path, baseDir));
         }
 
         /// <summary>
@@ -2710,7 +3842,8 @@ namespace OLAPlug
         /// <param name="path">文件夹路径</param>
         /// <returns>是否存在，失败返回0</returns>
         public int IsDirectory(string path){
-            return OLAPlugDLLHelper.IsDirectory(OLAObject, path);
+            var func = OLAPlugDLLHelper.GetFunction<IsDirectoryDelegate>("IsDirectory");
+            return func(OLAObject, path);
         }
 
         /// <summary>
@@ -2719,7 +3852,8 @@ namespace OLAPlug
         /// <param name="path">文件路径</param>
         /// <returns>是否存在，失败返回0</returns>
         public int IsFile(string path){
-            return OLAPlugDLLHelper.IsFile(OLAObject, path);
+            var func = OLAPlugDLLHelper.GetFunction<IsFileDelegate>("IsFile");
+            return func(OLAObject, path);
         }
 
         /// <summary>
@@ -2731,7 +3865,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int CreateFile(string path){
-            return OLAPlugDLLHelper.CreateFile(OLAObject, path);
+            var func = OLAPlugDLLHelper.GetFunction<CreateFileDelegate>("CreateFile");
+            return func(OLAObject, path);
         }
 
         /// <summary>
@@ -2743,7 +3878,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int DeleteFile(string path){
-            return OLAPlugDLLHelper.DeleteFile(OLAObject, path);
+            var func = OLAPlugDLLHelper.GetFunction<DeleteFileDelegate>("DeleteFile");
+            return func(OLAObject, path);
         }
 
         /// <summary>
@@ -2756,7 +3892,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int CopyFile(string src, string dst){
-            return OLAPlugDLLHelper.CopyFile(OLAObject, src, dst);
+            var func = OLAPlugDLLHelper.GetFunction<CopyFileDelegate>("CopyFile");
+            return func(OLAObject, src, dst);
         }
 
         /// <summary>
@@ -2769,7 +3906,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int MoveFile(string src, string dst){
-            return OLAPlugDLLHelper.MoveFile(OLAObject, src, dst);
+            var func = OLAPlugDLLHelper.GetFunction<MoveFileDelegate>("MoveFile");
+            return func(OLAObject, src, dst);
         }
 
         /// <summary>
@@ -2781,7 +3919,8 @@ namespace OLAPlug
         ///<br/>0: 失败
         /// </returns>
         public int RenameFile(string src, string dst){
-            return OLAPlugDLLHelper.RenameFile(OLAObject, src, dst);
+            var func = OLAPlugDLLHelper.GetFunction<RenameFileDelegate>("RenameFile");
+            return func(OLAObject, src, dst);
         }
 
         /// <summary>
@@ -2790,7 +3929,8 @@ namespace OLAPlug
         /// <param name="path">文件路径</param>
         /// <returns>文件大小，失败返回0</returns>
         public long GetFileSize(string path){
-            return OLAPlugDLLHelper.GetFileSize(OLAObject, path);
+            var func = OLAPlugDLLHelper.GetFunction<GetFileSizeDelegate>("GetFileSize");
+            return func(OLAObject, path);
         }
 
         /// <summary>
@@ -2803,7 +3943,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串指针需调用FreeStringPtr接口释放内存
         /// </remarks>
         public string GetFileList(string path, string baseDir){
-            return PtrToStringUTF8(OLAPlugDLLHelper.GetFileList(OLAObject, path, baseDir));
+            var func = OLAPlugDLLHelper.GetFunction<GetFileListDelegate>("GetFileList");
+            return PtrToStringUTF8(func(OLAObject, path, baseDir));
         }
 
         /// <summary>
@@ -2816,7 +3957,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串指针需调用FreeStringPtr接口释放内存
         /// </remarks>
         public string GetFileName(string path, int withExtension){
-            return PtrToStringUTF8(OLAPlugDLLHelper.GetFileName(OLAObject, path, withExtension));
+            var func = OLAPlugDLLHelper.GetFunction<GetFileNameDelegate>("GetFileName");
+            return PtrToStringUTF8(func(OLAObject, path, withExtension));
         }
 
         /// <summary>
@@ -2828,7 +3970,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串指针需调用FreeStringPtr接口释放内存
         /// </remarks>
         public string ToAbsolutePath(string path){
-            return PtrToStringUTF8(OLAPlugDLLHelper.ToAbsolutePath(OLAObject, path));
+            var func = OLAPlugDLLHelper.GetFunction<ToAbsolutePathDelegate>("ToAbsolutePath");
+            return PtrToStringUTF8(func(OLAObject, path));
         }
 
         /// <summary>
@@ -2840,7 +3983,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串指针需调用FreeStringPtr接口释放内存
         /// </remarks>
         public string ToRelativePath(string path){
-            return PtrToStringUTF8(OLAPlugDLLHelper.ToRelativePath(OLAObject, path));
+            var func = OLAPlugDLLHelper.GetFunction<ToRelativePathDelegate>("ToRelativePath");
+            return PtrToStringUTF8(func(OLAObject, path));
         }
 
         /// <summary>
@@ -2849,7 +3993,8 @@ namespace OLAPlug
         /// <param name="path">文件路径</param>
         /// <returns>是否存在，失败返回0</returns>
         public int FileOrDirectoryExists(string path){
-            return OLAPlugDLLHelper.FileOrDirectoryExists(OLAObject, path);
+            var func = OLAPlugDLLHelper.GetFunction<FileOrDirectoryExistsDelegate>("FileOrDirectoryExists");
+            return func(OLAObject, path);
         }
 
         /// <summary>
@@ -2868,7 +4013,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串指针需调用FreeStringPtr接口释放内存
         /// </remarks>
         public string ReadFileString(string filePath, int encoding){
-            return PtrToStringUTF8(OLAPlugDLLHelper.ReadFileString(OLAObject, filePath, encoding));
+            var func = OLAPlugDLLHelper.GetFunction<ReadFileStringDelegate>("ReadFileString");
+            return PtrToStringUTF8(func(OLAObject, filePath, encoding));
         }
 
         /// <summary>
@@ -2882,7 +4028,8 @@ namespace OLAPlug
         /// <br/>1. 返回的缓冲区地址需调用FreeMemoryPtr接口释放内存
         /// </remarks>
         public long ReadBytesFromFile(string filePath, int offset, long size){
-            return OLAPlugDLLHelper.ReadBytesFromFile(OLAObject, filePath, offset, size);
+            var func = OLAPlugDLLHelper.GetFunction<ReadBytesFromFileDelegate>("ReadBytesFromFile");
+            return func(OLAObject, filePath, offset, size);
         }
 
         /// <summary>
@@ -2896,7 +4043,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int WriteBytesToFile(string filePath, long dataAddr, int dataSize){
-            return OLAPlugDLLHelper.WriteBytesToFile(OLAObject, filePath, dataAddr, dataSize);
+            var func = OLAPlugDLLHelper.GetFunction<WriteBytesToFileDelegate>("WriteBytesToFile");
+            return func(OLAObject, filePath, dataAddr, dataSize);
         }
 
         /// <summary>
@@ -2910,7 +4058,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int WriteStringToFile(string filePath, string data, int encoding){
-            return OLAPlugDLLHelper.WriteStringToFile(OLAObject, filePath, data, encoding);
+            var func = OLAPlugDLLHelper.GetFunction<WriteStringToFileDelegate>("WriteStringToFile");
+            return func(OLAObject, filePath, data, encoding);
         }
 
         /// <summary>
@@ -2921,7 +4070,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int StartHotkeyHook(){
-            return OLAPlugDLLHelper.StartHotkeyHook(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<StartHotkeyHookDelegate>("StartHotkeyHook");
+            return func(OLAObject);
         }
 
         /// <summary>
@@ -2932,14 +4082,15 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int StopHotkeyHook(){
-            return OLAPlugDLLHelper.StopHotkeyHook(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<StopHotkeyHookDelegate>("StopHotkeyHook");
+            return func(OLAObject);
         }
 
         /// <summary>
         /// 注册热键
         /// </summary>
         /// <param name="keycode">按键码</param>
-        /// <param name="modifiers">修饰键组合，使用Modifier枚举值的位或组合，比如按下Ctrl+Alt modifiers:2+8=10enum 1 左Shift键掩码enum 2 左Ctrl键掩码enum 4 左Meta键掩码enum 8 左Alt键掩码enum 16 右Shift键掩码enum 32 右Ctrl键掩码enum 64 右Meta键掩码enum 128 右Alt键掩码</param>
+        /// <param name="modifiers">修饰键组合，使用Modifier枚举值的位或组合，比如按下Ctrl+Alt modifiers:2+8=10enum 0 无掩码enum 1 左Shift键掩码enum 2 左Ctrl键掩码enum 4 左Meta键掩码enum 8 左Alt键掩码enum 16 右Shift键掩码enum 32 右Ctrl键掩码enum 64 右Meta键掩码enum 128 右Alt键掩码</param>
         /// <param name="callback">回调函数 int HotKeyCallback(int keycode, int modifiers) 参考接口参数定义</param>
         /// <returns>注册监听状态
         ///<br/>0: 失败
@@ -2948,11 +4099,12 @@ namespace OLAPlug
         /// <remarks>注意事项: 
         /// <br/>1. 注册键盘快捷键监听,可监听单个按键、组合键等，同一组按键只能创建一个监听
         /// <br/>2. 注册键盘快捷键监听前需要调用StartHotkeyHook安装键盘鼠标钩子
-        /// <br/>3. 回调函数 int HotKeyCallback(int keycode, int modifiers)，参考接口参数定义，回1阻断消息传递，keycode传0可以监听所有按键信息
+        /// <br/>3. 回调函数 int HotKeyCallback(int keycode, intmodifiers)，参考接口参数定义，回1阻断消息传递，keycode传0可以监听所有按键信息
         /// <br/>4. 参考windows函数 SetWindowsHookExW 实现
         /// </remarks>
         public int RegisterHotkey(int keycode, int modifiers, HotkeyCallback callback){
-            return OLAPlugDLLHelper.RegisterHotkey(OLAObject, keycode, modifiers, callback);
+            var func = OLAPlugDLLHelper.GetFunction<RegisterHotkeyDelegate>("RegisterHotkey");
+            return func(OLAObject, keycode, modifiers, callback);
         }
 
         /// <summary>
@@ -2962,7 +4114,8 @@ namespace OLAPlug
         /// <param name="modifiers">修饰键组合，使用Modifier枚举值的位或组合，比如按下Ctrl+Alt modifiers:2+8=10enum 1 左Shift键掩码enum 2 左Ctrl键掩码enum 4 左Meta键掩码enum 8 左Alt键掩码enum 16 右Shift键掩码enum 32 右Ctrl键掩码enum 64 右Meta键掩码enum 128 右Alt键掩码</param>
         /// <returns>卸载监听状态</returns>
         public int UnregisterHotkey(int keycode, int modifiers){
-            return OLAPlugDLLHelper.UnregisterHotkey(OLAObject, keycode, modifiers);
+            var func = OLAPlugDLLHelper.GetFunction<UnregisterHotkeyDelegate>("UnregisterHotkey");
+            return func(OLAObject, keycode, modifiers);
         }
 
         /// <summary>
@@ -2981,7 +4134,8 @@ namespace OLAPlug
         /// <br/>3. 参考windows函数 SetWindowsHookExW 实现
         /// </remarks>
         public int RegisterMouseButton(int button, int type, MouseCallback callback){
-            return OLAPlugDLLHelper.RegisterMouseButton(OLAObject, button, type, callback);
+            var func = OLAPlugDLLHelper.GetFunction<RegisterMouseButtonDelegate>("RegisterMouseButton");
+            return func(OLAObject, button, type, callback);
         }
 
         /// <summary>
@@ -2994,7 +4148,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int UnregisterMouseButton(int button, int type){
-            return OLAPlugDLLHelper.UnregisterMouseButton(OLAObject, button, type);
+            var func = OLAPlugDLLHelper.GetFunction<UnregisterMouseButtonDelegate>("UnregisterMouseButton");
+            return func(OLAObject, button, type);
         }
 
         /// <summary>
@@ -3011,7 +4166,8 @@ namespace OLAPlug
         /// <br/>3. 参考windows函数 SetWindowsHookExW 实现
         /// </remarks>
         public int RegisterMouseWheel(MouseWheelCallback callback){
-            return OLAPlugDLLHelper.RegisterMouseWheel(OLAObject, callback);
+            var func = OLAPlugDLLHelper.GetFunction<RegisterMouseWheelDelegate>("RegisterMouseWheel");
+            return func(OLAObject, callback);
         }
 
         /// <summary>
@@ -3022,7 +4178,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int UnregisterMouseWheel(){
-            return OLAPlugDLLHelper.UnregisterMouseWheel(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<UnregisterMouseWheelDelegate>("UnregisterMouseWheel");
+            return func(OLAObject);
         }
 
         /// <summary>
@@ -3039,7 +4196,8 @@ namespace OLAPlug
         /// <br/>3. 参考windows函数 SetWindowsHookExW 实现
         /// </remarks>
         public int RegisterMouseMove(MouseMoveCallback callback){
-            return OLAPlugDLLHelper.RegisterMouseMove(OLAObject, callback);
+            var func = OLAPlugDLLHelper.GetFunction<RegisterMouseMoveDelegate>("RegisterMouseMove");
+            return func(OLAObject, callback);
         }
 
         /// <summary>
@@ -3050,7 +4208,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int UnregisterMouseMove(){
-            return OLAPlugDLLHelper.UnregisterMouseMove(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<UnregisterMouseMoveDelegate>("UnregisterMouseMove");
+            return func(OLAObject);
         }
 
         /// <summary>
@@ -3067,7 +4226,8 @@ namespace OLAPlug
         /// <br/>3. 参考windows函数 SetWindowsHookExW 实现
         /// </remarks>
         public int RegisterMouseDrag(MouseDragCallback callback){
-            return OLAPlugDLLHelper.RegisterMouseDrag(OLAObject, callback);
+            var func = OLAPlugDLLHelper.GetFunction<RegisterMouseDragDelegate>("RegisterMouseDrag");
+            return func(OLAObject, callback);
         }
 
         /// <summary>
@@ -3078,7 +4238,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int UnregisterMouseDrag(){
-            return OLAPlugDLLHelper.UnregisterMouseDrag(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<UnregisterMouseDragDelegate>("UnregisterMouseDrag");
+            return func(OLAObject);
         }
 
         /// <summary>
@@ -3114,7 +4275,8 @@ namespace OLAPlug
         /// <br/>11. 某些杀毒软件可能会拦截DLL注入操作
         /// </remarks>
         public int Inject(long hwnd, string dll_path, int type, int bypassGuard){
-            return OLAPlugDLLHelper.Inject(OLAObject, hwnd, dll_path, type, bypassGuard);
+            var func = OLAPlugDLLHelper.GetFunction<InjectDelegate>("Inject");
+            return func(OLAObject, hwnd, dll_path, type, bypassGuard);
         }
 
         /// <summary>
@@ -3152,7 +4314,8 @@ namespace OLAPlug
         /// <br/>13. 建议验证下载文件的完整性和来源安全性
         /// </remarks>
         public int InjectFromUrl(long hwnd, string url, int type, int bypassGuard){
-            return OLAPlugDLLHelper.InjectFromUrl(OLAObject, hwnd, url, type, bypassGuard);
+            var func = OLAPlugDLLHelper.GetFunction<InjectFromUrlDelegate>("InjectFromUrl");
+            return func(OLAObject, hwnd, url, type, bypassGuard);
         }
 
         /// <summary>
@@ -3191,7 +4354,8 @@ namespace OLAPlug
         /// <br/>13. bufferSize必须与实际DLL文件大小完全一致
         /// </remarks>
         public int InjectFromBuffer(long hwnd, long bufferAddr, int bufferSize, int type, int bypassGuard){
-            return OLAPlugDLLHelper.InjectFromBuffer(OLAObject, hwnd, bufferAddr, bufferSize, type, bypassGuard);
+            var func = OLAPlugDLLHelper.GetFunction<InjectFromBufferDelegate>("InjectFromBuffer");
+            return func(OLAObject, hwnd, bufferAddr, bufferSize, type, bypassGuard);
         }
 
         /// <summary>
@@ -3199,7 +4363,8 @@ namespace OLAPlug
         /// </summary>
         /// <returns>返回新创建的JSON对象句柄，失败时返回0</returns>
         public long JsonCreateObject(){
-            return OLAPlugDLLHelper.JsonCreateObject();
+            var func = OLAPlugDLLHelper.GetFunction<JsonCreateObjectDelegate>("JsonCreateObject");
+            return func();
         }
 
         /// <summary>
@@ -3207,7 +4372,8 @@ namespace OLAPlug
         /// </summary>
         /// <returns>返回新创建的JSON数组句柄，失败时返回0</returns>
         public long JsonCreateArray(){
-            return OLAPlugDLLHelper.JsonCreateArray();
+            var func = OLAPlugDLLHelper.GetFunction<JsonCreateArrayDelegate>("JsonCreateArray");
+            return func();
         }
 
         /// <summary>
@@ -3225,7 +4391,8 @@ namespace OLAPlug
         /// </param>
         /// <returns>返回解析后的JSON对象句柄，失败时返回0</returns>
         public long JsonParse(string str, out int err){
-            return OLAPlugDLLHelper.JsonParse(str, out err);
+            var func = OLAPlugDLLHelper.GetFunction<JsonParseDelegate>("JsonParse");
+            return func(str, out err);
         }
 
         /// <summary>
@@ -3244,7 +4411,8 @@ namespace OLAPlug
         /// </param>
         /// <returns>返回JSON字符串，需调用FreeStringPtr释放，失败时返回0</returns>
         public string JsonStringify(long obj, int indent, out int err){
-            return PtrToStringUTF8(OLAPlugDLLHelper.JsonStringify(obj, indent, out err));
+            var func = OLAPlugDLLHelper.GetFunction<JsonStringifyDelegate>("JsonStringify");
+            return PtrToStringUTF8(func(obj, indent, out err));
         }
 
         /// <summary>
@@ -3256,7 +4424,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int JsonFree(long obj){
-            return OLAPlugDLLHelper.JsonFree(obj);
+            var func = OLAPlugDLLHelper.GetFunction<JsonFreeDelegate>("JsonFree");
+            return func(obj);
         }
 
         /// <summary>
@@ -3275,7 +4444,8 @@ namespace OLAPlug
         /// </param>
         /// <returns>返回对应的JSON值句柄，失败时返回0</returns>
         public long JsonGetValue(long obj, string key, out int err){
-            return OLAPlugDLLHelper.JsonGetValue(obj, key, out err);
+            var func = OLAPlugDLLHelper.GetFunction<JsonGetValueDelegate>("JsonGetValue");
+            return func(obj, key, out err);
         }
 
         /// <summary>
@@ -3294,7 +4464,8 @@ namespace OLAPlug
         /// </param>
         /// <returns>返回数组元素句柄，失败时返回0</returns>
         public long JsonGetArrayItem(long arr, int index, out int err){
-            return OLAPlugDLLHelper.JsonGetArrayItem(arr, index, out err);
+            var func = OLAPlugDLLHelper.GetFunction<JsonGetArrayItemDelegate>("JsonGetArrayItem");
+            return func(arr, index, out err);
         }
 
         /// <summary>
@@ -3313,7 +4484,8 @@ namespace OLAPlug
         /// </param>
         /// <returns>返回字符串值，需调用FreeStringPtr释放，失败时返回0</returns>
         public string JsonGetString(long obj, string key, out int err){
-            return PtrToStringUTF8(OLAPlugDLLHelper.JsonGetString(obj, key, out err));
+            var func = OLAPlugDLLHelper.GetFunction<JsonGetStringDelegate>("JsonGetString");
+            return PtrToStringUTF8(func(obj, key, out err));
         }
 
         /// <summary>
@@ -3332,7 +4504,8 @@ namespace OLAPlug
         /// </param>
         /// <returns>返回数值，失败时返回0.0</returns>
         public double JsonGetNumber(long obj, string key, out int err){
-            return OLAPlugDLLHelper.JsonGetNumber(obj, key, out err);
+            var func = OLAPlugDLLHelper.GetFunction<JsonGetNumberDelegate>("JsonGetNumber");
+            return func(obj, key, out err);
         }
 
         /// <summary>
@@ -3351,7 +4524,8 @@ namespace OLAPlug
         /// </param>
         /// <returns>返回布尔值，失败时返回0</returns>
         public int JsonGetBool(long obj, string key, out int err){
-            return OLAPlugDLLHelper.JsonGetBool(obj, key, out err);
+            var func = OLAPlugDLLHelper.GetFunction<JsonGetBoolDelegate>("JsonGetBool");
+            return func(obj, key, out err);
         }
 
         /// <summary>
@@ -3369,7 +4543,8 @@ namespace OLAPlug
         /// </param>
         /// <returns>返回对象属性数量或数组长度，失败时返回0</returns>
         public int JsonGetSize(long obj, out int err){
-            return OLAPlugDLLHelper.JsonGetSize(obj, out err);
+            var func = OLAPlugDLLHelper.GetFunction<JsonGetSizeDelegate>("JsonGetSize");
+            return func(obj, out err);
         }
 
         /// <summary>
@@ -3388,7 +4563,8 @@ namespace OLAPlug
         ///<br/>6: 未知错误
         /// </returns>
         public int JsonSetValue(long obj, string key, long value){
-            return OLAPlugDLLHelper.JsonSetValue(obj, key, value);
+            var func = OLAPlugDLLHelper.GetFunction<JsonSetValueDelegate>("JsonSetValue");
+            return func(obj, key, value);
         }
 
         /// <summary>
@@ -3406,7 +4582,8 @@ namespace OLAPlug
         ///<br/>6: 未知错误
         /// </returns>
         public int JsonArrayAppend(long arr, long value){
-            return OLAPlugDLLHelper.JsonArrayAppend(arr, value);
+            var func = OLAPlugDLLHelper.GetFunction<JsonArrayAppendDelegate>("JsonArrayAppend");
+            return func(arr, value);
         }
 
         /// <summary>
@@ -3425,7 +4602,8 @@ namespace OLAPlug
         ///<br/>6: 未知错误
         /// </returns>
         public int JsonSetString(long obj, string key, string value){
-            return OLAPlugDLLHelper.JsonSetString(obj, key, value);
+            var func = OLAPlugDLLHelper.GetFunction<JsonSetStringDelegate>("JsonSetString");
+            return func(obj, key, value);
         }
 
         /// <summary>
@@ -3444,7 +4622,8 @@ namespace OLAPlug
         ///<br/>6: 未知错误
         /// </returns>
         public int JsonSetNumber(long obj, string key, double value){
-            return OLAPlugDLLHelper.JsonSetNumber(obj, key, value);
+            var func = OLAPlugDLLHelper.GetFunction<JsonSetNumberDelegate>("JsonSetNumber");
+            return func(obj, key, value);
         }
 
         /// <summary>
@@ -3463,7 +4642,8 @@ namespace OLAPlug
         ///<br/>6: 未知错误
         /// </returns>
         public int JsonSetBool(long obj, string key, int value){
-            return OLAPlugDLLHelper.JsonSetBool(obj, key, value);
+            var func = OLAPlugDLLHelper.GetFunction<JsonSetBoolDelegate>("JsonSetBool");
+            return func(obj, key, value);
         }
 
         /// <summary>
@@ -3481,7 +4661,8 @@ namespace OLAPlug
         ///<br/>6: 未知错误
         /// </returns>
         public int JsonDeleteKey(long obj, string key){
-            return OLAPlugDLLHelper.JsonDeleteKey(obj, key);
+            var func = OLAPlugDLLHelper.GetFunction<JsonDeleteKeyDelegate>("JsonDeleteKey");
+            return func(obj, key);
         }
 
         /// <summary>
@@ -3498,7 +4679,8 @@ namespace OLAPlug
         ///<br/>6: 未知错误
         /// </returns>
         public int JsonClear(long obj){
-            return OLAPlugDLLHelper.JsonClear(obj);
+            var func = OLAPlugDLLHelper.GetFunction<JsonClearDelegate>("JsonClear");
+            return func(obj);
         }
 
         /// <summary>
@@ -3518,7 +4700,8 @@ namespace OLAPlug
         ///<br/>0: 解析失败
         /// </returns>
         public int ParseMatchImageJson(string str, out int matchState, out int x, out int y, out int width, out int height, out double matchVal, out double angle, out int index){
-            return OLAPlugDLLHelper.ParseMatchImageJson(str, out matchState, out x, out y, out width, out height, out matchVal, out angle, out index);
+            var func = OLAPlugDLLHelper.GetFunction<ParseMatchImageJsonDelegate>("ParseMatchImageJson");
+            return func(str, out matchState, out x, out y, out width, out height, out matchVal, out angle, out index);
         }
 
         /// <summary>
@@ -3527,7 +4710,8 @@ namespace OLAPlug
         /// <param name="str">匹配图像JSON字符串</param>
         /// <returns>返回匹配图像JSON数量</returns>
         public int GetMatchImageAllCount(string str){
-            return OLAPlugDLLHelper.GetMatchImageAllCount(str);
+            var func = OLAPlugDLLHelper.GetFunction<GetMatchImageAllCountDelegate>("GetMatchImageAllCount");
+            return func(str);
         }
 
         /// <summary>
@@ -3548,7 +4732,8 @@ namespace OLAPlug
         ///<br/>0: 解析失败
         /// </returns>
         public int ParseMatchImageAllJson(string str, int parseIndex, out int matchState, out int x, out int y, out int width, out int height, out double matchVal, out double angle, out int index){
-            return OLAPlugDLLHelper.ParseMatchImageAllJson(str, parseIndex, out matchState, out x, out y, out width, out height, out matchVal, out angle, out index);
+            var func = OLAPlugDLLHelper.GetFunction<ParseMatchImageAllJsonDelegate>("ParseMatchImageAllJson");
+            return func(str, parseIndex, out matchState, out x, out y, out width, out height, out matchVal, out angle, out index);
         }
 
         /// <summary>
@@ -3560,7 +4745,8 @@ namespace OLAPlug
         /// <br/>1. 此函数用于对插件部分接口的返回值进行解析,并返回result中的元素个数。
         /// </remarks>
         public int GetResultCount(string resultStr){
-            return OLAPlugDLLHelper.GetResultCount(resultStr);
+            var func = OLAPlugDLLHelper.GetFunction<GetResultCountDelegate>("GetResultCount");
+            return func(resultStr);
         }
 
         /// <summary>
@@ -3575,7 +4761,8 @@ namespace OLAPlug
         /// <br/>1. DLL调用返回字符串指针地址,需要调用 FreeStringPtr接口释放内存
         /// </remarks>
         public List<Point> GenerateMouseTrajectory(int startX, int startY, int endX, int endY){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.GenerateMouseTrajectory(OLAObject, startX, startY, endX, endY));
+            var func = OLAPlugDLLHelper.GetFunction<GenerateMouseTrajectoryDelegate>("GenerateMouseTrajectory");
+            var result = PtrToStringUTF8(func(OLAObject, startX, startY, endX, endY));
             if (string.IsNullOrEmpty(result))
             {
                 return new List<Point>();
@@ -3591,7 +4778,8 @@ namespace OLAPlug
         ///<br/>0: 失败@eunm 1 成功
         /// </returns>
         public int KeyDown(int vk_code){
-            return OLAPlugDLLHelper.KeyDown(OLAObject, vk_code);
+            var func = OLAPlugDLLHelper.GetFunction<KeyDownDelegate>("KeyDown");
+            return func(OLAObject, vk_code);
         }
 
         /// <summary>
@@ -3602,7 +4790,8 @@ namespace OLAPlug
         ///<br/>0: 失败@eunm 1 成功
         /// </returns>
         public int KeyUp(int vk_code){
-            return OLAPlugDLLHelper.KeyUp(OLAObject, vk_code);
+            var func = OLAPlugDLLHelper.GetFunction<KeyUpDelegate>("KeyUp");
+            return func(OLAObject, vk_code);
         }
 
         /// <summary>
@@ -3613,7 +4802,8 @@ namespace OLAPlug
         ///<br/>0: 失败@eunm 1 成功
         /// </returns>
         public int KeyPress(int vk_code){
-            return OLAPlugDLLHelper.KeyPress(OLAObject, vk_code);
+            var func = OLAPlugDLLHelper.GetFunction<KeyPressDelegate>("KeyPress");
+            return func(OLAObject, vk_code);
         }
 
         /// <summary>
@@ -3623,7 +4813,8 @@ namespace OLAPlug
         ///<br/>0: 失败@eunm 1 成功
         /// </returns>
         public int LeftDown(){
-            return OLAPlugDLLHelper.LeftDown(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<LeftDownDelegate>("LeftDown");
+            return func(OLAObject);
         }
 
         /// <summary>
@@ -3633,7 +4824,8 @@ namespace OLAPlug
         ///<br/>0: 失败@eunm 1 成功
         /// </returns>
         public int LeftUp(){
-            return OLAPlugDLLHelper.LeftUp(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<LeftUpDelegate>("LeftUp");
+            return func(OLAObject);
         }
 
         /// <summary>
@@ -3645,7 +4837,8 @@ namespace OLAPlug
         ///<br/>0: 失败@eunm 1 成功
         /// </returns>
         public int MoveTo(int x, int y){
-            return OLAPlugDLLHelper.MoveTo(OLAObject, x, y);
+            var func = OLAPlugDLLHelper.GetFunction<MoveToDelegate>("MoveTo");
+            return func(OLAObject, x, y);
         }
 
         /// <summary>
@@ -3657,7 +4850,8 @@ namespace OLAPlug
         ///<br/>0: 失败@eunm 1 成功
         /// </returns>
         public int MoveToWithoutSimulator(int x, int y){
-            return OLAPlugDLLHelper.MoveToWithoutSimulator(OLAObject, x, y);
+            var func = OLAPlugDLLHelper.GetFunction<MoveToWithoutSimulatorDelegate>("MoveToWithoutSimulator");
+            return func(OLAObject, x, y);
         }
 
         /// <summary>
@@ -3674,7 +4868,8 @@ namespace OLAPlug
         /// <br/>5. 在调用此函数前，确保鼠标右键未被其他程序占用
         /// </remarks>
         public int RightClick(){
-            return OLAPlugDLLHelper.RightClick(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<RightClickDelegate>("RightClick");
+            return func(OLAObject);
         }
 
         /// <summary>
@@ -3684,7 +4879,8 @@ namespace OLAPlug
         ///<br/>0: 失败@eunm 1 成功
         /// </returns>
         public int RightDoubleClick(){
-            return OLAPlugDLLHelper.RightDoubleClick(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<RightDoubleClickDelegate>("RightDoubleClick");
+            return func(OLAObject);
         }
 
         /// <summary>
@@ -3694,7 +4890,8 @@ namespace OLAPlug
         ///<br/>0: 失败@eunm 1 成功
         /// </returns>
         public int RightDown(){
-            return OLAPlugDLLHelper.RightDown(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<RightDownDelegate>("RightDown");
+            return func(OLAObject);
         }
 
         /// <summary>
@@ -3704,7 +4901,8 @@ namespace OLAPlug
         ///<br/>0: 失败@eunm 1 成功
         /// </returns>
         public int RightUp(){
-            return OLAPlugDLLHelper.RightUp(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<RightUpDelegate>("RightUp");
+            return func(OLAObject);
         }
 
         /// <summary>
@@ -3716,7 +4914,8 @@ namespace OLAPlug
         /// <br/>2. DLL调用返回字符串指针地址,需要调用 FreeStringPtr接口释放内存
         /// </remarks>
         public string GetCursorShape(){
-            return PtrToStringUTF8(OLAPlugDLLHelper.GetCursorShape(OLAObject));
+            var func = OLAPlugDLLHelper.GetFunction<GetCursorShapeDelegate>("GetCursorShape");
+            return PtrToStringUTF8(func(OLAObject));
         }
 
         /// <summary>
@@ -3727,7 +4926,8 @@ namespace OLAPlug
         /// <br/>1. 图片使用完后需要调用 FreeImagePtr 接口进行释放
         /// </remarks>
         public long GetCursorImage(){
-            return OLAPlugDLLHelper.GetCursorImage(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<GetCursorImageDelegate>("GetCursorImage");
+            return func(OLAObject);
         }
 
         /// <summary>
@@ -3743,7 +4943,8 @@ namespace OLAPlug
         /// <br/>2. 但这个接口只支持"a-z 0-9 ~-=[];',./"和空格,其它字符一律不支持.(包括中国)
         /// </remarks>
         public int KeyPressStr(string keyStr, int delay){
-            return OLAPlugDLLHelper.KeyPressStr(OLAObject, keyStr, delay);
+            var func = OLAPlugDLLHelper.GetFunction<KeyPressStrDelegate>("KeyPressStr");
+            return func(OLAObject, keyStr, delay);
         }
 
         /// <summary>
@@ -3755,7 +4956,8 @@ namespace OLAPlug
         ///<br/>0: 失败@eunm 1 成功
         /// </returns>
         public int SendString(long hwnd, string str){
-            return OLAPlugDLLHelper.SendString(OLAObject, hwnd, str);
+            var func = OLAPlugDLLHelper.GetFunction<SendStringDelegate>("SendString");
+            return func(OLAObject, hwnd, str);
         }
 
         /// <summary>
@@ -3774,7 +4976,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int SendStringEx(long hwnd, long addr, int len, int type){
-            return OLAPlugDLLHelper.SendStringEx(OLAObject, hwnd, addr, len, type);
+            var func = OLAPlugDLLHelper.GetFunction<SendStringExDelegate>("SendStringEx");
+            return func(OLAObject, hwnd, addr, len, type);
         }
 
         /// <summary>
@@ -3785,7 +4988,8 @@ namespace OLAPlug
         ///<br/>0: 失败@eunm 1 成功
         /// </returns>
         public int KeyPressChar(string keyStr){
-            return OLAPlugDLLHelper.KeyPressChar(OLAObject, keyStr);
+            var func = OLAPlugDLLHelper.GetFunction<KeyPressCharDelegate>("KeyPressChar");
+            return func(OLAObject, keyStr);
         }
 
         /// <summary>
@@ -3796,7 +5000,8 @@ namespace OLAPlug
         ///<br/>0: 失败@eunm 1 成功
         /// </returns>
         public int KeyDownChar(string keyStr){
-            return OLAPlugDLLHelper.KeyDownChar(OLAObject, keyStr);
+            var func = OLAPlugDLLHelper.GetFunction<KeyDownCharDelegate>("KeyDownChar");
+            return func(OLAObject, keyStr);
         }
 
         /// <summary>
@@ -3807,7 +5012,8 @@ namespace OLAPlug
         ///<br/>0: 失败@eunm 1 成功
         /// </returns>
         public int KeyUpChar(string keyStr){
-            return OLAPlugDLLHelper.KeyUpChar(OLAObject, keyStr);
+            var func = OLAPlugDLLHelper.GetFunction<KeyUpCharDelegate>("KeyUpChar");
+            return func(OLAObject, keyStr);
         }
 
         /// <summary>
@@ -3819,7 +5025,8 @@ namespace OLAPlug
         ///<br/>0: 失败@eunm 1 成功
         /// </returns>
         public int MoveR(int rx, int ry){
-            return OLAPlugDLLHelper.MoveR(OLAObject, rx, ry);
+            var func = OLAPlugDLLHelper.GetFunction<MoveRDelegate>("MoveR");
+            return func(OLAObject, rx, ry);
         }
 
         /// <summary>
@@ -3829,7 +5036,8 @@ namespace OLAPlug
         ///<br/>0: 失败@eunm 1 成功
         /// </returns>
         public int MiddleClick(){
-            return OLAPlugDLLHelper.MiddleClick(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<MiddleClickDelegate>("MiddleClick");
+            return func(OLAObject);
         }
 
         /// <summary>
@@ -3850,7 +5058,8 @@ namespace OLAPlug
         /// <br/>7. 建议在移动后添加适当的延时，使操作更自然
         /// </remarks>
         public string MoveToEx(int x, int y, int w, int h){
-            return PtrToStringUTF8(OLAPlugDLLHelper.MoveToEx(OLAObject, x, y, w, h));
+            var func = OLAPlugDLLHelper.GetFunction<MoveToExDelegate>("MoveToEx");
+            return PtrToStringUTF8(func(OLAObject, x, y, w, h));
         }
 
         /// <summary>
@@ -3865,7 +5074,8 @@ namespace OLAPlug
         /// <br/>1. 此接口绑定后使用，获取的是相当游戏窗口的鼠标坐标
         /// </remarks>
         public int GetCursorPos(out int x, out int y){
-            return OLAPlugDLLHelper.GetCursorPos(OLAObject, out x, out y);
+            var func = OLAPlugDLLHelper.GetFunction<GetCursorPosDelegate>("GetCursorPos");
+            return func(OLAObject, out x, out y);
         }
 
         /// <summary>
@@ -3875,7 +5085,8 @@ namespace OLAPlug
         ///<br/>0: 失败@eunm 1 成功
         /// </returns>
         public int MiddleUp(){
-            return OLAPlugDLLHelper.MiddleUp(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<MiddleUpDelegate>("MiddleUp");
+            return func(OLAObject);
         }
 
         /// <summary>
@@ -3892,7 +5103,8 @@ namespace OLAPlug
         /// <br/>5. 在调用此函数前，确保鼠标中键未被其他程序占用
         /// </remarks>
         public int MiddleDown(){
-            return OLAPlugDLLHelper.MiddleDown(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<MiddleDownDelegate>("MiddleDown");
+            return func(OLAObject);
         }
 
         /// <summary>
@@ -3909,7 +5121,8 @@ namespace OLAPlug
         /// <br/>5. 在调用此函数前，确保鼠标中键未被其他程序占用
         /// </remarks>
         public int MiddleDoubleClick(){
-            return OLAPlugDLLHelper.MiddleDoubleClick(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<MiddleDoubleClickDelegate>("MiddleDoubleClick");
+            return func(OLAObject);
         }
 
         /// <summary>
@@ -3919,7 +5132,8 @@ namespace OLAPlug
         ///<br/>0: 失败@eunm 1 成功
         /// </returns>
         public int LeftClick(){
-            return OLAPlugDLLHelper.LeftClick(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<LeftClickDelegate>("LeftClick");
+            return func(OLAObject);
         }
 
         /// <summary>
@@ -3929,7 +5143,8 @@ namespace OLAPlug
         ///<br/>0: 失败@eunm 1 成功
         /// </returns>
         public int LeftDoubleClick(){
-            return OLAPlugDLLHelper.LeftDoubleClick(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<LeftDoubleClickDelegate>("LeftDoubleClick");
+            return func(OLAObject);
         }
 
         /// <summary>
@@ -3939,7 +5154,8 @@ namespace OLAPlug
         ///<br/>0: 失败@eunm 1 成功
         /// </returns>
         public int WheelUp(){
-            return OLAPlugDLLHelper.WheelUp(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<WheelUpDelegate>("WheelUp");
+            return func(OLAObject);
         }
 
         /// <summary>
@@ -3949,7 +5165,8 @@ namespace OLAPlug
         ///<br/>0: 失败@eunm 1 成功
         /// </returns>
         public int WheelDown(){
-            return OLAPlugDLLHelper.WheelDown(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<WheelDownDelegate>("WheelDown");
+            return func(OLAObject);
         }
 
         /// <summary>
@@ -3962,7 +5179,8 @@ namespace OLAPlug
         ///<br/>1: 指定的按键按下
         /// </returns>
         public int WaitKey(int vk_code, int time_out){
-            return OLAPlugDLLHelper.WaitKey(OLAObject, vk_code, time_out);
+            var func = OLAPlugDLLHelper.GetFunction<WaitKeyDelegate>("WaitKey");
+            return func(OLAObject, vk_code, time_out);
         }
 
         /// <summary>
@@ -3974,7 +5192,658 @@ namespace OLAPlug
         /// </param>
         /// <returns>设置之前的精确度开关</returns>
         public int EnableMouseAccuracy(int enable){
-            return OLAPlugDLLHelper.EnableMouseAccuracy(OLAObject, enable);
+            var func = OLAPlugDLLHelper.GetFunction<EnableMouseAccuracyDelegate>("EnableMouseAccuracy");
+            return func(OLAObject, enable);
+        }
+
+        /// <summary>
+        /// 生成鼠标渐开线随机移动轨迹
+        /// </summary>
+        /// <param name="startX">起点X坐标（中心点）</param>
+        /// <param name="startY">起点Y坐标（中心点）</param>
+        /// <param name="radius">移动半径范围（像素）</param>
+        /// <param name="stepDistance">轨迹点之间的距离（像素，建议3-10，0表示自动计算为5）</param>
+        /// <param name="curvature">曲率系数（0.5-2.0，越大越弯曲，默认1.0）</param>
+        /// <param name="noiseAmplitude">随机扰动幅度（0-5像素，默认2.0）</param>
+        /// <returns>返回JSON格式的轨迹点数据，格式：{"points":[{"x":100,"y":200},...], "count":150}</returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. DLL调用返回字符串指针地址，需要调用 FreeStringPtr接口释放内存
+        /// <br/>2. 此函数生成在指定半径范围内的渐开线式随机游走轨迹，模拟自然的鼠标移动
+        /// <br/>3. stepDistance越小轨迹越平滑但点数越多，建议值：精细3-5，标准5-8，快速8-10
+        /// <br/>4. curvature控制弯曲程度，值越大轨迹越弯曲，建议范围0.5-2.0
+        /// <br/>5. noiseAmplitude控制随机抖动幅度，模拟人手抖动，建议范围1.0-3.0
+        /// </remarks>
+        public List<Point> GenerateInvoluteMouseTrajectory(int startX, int startY, int radius, int stepDistance, double curvature, double noiseAmplitude){
+            var func = OLAPlugDLLHelper.GetFunction<GenerateInvoluteMouseTrajectoryDelegate>("GenerateInvoluteMouseTrajectory");
+            var result = PtrToStringUTF8(func(OLAObject, startX, startY, radius, stepDistance, curvature, noiseAmplitude));
+            if (string.IsNullOrEmpty(result))
+            {
+                return new List<Point>();
+            }
+            return JsonConvert.DeserializeObject<List<Point>>(result);
+        }
+
+        /// <summary>
+        /// 关闭用户日志系统并释放资源
+        /// </summary>
+        /// <param name="loggerHandle">日志实例句柄（0 表示默认实例）</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 可以使用位或运算组合颜色，例如：FOREGROUND_RED | FOREGROUND_GREEN = 黄色
+        /// <br/>2. 添加 FOREGROUND_INTENSITY (0x08) 可以使颜色变亮
+        /// <br/>3. 关闭后，下次写入日志时会自动重新初始化
+        /// <br/>4. 通常在程序退出前调用，或需要完全重置日志系统时使用
+        /// </remarks>
+        public int LogShutdown(long loggerHandle){
+            var func = OLAPlugDLLHelper.GetFunction<LogShutdownDelegate>("LogShutdown");
+            return func(OLAObject, loggerHandle);
+        }
+
+        /// <summary>
+        /// 设置日志文件路径
+        /// </summary>
+        /// <param name="loggerHandle">日志实例句柄（0 表示默认实例）</param>
+        /// <param name="logFilePath">日志文件路径（为空则使用默认路径）</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 默认路径：./user_logs/app.log（程序运行目录下）
+        /// <br/>2. 修改后立即生效，如果日志系统已初始化，会自动重新初始化
+        /// </remarks>
+        public int LogSetFilePath(long loggerHandle, string logFilePath){
+            var func = OLAPlugDLLHelper.GetFunction<LogSetFilePathDelegate>("LogSetFilePath");
+            return func(OLAObject, loggerHandle, logFilePath);
+        }
+
+        /// <summary>
+        /// 设置日志格式（支持占位符）
+        /// </summary>
+        /// <param name="loggerHandle">日志实例句柄（0 表示默认实例）</param>
+        /// <param name="logPattern">日志格式（为空则使用默认格式）</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 默认格式：[%Y-%m-%d %H:%M:%S.%e] [%^%l%$] %v
+        /// <br/>2. 支持的占位符（基于 spdlog 格式）：【时间日期】%Y - 年份（4位数字，如 2026）%y - 年份（2位数字，如 26）%m - 月份（01-12）%d - 日期（01-31）%H - 小时（00-23，24小时制）%I - 小时（01-12，12小时制）%M - 分钟（00-59）%S - 秒（00-59）%e - 毫秒（000-999）%f - 微秒（000000-999999）%F - 纳秒（000000000-999999999）%p - AM/PM 标识%a - 星期简写（Mon, Tue, ...）%A - 星期全称（Monday, Tuesday, ...）%b - 月份简写（Jan, Feb, ...）%B - 月份全称（January, February, ...）%c - 日期时间（Thu Aug 23 15:35:46 2014）%D - 短日期（MM/DD/YY）%x - 日期表示（08/23/14）%X - 时间表示（15:35:46）%T - ISO 8601 时间格式（HH:MM:SS）%R - 24小时制时间（HH:MM）%z - UTC 偏移量（+0800）%Z - 时区名称（CST）%E - Unix 纪元秒数（1440351346）【日志信息】%v - 日志消息内容%l - 日志级别（TRACE, DEBUG, INFO, WARN, ERROR, CRITICAL）%L - 日志级别简写（T, D, I, W, E, C）%n - 日志记录器名称%t - 线程ID%P - 进程ID【源代码信息】%s - 源文件名%g - 源文件短名称（不含路径）%# - 源代码行号%! - 函数名【颜色控制】%^ - 颜色范围开始标记（根据日志级别自动着色）%$ - 颜色范围结束标记【特殊字符】%% - 百分号字面量%+ - spdlog 默认格式
+        /// <br/>3. 示例格式："[%Y-%m-%d %H:%M:%S.%e] [%^%l%$] %v" → [2026-02-28 14:30:45.123] [INFO] 日志消息"[%T.%e] [%L] [%t] %v" → [14:30:45.123] [I] [12345] 日志消息"%Y%m%d %H:%M:%S [%l] %v" → 20260228 14:30:45 [INFO] 日志消息
+        /// <br/>4. 修改后立即生效，如果日志系统已初始化，会自动重新初始化
+        /// </remarks>
+        public int LogSetPattern(long loggerHandle, string logPattern){
+            var func = OLAPlugDLLHelper.GetFunction<LogSetPatternDelegate>("LogSetPattern");
+            return func(OLAObject, loggerHandle, logPattern);
+        }
+
+        /// <summary>
+        /// 设置单个日志文件最大大小
+        /// </summary>
+        /// <param name="loggerHandle">日志实例句柄（0 表示默认实例）</param>
+        /// <param name="maxFileSizeMb">单个日志文件最大大小（MB）</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 默认值：100MB
+        /// <br/>2. 当日志文件达到此大小时，会自动创建新文件（滚动日志）
+        /// <br/>3. 修改后立即生效，如果日志系统已初始化，会自动重新初始化
+        /// </remarks>
+        public int LogSetMaxFileSize(long loggerHandle, int maxFileSizeMb){
+            var func = OLAPlugDLLHelper.GetFunction<LogSetMaxFileSizeDelegate>("LogSetMaxFileSize");
+            return func(OLAObject, loggerHandle, maxFileSizeMb);
+        }
+
+        /// <summary>
+        /// 设置最多保留的日志文件数量
+        /// </summary>
+        /// <param name="loggerHandle">日志实例句柄（0 表示默认实例）</param>
+        /// <param name="maxFiles">最多保留的日志文件数量</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 默认值：10个
+        /// <br/>2. 超过此数量时，最旧的日志文件会被自动删除
+        /// <br/>3. 修改后立即生效，如果日志系统已初始化，会自动重新初始化
+        /// </remarks>
+        public int LogSetMaxFiles(long loggerHandle, int maxFiles){
+            var func = OLAPlugDLLHelper.GetFunction<LogSetMaxFilesDelegate>("LogSetMaxFiles");
+            return func(OLAObject, loggerHandle, maxFiles);
+        }
+
+        /// <summary>
+        /// 设置日志级别
+        /// </summary>
+        /// <param name="loggerHandle">日志实例句柄（0 表示默认实例）</param>
+        /// <param name="level">日志级别，见OLALogLevel</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 默认值：OLA_LOG_LEVEL_INFO (2)
+        /// <br/>2. 只有大于或等于此级别的日志才会被记录
+        /// <br/>3. 此设置立即生效，无需重新初始化
+        /// </remarks>
+        public int LogSetLevel(long loggerHandle, int level){
+            var func = OLAPlugDLLHelper.GetFunction<LogSetLevelDelegate>("LogSetLevel");
+            return func(OLAObject, loggerHandle, level);
+        }
+
+        /// <summary>
+        /// 获取当前日志级别
+        /// </summary>
+        /// <param name="loggerHandle">日志实例句柄（0 表示默认实例）</param>
+        /// <returns>当前日志级别，见OLALogLevel，失败返回-1</returns>
+        public int LogGetLevel(long loggerHandle){
+            var func = OLAPlugDLLHelper.GetFunction<LogGetLevelDelegate>("LogGetLevel");
+            return func(OLAObject, loggerHandle);
+        }
+
+        /// <summary>
+        /// 设置输出目标
+        /// </summary>
+        /// <param name="loggerHandle">日志实例句柄（0 表示默认实例）</param>
+        /// <param name="targetFlags">输出目标（OLALogTarget 组合）</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 默认值：FILE(1) | CONSOLE (3)
+        /// <br/>2. 可以使用位或运算组合多个目标，例如：FILE | CONSOLE
+        /// <br/>3. 控制台输出支持彩色显示（不同级别显示不同颜色）
+        /// <br/>4. 修改后立即生效，如果日志系统已初始化，会自动重新初始化
+        /// </remarks>
+        public int LogSetTarget(long loggerHandle, int targetFlags){
+            var func = OLAPlugDLLHelper.GetFunction<LogSetTargetDelegate>("LogSetTarget");
+            return func(OLAObject, loggerHandle, targetFlags);
+        }
+
+        /// <summary>
+        /// 设置是否启用异步日志
+        /// </summary>
+        /// <param name="loggerHandle">日志实例句柄（0 表示默认实例）</param>
+        /// <param name="enableAsync">是否启用异步日志，1 启用，0 禁用</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 默认值：1（异步模式）
+        /// <br/>2. 异步模式可以提高性能，但可能在程序崩溃时丢失部分日志
+        /// <br/>3. 修改后立即生效，如果日志系统已初始化，会自动重新初始化
+        /// </remarks>
+        public int LogSetAsync(long loggerHandle, int enableAsync){
+            var func = OLAPlugDLLHelper.GetFunction<LogSetAsyncDelegate>("LogSetAsync");
+            return func(OLAObject, loggerHandle, enableAsync);
+        }
+
+        /// <summary>
+        /// 设置控制台颜色模式
+        /// </summary>
+        /// <param name="loggerHandle">日志实例句柄（0 表示默认实例）</param>
+        /// <param name="colorMode">颜色模式，见OLALogColorMode</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 默认值：OLA_LOG_COLOR_ALWAYS (1) - 始终启用彩色输出
+        /// <br/>2. 默认颜色方案：TRACE - 白色DEBUG - 青色INFO - 绿色WARN - 亮黄色ERROR - 亮红色CRITICAL - 红色背景上的亮白色
+        /// <br/>3. 修改后立即生效，如果日志系统已初始化，会自动重新初始化
+        /// </remarks>
+        public int LogSetColorMode(long loggerHandle, int colorMode){
+            var func = OLAPlugDLLHelper.GetFunction<LogSetColorModeDelegate>("LogSetColorMode");
+            return func(OLAObject, loggerHandle, colorMode);
+        }
+
+        /// <summary>
+        /// 设置指定日志级别的控制台颜色
+        /// </summary>
+        /// <param name="loggerHandle">日志实例句柄（0 表示默认实例）</param>
+        /// <param name="level">日志级别，见OLALogLevel</param>
+        /// <param name="color">控制台颜色，见OLALogConsoleColor</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 仅在控制台输出启用且颜色模式不为 NEVER 时生效
+        /// <br/>2. 修改后立即生效，如果日志系统已初始化，会自动重新初始化
+        /// <br/>3. 示例：OLALogSetLevelColor(instance, 0, OLA_LOG_LEVEL_INFO, OLA_LOG_COLOR_CYAN);
+        /// </remarks>
+        public int LogSetLevelColor(long loggerHandle, int level, int color){
+            var func = OLAPlugDLLHelper.GetFunction<LogSetLevelColorDelegate>("LogSetLevelColor");
+            return func(OLAObject, loggerHandle, level, color);
+        }
+
+        /// <summary>
+        /// 重置所有日志级别颜色为默认值
+        /// </summary>
+        /// <param name="loggerHandle">日志实例句柄（0 表示默认实例）</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 修改后立即生效，如果日志系统已初始化，会自动重新初始化
+        /// </remarks>
+        public int LogResetLevelColors(long loggerHandle){
+            var func = OLAPlugDLLHelper.GetFunction<LogResetLevelColorsDelegate>("LogResetLevelColors");
+            return func(OLAObject, loggerHandle);
+        }
+
+        /// <summary>
+        /// 设置自动刷新间隔
+        /// </summary>
+        /// <param name="loggerHandle">日志实例句柄（0 表示默认实例）</param>
+        /// <param name="flushIntervalSeconds">自动刷新间隔（秒）</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 默认值：0（每条日志立即刷新到文件）
+        /// <br/>2. 设置为 0：每条日志都立即写入文件（最安全，但性能较低）
+        /// <br/>3. 设置为 > 0：只有 WARN 及以上级别的日志才会立即刷新，其他日志会缓冲
+        /// <br/>4. 无论设置如何，都可以手动调用 OLALogFlush 强制刷新
+        /// <br/>5. 此设置立即生效，无需重新初始化
+        /// </remarks>
+        public int LogSetFlushInterval(long loggerHandle, int flushIntervalSeconds){
+            var func = OLAPlugDLLHelper.GetFunction<LogSetFlushIntervalDelegate>("LogSetFlushInterval");
+            return func(OLAObject, loggerHandle, flushIntervalSeconds);
+        }
+
+        /// <summary>
+        /// 写入 TRACE 级别日志
+        /// </summary>
+        /// <param name="message">日志消息</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        public int LogTrace(string message){
+            var func = OLAPlugDLLHelper.GetFunction<LogTraceDelegate>("LogTrace");
+            return func(OLAObject, message);
+        }
+
+        /// <summary>
+        /// 写入 DEBUG 级别日志
+        /// </summary>
+        /// <param name="message">日志消息</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        public int LogDebug(string message){
+            var func = OLAPlugDLLHelper.GetFunction<LogDebugDelegate>("LogDebug");
+            return func(OLAObject, message);
+        }
+
+        /// <summary>
+        /// 写入 INFO 级别日志
+        /// </summary>
+        /// <param name="message">日志消息</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        public int LogInfo(string message){
+            var func = OLAPlugDLLHelper.GetFunction<LogInfoDelegate>("LogInfo");
+            return func(OLAObject, message);
+        }
+
+        /// <summary>
+        /// 写入 WARN 级别日志
+        /// </summary>
+        /// <param name="message">日志消息</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        public int LogWarn(string message){
+            var func = OLAPlugDLLHelper.GetFunction<LogWarnDelegate>("LogWarn");
+            return func(OLAObject, message);
+        }
+
+        /// <summary>
+        /// 写入 ERROR 级别日志
+        /// </summary>
+        /// <param name="message">日志消息</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        public int LogError(string message){
+            var func = OLAPlugDLLHelper.GetFunction<LogErrorDelegate>("LogError");
+            return func(OLAObject, message);
+        }
+
+        /// <summary>
+        /// 写入 CRITICAL 级别日志
+        /// </summary>
+        /// <param name="message">日志消息</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        public int LogCritical(string message){
+            var func = OLAPlugDLLHelper.GetFunction<LogCriticalDelegate>("LogCritical");
+            return func(OLAObject, message);
+        }
+
+        /// <summary>
+        /// 立即刷新日志缓冲区到文件
+        /// </summary>
+        /// <param name="loggerHandle">日志实例句柄（0 表示默认实例）</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 如果 flushIntervalSeconds 设置为 0（默认），日志会自动立即刷新，无需手动调用此函数
+        /// <br/>2. 如果 flushIntervalSeconds > 0，可以调用此函数强制刷新缓冲区中的日志
+        /// </remarks>
+        public int LogFlush(long loggerHandle){
+            var func = OLAPlugDLLHelper.GetFunction<LogFlushDelegate>("LogFlush");
+            return func(OLAObject, loggerHandle);
+        }
+
+        /// <summary>
+        /// 创建新的日志实例
+        /// </summary>
+        /// <param name="instanceName">实例名称（用于标识，如 "NetworkLogger"）</param>
+        /// <returns>日志实例句柄，失败返回 0</returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 新创建的实例使用默认配置
+        /// <br/>2. 实例句柄必须通过 OLALogDestroyInstance 释放
+        /// <br/>3. 默认实例（句柄 = 0）无需创建，始终存在
+        /// </remarks>
+        public long LogCreateInstance(string instanceName){
+            var func = OLAPlugDLLHelper.GetFunction<LogCreateInstanceDelegate>("LogCreateInstance");
+            return func(OLAObject, instanceName);
+        }
+
+        /// <summary>
+        /// 销毁日志实例并释放资源
+        /// </summary>
+        /// <param name="loggerHandle">要销毁的日志实例句柄</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败（实例不存在或为默认实例）
+        ///<br/>1: 成功
+        /// </returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 不能销毁默认实例（句柄 = 0）
+        /// <br/>2. 销毁后，该句柄将失效，不可再使用
+        /// </remarks>
+        public int LogDestroyInstance(long loggerHandle){
+            var func = OLAPlugDLLHelper.GetFunction<LogDestroyInstanceDelegate>("LogDestroyInstance");
+            return func(OLAObject, loggerHandle);
+        }
+
+        /// <summary>
+        /// 设置日志根目录
+        /// </summary>
+        /// <param name="loggerHandle">日志实例句柄（0 表示默认实例）</param>
+        /// <param name="baseDirectory">根目录路径</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 默认：./user_logs
+        /// </remarks>
+        public int LogSetBaseDirectory(long loggerHandle, string baseDirectory){
+            var func = OLAPlugDLLHelper.GetFunction<LogSetBaseDirectoryDelegate>("LogSetBaseDirectory");
+            return func(OLAObject, loggerHandle, baseDirectory);
+        }
+
+        /// <summary>
+        /// 设置目录组织模式
+        /// </summary>
+        /// <param name="loggerHandle">日志实例句柄（0 表示默认实例）</param>
+        /// <param name="dirMode">目录模式（可位或组合），见 OLALogDirMode</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 默认：OLA_LOG_DIR_FLAT (0)
+        /// <br/>2. 示例：OLA_LOG_DIR_BY_DATE | OLA_LOG_DIR_BY_MODULE
+        /// </remarks>
+        public int LogSetDirMode(long loggerHandle, int dirMode){
+            var func = OLAPlugDLLHelper.GetFunction<LogSetDirModeDelegate>("LogSetDirMode");
+            return func(OLAObject, loggerHandle, dirMode);
+        }
+
+        /// <summary>
+        /// 设置模块名称
+        /// </summary>
+        /// <param name="loggerHandle">日志实例句柄（0 表示默认实例）</param>
+        /// <param name="moduleName">模块名称（用于目录组织）</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 用于 OLA_LOG_DIR_BY_MODULE 模式
+        /// </remarks>
+        public int LogSetModuleName(long loggerHandle, string moduleName){
+            var func = OLAPlugDLLHelper.GetFunction<LogSetModuleNameDelegate>("LogSetModuleName");
+            return func(OLAObject, loggerHandle, moduleName);
+        }
+
+        /// <summary>
+        /// 设置文件名模式（支持占位符）
+        /// </summary>
+        /// <param name="loggerHandle">日志实例句柄（0 表示默认实例）</param>
+        /// <param name="fileNamePattern">文件名模式</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 默认值：app.log
+        /// <br/>2. 支持的占位符：{date} - 当前日期（格式：YYYY-MM-DD，如 2026-02-28）{time} - 当前时间（格式：HH-MM-SS，如 14-30-45）{datetime} - 日期时间（格式：YYYY-MM-DD_HH-MM-SS，如 2026-02-28_14-30-45）{module} - 模块名称（通过 OLALogSetModuleName 设置）{level} - 日志级别（TRACE, DEBUG, INFO, WARN, ERROR, CRITICAL）{index} - 文件序号（用于文件分割，从 1 开始递增）{pid} - 进程ID（当前进程的唯一标识符）{year} - 年份（4位数字，如 2026）{month} - 月份（01-12）{day} - 日期（01-31）{hour} - 小时（00-23）{minute} - 分钟（00-59）{second} - 秒（00-59）
+        /// <br/>3. 示例用法："app_{date}.log" → app_2026-02-28.log"{module}_{date}_{index}.log" → network_2026-02-28_1.log"log_{datetime}_{pid}.log" → log_2026-02-28_14-30-45_12345.log"{year}{month}{day}_{level}.log" → 20260228_INFO.log
+        /// <br/>4. 文件分割时 {index} 会自动递增：app_1.log, app_2.log, app_3.log...
+        /// <br/>5. 如果不使用 {index}，分割时会自动在文件名后添加序号
+        /// </remarks>
+        public int LogSetFileNamePattern(long loggerHandle, string fileNamePattern){
+            var func = OLAPlugDLLHelper.GetFunction<LogSetFileNamePatternDelegate>("LogSetFileNamePattern");
+            return func(OLAObject, loggerHandle, fileNamePattern);
+        }
+
+        /// <summary>
+        /// 设置文件分割模式
+        /// </summary>
+        /// <param name="loggerHandle">日志实例句柄（0 表示默认实例）</param>
+        /// <param name="rotationMode">分割模式（可位或组合），见 OLALogRotationMode</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 默认：OLA_LOG_ROTATION_SIZE (1) - 仅按大小分割
+        /// <br/>2. 可组合：OLA_LOG_ROTATION_SIZE | OLA_LOG_ROTATION_DAILY - 按大小和日期分割
+        /// </remarks>
+        public int LogSetRotationMode(long loggerHandle, int rotationMode){
+            var func = OLAPlugDLLHelper.GetFunction<LogSetRotationModeDelegate>("LogSetRotationMode");
+            return func(OLAObject, loggerHandle, rotationMode);
+        }
+
+        /// <summary>
+        /// 设置文件追加模式
+        /// </summary>
+        /// <param name="loggerHandle">日志实例句柄（0 表示默认实例）</param>
+        /// <param name="enableAppend">是否启用追加（1 启用，0 禁用）</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 默认：1（启用追加）
+        /// <br/>2. 启用时：程序重启后继续追加到现有文件
+        /// <br/>3. 禁用时：程序重启后将现有文件重命名为备份，创建新文件
+        /// </remarks>
+        public int LogSetAppendMode(long loggerHandle, int enableAppend){
+            var func = OLAPlugDLLHelper.GetFunction<LogSetAppendModeDelegate>("LogSetAppendMode");
+            return func(OLAObject, loggerHandle, enableAppend);
+        }
+
+        /// <summary>
+        /// 写入 TRACE 级别日志（扩展版本，支持指定实例）
+        /// </summary>
+        /// <param name="loggerHandle">日志实例句柄（0 表示默认实例）</param>
+        /// <param name="message">日志消息</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        public int LogTraceEx(long loggerHandle, string message){
+            var func = OLAPlugDLLHelper.GetFunction<LogTraceExDelegate>("LogTraceEx");
+            return func(OLAObject, loggerHandle, message);
+        }
+
+        /// <summary>
+        /// 写入 DEBUG 级别日志（扩展版本，支持指定实例）
+        /// </summary>
+        /// <param name="loggerHandle">日志实例句柄（0 表示默认实例）</param>
+        /// <param name="message">日志消息</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        public int LogDebugEx(long loggerHandle, string message){
+            var func = OLAPlugDLLHelper.GetFunction<LogDebugExDelegate>("LogDebugEx");
+            return func(OLAObject, loggerHandle, message);
+        }
+
+        /// <summary>
+        /// 写入 INFO 级别日志（扩展版本，支持指定实例）
+        /// </summary>
+        /// <param name="loggerHandle">日志实例句柄（0 表示默认实例）</param>
+        /// <param name="message">日志消息</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        public int LogInfoEx(long loggerHandle, string message){
+            var func = OLAPlugDLLHelper.GetFunction<LogInfoExDelegate>("LogInfoEx");
+            return func(OLAObject, loggerHandle, message);
+        }
+
+        /// <summary>
+        /// 写入 WARN 级别日志（扩展版本，支持指定实例）
+        /// </summary>
+        /// <param name="loggerHandle">日志实例句柄（0 表示默认实例）</param>
+        /// <param name="message">日志消息</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        public int LogWarnEx(long loggerHandle, string message){
+            var func = OLAPlugDLLHelper.GetFunction<LogWarnExDelegate>("LogWarnEx");
+            return func(OLAObject, loggerHandle, message);
+        }
+
+        /// <summary>
+        /// 写入 ERROR 级别日志（扩展版本，支持指定实例）
+        /// </summary>
+        /// <param name="loggerHandle">日志实例句柄（0 表示默认实例）</param>
+        /// <param name="message">日志消息</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        public int LogErrorEx(long loggerHandle, string message){
+            var func = OLAPlugDLLHelper.GetFunction<LogErrorExDelegate>("LogErrorEx");
+            return func(OLAObject, loggerHandle, message);
+        }
+
+        /// <summary>
+        /// 写入 CRITICAL 级别日志（扩展版本，支持指定实例）
+        /// </summary>
+        /// <param name="loggerHandle">日志实例句柄（0 表示默认实例）</param>
+        /// <param name="message">日志消息</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        public int LogCriticalEx(long loggerHandle, string message){
+            var func = OLAPlugDLLHelper.GetFunction<LogCriticalExDelegate>("LogCriticalEx");
+            return func(OLAObject, loggerHandle, message);
+        }
+
+        /// <summary>
+        /// 手动触发日志文件分割
+        /// </summary>
+        /// <param name="loggerHandle">日志实例句柄（0 表示默认实例）</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 立即关闭当前文件并创建新文件
+        /// </remarks>
+        public int LogRotateFile(long loggerHandle){
+            var func = OLAPlugDLLHelper.GetFunction<LogRotateFileDelegate>("LogRotateFile");
+            return func(OLAObject, loggerHandle);
+        }
+
+        /// <summary>
+        /// 清理超过保留数量的旧日志文件
+        /// </summary>
+        /// <param name="loggerHandle">日志实例句柄（0 表示默认实例）</param>
+        /// <param name="keepCount">保留文件数量（-1 表示使用配置值）</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        public int LogCleanupOldFiles(long loggerHandle, int keepCount){
+            var func = OLAPlugDLLHelper.GetFunction<LogCleanupOldFilesDelegate>("LogCleanupOldFiles");
+            return func(OLAObject, loggerHandle, keepCount);
+        }
+
+        /// <summary>
+        /// 获取日志实例的当前文件路径
+        /// </summary>
+        /// <param name="loggerHandle">日志实例句柄（0 表示默认实例）</param>
+        /// <returns>当前文件路径，失败返回空字符串</returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 返回的字符串指针需调用FreeStringPtr接口释放内存
+        /// </remarks>
+        public string LogGetCurrentFilePath(long loggerHandle){
+            var func = OLAPlugDLLHelper.GetFunction<LogGetCurrentFilePathDelegate>("LogGetCurrentFilePath");
+            return PtrToStringUTF8(func(OLAObject, loggerHandle));
+        }
+
+        /// <summary>
+        /// 获取当前日志文件大小（字节）
+        /// </summary>
+        /// <param name="loggerHandle">日志实例句柄（0 表示默认实例）</param>
+        /// <returns>文件大小（字节），失败返回 -1</returns>
+        public long LogGetCurrentFileSize(long loggerHandle){
+            var func = OLAPlugDLLHelper.GetFunction<LogGetCurrentFileSizeDelegate>("LogGetCurrentFileSize");
+            return func(OLAObject, loggerHandle);
+        }
+
+        /// <summary>
+        /// 获取日志文件总数
+        /// </summary>
+        /// <param name="loggerHandle">日志实例句柄（0 表示默认实例）</param>
+        /// <returns>文件数量，失败返回 -1</returns>
+        public int LogGetTotalFilesCount(long loggerHandle){
+            var func = OLAPlugDLLHelper.GetFunction<LogGetTotalFilesCountDelegate>("LogGetTotalFilesCount");
+            return func(OLAObject, loggerHandle);
         }
 
         /// <summary>
@@ -3986,7 +5855,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
         /// </remarks>
         public string DoubleToData(double double_value){
-            return PtrToStringUTF8(OLAPlugDLLHelper.DoubleToData(OLAObject, double_value));
+            var func = OLAPlugDLLHelper.GetFunction<DoubleToDataDelegate>("DoubleToData");
+            return PtrToStringUTF8(func(OLAObject, double_value));
         }
 
         /// <summary>
@@ -3998,7 +5868,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
         /// </remarks>
         public string FloatToData(float float_value){
-            return PtrToStringUTF8(OLAPlugDLLHelper.FloatToData(OLAObject, float_value));
+            var func = OLAPlugDLLHelper.GetFunction<FloatToDataDelegate>("FloatToData");
+            return PtrToStringUTF8(func(OLAObject, float_value));
         }
 
         /// <summary>
@@ -4015,7 +5886,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
         /// </remarks>
         public string StringToData(string string_value, int type){
-            return PtrToStringUTF8(OLAPlugDLLHelper.StringToData(OLAObject, string_value, type));
+            var func = OLAPlugDLLHelper.GetFunction<StringToDataDelegate>("StringToData");
+            return PtrToStringUTF8(func(OLAObject, string_value, type));
         }
 
         /// <summary>
@@ -4024,7 +5896,8 @@ namespace OLAPlug
         /// <param name="v">64位整数</param>
         /// <returns>32位整数</returns>
         public int Int64ToInt32(long v){
-            return OLAPlugDLLHelper.Int64ToInt32(OLAObject, v);
+            var func = OLAPlugDLLHelper.GetFunction<Int64ToInt32Delegate>("Int64ToInt32");
+            return func(OLAObject, v);
         }
 
         /// <summary>
@@ -4033,7 +5906,8 @@ namespace OLAPlug
         /// <param name="v">32位整数</param>
         /// <returns>64位整数</returns>
         public long Int32ToInt64(int v){
-            return OLAPlugDLLHelper.Int32ToInt64(OLAObject, v);
+            var func = OLAPlugDLLHelper.GetFunction<Int32ToInt64Delegate>("Int32ToInt64");
+            return func(OLAObject, v);
         }
 
         /// <summary>
@@ -4047,7 +5921,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
         /// </remarks>
         public string FindData(long hwnd, string addr_range, string data){
-            return PtrToStringUTF8(OLAPlugDLLHelper.FindData(OLAObject, hwnd, addr_range, data));
+            var func = OLAPlugDLLHelper.GetFunction<FindDataDelegate>("FindData");
+            return PtrToStringUTF8(func(OLAObject, hwnd, addr_range, data));
         }
 
         /// <summary>
@@ -4072,7 +5947,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
         /// </remarks>
         public string FindDataEx(long hwnd, string addr_range, string data, int step, int multi_thread, int mode){
-            return PtrToStringUTF8(OLAPlugDLLHelper.FindDataEx(OLAObject, hwnd, addr_range, data, step, multi_thread, mode));
+            var func = OLAPlugDLLHelper.GetFunction<FindDataExDelegate>("FindDataEx");
+            return PtrToStringUTF8(func(OLAObject, hwnd, addr_range, data, step, multi_thread, mode));
         }
 
         /// <summary>
@@ -4087,7 +5963,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
         /// </remarks>
         public string FindDouble(long hwnd, string addr_range, double double_value_min, double double_value_max){
-            return PtrToStringUTF8(OLAPlugDLLHelper.FindDouble(OLAObject, hwnd, addr_range, double_value_min, double_value_max));
+            var func = OLAPlugDLLHelper.GetFunction<FindDoubleDelegate>("FindDouble");
+            return PtrToStringUTF8(func(OLAObject, hwnd, addr_range, double_value_min, double_value_max));
         }
 
         /// <summary>
@@ -4113,7 +5990,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
         /// </remarks>
         public string FindDoubleEx(long hwnd, string addr_range, double double_value_min, double double_value_max, int step, int multi_thread, int mode){
-            return PtrToStringUTF8(OLAPlugDLLHelper.FindDoubleEx(OLAObject, hwnd, addr_range, double_value_min, double_value_max, step, multi_thread, mode));
+            var func = OLAPlugDLLHelper.GetFunction<FindDoubleExDelegate>("FindDoubleEx");
+            return PtrToStringUTF8(func(OLAObject, hwnd, addr_range, double_value_min, double_value_max, step, multi_thread, mode));
         }
 
         /// <summary>
@@ -4128,7 +6006,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
         /// </remarks>
         public string FindFloat(long hwnd, string addr_range, float float_value_min, float float_value_max){
-            return PtrToStringUTF8(OLAPlugDLLHelper.FindFloat(OLAObject, hwnd, addr_range, float_value_min, float_value_max));
+            var func = OLAPlugDLLHelper.GetFunction<FindFloatDelegate>("FindFloat");
+            return PtrToStringUTF8(func(OLAObject, hwnd, addr_range, float_value_min, float_value_max));
         }
 
         /// <summary>
@@ -4154,7 +6033,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
         /// </remarks>
         public string FindFloatEx(long hwnd, string addr_range, float float_value_min, float float_value_max, int step, int multi_thread, int mode){
-            return PtrToStringUTF8(OLAPlugDLLHelper.FindFloatEx(OLAObject, hwnd, addr_range, float_value_min, float_value_max, step, multi_thread, mode));
+            var func = OLAPlugDLLHelper.GetFunction<FindFloatExDelegate>("FindFloatEx");
+            return PtrToStringUTF8(func(OLAObject, hwnd, addr_range, float_value_min, float_value_max, step, multi_thread, mode));
         }
 
         /// <summary>
@@ -4175,7 +6055,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
         /// </remarks>
         public string FindInt(long hwnd, string addr_range, long int_value_min, long int_value_max, int type){
-            return PtrToStringUTF8(OLAPlugDLLHelper.FindInt(OLAObject, hwnd, addr_range, int_value_min, int_value_max, type));
+            var func = OLAPlugDLLHelper.GetFunction<FindIntDelegate>("FindInt");
+            return PtrToStringUTF8(func(OLAObject, hwnd, addr_range, int_value_min, int_value_max, type));
         }
 
         /// <summary>
@@ -4207,7 +6088,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
         /// </remarks>
         public string FindIntEx(long hwnd, string addr_range, long int_value_min, long int_value_max, int type, int step, int multi_thread, int mode){
-            return PtrToStringUTF8(OLAPlugDLLHelper.FindIntEx(OLAObject, hwnd, addr_range, int_value_min, int_value_max, type, step, multi_thread, mode));
+            var func = OLAPlugDLLHelper.GetFunction<FindIntExDelegate>("FindIntEx");
+            return PtrToStringUTF8(func(OLAObject, hwnd, addr_range, int_value_min, int_value_max, type, step, multi_thread, mode));
         }
 
         /// <summary>
@@ -4226,7 +6108,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
         /// </remarks>
         public string FindString(long hwnd, string addr_range, string string_value, int type){
-            return PtrToStringUTF8(OLAPlugDLLHelper.FindString(OLAObject, hwnd, addr_range, string_value, type));
+            var func = OLAPlugDLLHelper.GetFunction<FindStringDelegate>("FindString");
+            return PtrToStringUTF8(func(OLAObject, hwnd, addr_range, string_value, type));
         }
 
         /// <summary>
@@ -4256,7 +6139,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
         /// </remarks>
         public string FindStringEx(long hwnd, string addr_range, string string_value, int type, int step, int multi_thread, int mode){
-            return PtrToStringUTF8(OLAPlugDLLHelper.FindStringEx(OLAObject, hwnd, addr_range, string_value, type, step, multi_thread, mode));
+            var func = OLAPlugDLLHelper.GetFunction<FindStringExDelegate>("FindStringEx");
+            return PtrToStringUTF8(func(OLAObject, hwnd, addr_range, string_value, type, step, multi_thread, mode));
         }
 
         /// <summary>
@@ -4270,7 +6154,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
         /// </remarks>
         public string ReadData(long hwnd, string addr, int len){
-            return PtrToStringUTF8(OLAPlugDLLHelper.ReadData(OLAObject, hwnd, addr, len));
+            var func = OLAPlugDLLHelper.GetFunction<ReadDataDelegate>("ReadData");
+            return PtrToStringUTF8(func(OLAObject, hwnd, addr, len));
         }
 
         /// <summary>
@@ -4284,7 +6169,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
         /// </remarks>
         public string ReadDataAddr(long hwnd, long addr, int len){
-            return PtrToStringUTF8(OLAPlugDLLHelper.ReadDataAddr(OLAObject, hwnd, addr, len));
+            var func = OLAPlugDLLHelper.GetFunction<ReadDataAddrDelegate>("ReadDataAddr");
+            return PtrToStringUTF8(func(OLAObject, hwnd, addr, len));
         }
 
         /// <summary>
@@ -4295,7 +6181,8 @@ namespace OLAPlug
         /// <param name="len">长度</param>
         /// <returns>读取到的数据字符串指针. 返回0表示读取失败.</returns>
         public long ReadDataAddrToBin(long hwnd, long addr, int len){
-            return OLAPlugDLLHelper.ReadDataAddrToBin(OLAObject, hwnd, addr, len);
+            var func = OLAPlugDLLHelper.GetFunction<ReadDataAddrToBinDelegate>("ReadDataAddrToBin");
+            return func(OLAObject, hwnd, addr, len);
         }
 
         /// <summary>
@@ -4306,7 +6193,8 @@ namespace OLAPlug
         /// <param name="len">长度</param>
         /// <returns>读取到的内存地址</returns>
         public long ReadDataToBin(long hwnd, string addr, int len){
-            return OLAPlugDLLHelper.ReadDataToBin(OLAObject, hwnd, addr, len);
+            var func = OLAPlugDLLHelper.GetFunction<ReadDataToBinDelegate>("ReadDataToBin");
+            return func(OLAObject, hwnd, addr, len);
         }
 
         /// <summary>
@@ -4316,7 +6204,8 @@ namespace OLAPlug
         /// <param name="addr">地址，支持CE数据格式比如：[[[<module>+offset1]+offset2]+offset3]，<Game.exe>+1234+8+4，[<Game.exe>+1234]+8+4，[[<Game.exe>+1234]+8 ]+4，<Game.exe>+1234，[0x12345678]+10</param>
         /// <returns>读取到的双精度浮点数</returns>
         public double ReadDouble(long hwnd, string addr){
-            return OLAPlugDLLHelper.ReadDouble(OLAObject, hwnd, addr);
+            var func = OLAPlugDLLHelper.GetFunction<ReadDoubleDelegate>("ReadDouble");
+            return func(OLAObject, hwnd, addr);
         }
 
         /// <summary>
@@ -4326,7 +6215,8 @@ namespace OLAPlug
         /// <param name="addr">地址</param>
         /// <returns>读取到的双精度浮点数</returns>
         public double ReadDoubleAddr(long hwnd, long addr){
-            return OLAPlugDLLHelper.ReadDoubleAddr(OLAObject, hwnd, addr);
+            var func = OLAPlugDLLHelper.GetFunction<ReadDoubleAddrDelegate>("ReadDoubleAddr");
+            return func(OLAObject, hwnd, addr);
         }
 
         /// <summary>
@@ -4336,7 +6226,8 @@ namespace OLAPlug
         /// <param name="addr">地址，支持CE数据格式比如：[[[<module>+offset1]+offset2]+offset3]，<Game.exe>+1234+8+4，[<Game.exe>+1234]+8+4，[[<Game.exe>+1234]+8 ]+4，<Game.exe>+1234，[0x12345678]+10</param>
         /// <returns>读取到的单精度浮点数</returns>
         public float ReadFloat(long hwnd, string addr){
-            return OLAPlugDLLHelper.ReadFloat(OLAObject, hwnd, addr);
+            var func = OLAPlugDLLHelper.GetFunction<ReadFloatDelegate>("ReadFloat");
+            return func(OLAObject, hwnd, addr);
         }
 
         /// <summary>
@@ -4346,7 +6237,8 @@ namespace OLAPlug
         /// <param name="addr">地址</param>
         /// <returns>读取到的单精度浮点数</returns>
         public float ReadFloatAddr(long hwnd, long addr){
-            return OLAPlugDLLHelper.ReadFloatAddr(OLAObject, hwnd, addr);
+            var func = OLAPlugDLLHelper.GetFunction<ReadFloatAddrDelegate>("ReadFloatAddr");
+            return func(OLAObject, hwnd, addr);
         }
 
         /// <summary>
@@ -4365,7 +6257,8 @@ namespace OLAPlug
         /// </param>
         /// <returns>读取到的整数值64位</returns>
         public long ReadInt(long hwnd, string addr, int type){
-            return OLAPlugDLLHelper.ReadInt(OLAObject, hwnd, addr, type);
+            var func = OLAPlugDLLHelper.GetFunction<ReadIntDelegate>("ReadInt");
+            return func(OLAObject, hwnd, addr, type);
         }
 
         /// <summary>
@@ -4384,7 +6277,8 @@ namespace OLAPlug
         /// </param>
         /// <returns>读取到的整数值64位</returns>
         public long ReadIntAddr(long hwnd, long addr, int type){
-            return OLAPlugDLLHelper.ReadIntAddr(OLAObject, hwnd, addr, type);
+            var func = OLAPlugDLLHelper.GetFunction<ReadIntAddrDelegate>("ReadIntAddr");
+            return func(OLAObject, hwnd, addr, type);
         }
 
         /// <summary>
@@ -4403,7 +6297,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
         /// </remarks>
         public string ReadString(long hwnd, string addr, int type, int len){
-            return PtrToStringUTF8(OLAPlugDLLHelper.ReadString(OLAObject, hwnd, addr, type, len));
+            var func = OLAPlugDLLHelper.GetFunction<ReadStringDelegate>("ReadString");
+            return PtrToStringUTF8(func(OLAObject, hwnd, addr, type, len));
         }
 
         /// <summary>
@@ -4422,7 +6317,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
         /// </remarks>
         public string ReadStringAddr(long hwnd, long addr, int type, int len){
-            return PtrToStringUTF8(OLAPlugDLLHelper.ReadStringAddr(OLAObject, hwnd, addr, type, len));
+            var func = OLAPlugDLLHelper.GetFunction<ReadStringAddrDelegate>("ReadStringAddr");
+            return PtrToStringUTF8(func(OLAObject, hwnd, addr, type, len));
         }
 
         /// <summary>
@@ -4436,7 +6332,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int WriteData(long hwnd, string addr, string data){
-            return OLAPlugDLLHelper.WriteData(OLAObject, hwnd, addr, data);
+            var func = OLAPlugDLLHelper.GetFunction<WriteDataDelegate>("WriteData");
+            return func(OLAObject, hwnd, addr, data);
         }
 
         /// <summary>
@@ -4451,7 +6348,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int WriteDataFromBin(long hwnd, string addr, long data, int len){
-            return OLAPlugDLLHelper.WriteDataFromBin(OLAObject, hwnd, addr, data, len);
+            var func = OLAPlugDLLHelper.GetFunction<WriteDataFromBinDelegate>("WriteDataFromBin");
+            return func(OLAObject, hwnd, addr, data, len);
         }
 
         /// <summary>
@@ -4465,7 +6363,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int WriteDataAddr(long hwnd, long addr, string data){
-            return OLAPlugDLLHelper.WriteDataAddr(OLAObject, hwnd, addr, data);
+            var func = OLAPlugDLLHelper.GetFunction<WriteDataAddrDelegate>("WriteDataAddr");
+            return func(OLAObject, hwnd, addr, data);
         }
 
         /// <summary>
@@ -4480,7 +6379,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int WriteDataAddrFromBin(long hwnd, long addr, long data, int len){
-            return OLAPlugDLLHelper.WriteDataAddrFromBin(OLAObject, hwnd, addr, data, len);
+            var func = OLAPlugDLLHelper.GetFunction<WriteDataAddrFromBinDelegate>("WriteDataAddrFromBin");
+            return func(OLAObject, hwnd, addr, data, len);
         }
 
         /// <summary>
@@ -4494,7 +6394,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int WriteDouble(long hwnd, string addr, double double_value){
-            return OLAPlugDLLHelper.WriteDouble(OLAObject, hwnd, addr, double_value);
+            var func = OLAPlugDLLHelper.GetFunction<WriteDoubleDelegate>("WriteDouble");
+            return func(OLAObject, hwnd, addr, double_value);
         }
 
         /// <summary>
@@ -4508,7 +6409,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int WriteDoubleAddr(long hwnd, long addr, double double_value){
-            return OLAPlugDLLHelper.WriteDoubleAddr(OLAObject, hwnd, addr, double_value);
+            var func = OLAPlugDLLHelper.GetFunction<WriteDoubleAddrDelegate>("WriteDoubleAddr");
+            return func(OLAObject, hwnd, addr, double_value);
         }
 
         /// <summary>
@@ -4522,7 +6424,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int WriteFloat(long hwnd, string addr, float float_value){
-            return OLAPlugDLLHelper.WriteFloat(OLAObject, hwnd, addr, float_value);
+            var func = OLAPlugDLLHelper.GetFunction<WriteFloatDelegate>("WriteFloat");
+            return func(OLAObject, hwnd, addr, float_value);
         }
 
         /// <summary>
@@ -4536,7 +6439,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int WriteFloatAddr(long hwnd, long addr, float float_value){
-            return OLAPlugDLLHelper.WriteFloatAddr(OLAObject, hwnd, addr, float_value);
+            var func = OLAPlugDLLHelper.GetFunction<WriteFloatAddrDelegate>("WriteFloatAddr");
+            return func(OLAObject, hwnd, addr, float_value);
         }
 
         /// <summary>
@@ -4559,7 +6463,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int WriteInt(long hwnd, string addr, int type, long value){
-            return OLAPlugDLLHelper.WriteInt(OLAObject, hwnd, addr, type, value);
+            var func = OLAPlugDLLHelper.GetFunction<WriteIntDelegate>("WriteInt");
+            return func(OLAObject, hwnd, addr, type, value);
         }
 
         /// <summary>
@@ -4582,7 +6487,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int WriteIntAddr(long hwnd, long addr, int type, long value){
-            return OLAPlugDLLHelper.WriteIntAddr(OLAObject, hwnd, addr, type, value);
+            var func = OLAPlugDLLHelper.GetFunction<WriteIntAddrDelegate>("WriteIntAddr");
+            return func(OLAObject, hwnd, addr, type, value);
         }
 
         /// <summary>
@@ -4601,7 +6507,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int WriteString(long hwnd, string addr, int type, string value){
-            return OLAPlugDLLHelper.WriteString(OLAObject, hwnd, addr, type, value);
+            var func = OLAPlugDLLHelper.GetFunction<WriteStringDelegate>("WriteString");
+            return func(OLAObject, hwnd, addr, type, value);
         }
 
         /// <summary>
@@ -4620,7 +6527,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int WriteStringAddr(long hwnd, long addr, int type, string value){
-            return OLAPlugDLLHelper.WriteStringAddr(OLAObject, hwnd, addr, type, value);
+            var func = OLAPlugDLLHelper.GetFunction<WriteStringAddrDelegate>("WriteStringAddr");
+            return func(OLAObject, hwnd, addr, type, value);
         }
 
         /// <summary>
@@ -4635,7 +6543,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int SetMemoryHwndAsProcessId(int enable){
-            return OLAPlugDLLHelper.SetMemoryHwndAsProcessId(OLAObject, enable);
+            var func = OLAPlugDLLHelper.GetFunction<SetMemoryHwndAsProcessIdDelegate>("SetMemoryHwndAsProcessId");
+            return func(OLAObject, enable);
         }
 
         /// <summary>
@@ -4647,7 +6556,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int FreeProcessMemory(long hwnd){
-            return OLAPlugDLLHelper.FreeProcessMemory(OLAObject, hwnd);
+            var func = OLAPlugDLLHelper.GetFunction<FreeProcessMemoryDelegate>("FreeProcessMemory");
+            return func(OLAObject, hwnd);
         }
 
         /// <summary>
@@ -4657,7 +6567,8 @@ namespace OLAPlug
         /// <param name="module_name">模块名</param>
         /// <returns>成功返回模块基地址,失败返回0</returns>
         public long GetModuleBaseAddr(long hwnd, string module_name){
-            return OLAPlugDLLHelper.GetModuleBaseAddr(OLAObject, hwnd, module_name);
+            var func = OLAPlugDLLHelper.GetFunction<GetModuleBaseAddrDelegate>("GetModuleBaseAddr");
+            return func(OLAObject, hwnd, module_name);
         }
 
         /// <summary>
@@ -4667,18 +6578,20 @@ namespace OLAPlug
         /// <param name="module_name">模块名</param>
         /// <returns>成功返回模块大小,失败返回0</returns>
         public int GetModuleSize(long hwnd, string module_name){
-            return OLAPlugDLLHelper.GetModuleSize(OLAObject, hwnd, module_name);
+            var func = OLAPlugDLLHelper.GetFunction<GetModuleSizeDelegate>("GetModuleSize");
+            return func(OLAObject, hwnd, module_name);
         }
 
         /// <summary>
         /// 获取远程API地址
         /// </summary>
         /// <param name="hwnd">窗口句柄</param>
-        /// <param name="base_addr">基地址</param>
+        /// <param name="module_name">模块名</param>
         /// <param name="fun_name">函数名</param>
         /// <returns>成功返回远程API地址,失败返回0</returns>
-        public long GetRemoteApiAddress(long hwnd, long base_addr, string fun_name){
-            return OLAPlugDLLHelper.GetRemoteApiAddress(OLAObject, hwnd, base_addr, fun_name);
+        public long GetRemoteApiAddress(long hwnd, string module_name, string fun_name){
+            var func = OLAPlugDLLHelper.GetFunction<GetRemoteApiAddressDelegate>("GetRemoteApiAddress");
+            return func(OLAObject, hwnd, module_name, fun_name);
         }
 
         /// <summary>
@@ -4694,7 +6607,8 @@ namespace OLAPlug
         /// </param>
         /// <returns>分配的内存地址，如果是0表示分配失败</returns>
         public long VirtualAllocEx(long hwnd, long addr, int size, int type){
-            return OLAPlugDLLHelper.VirtualAllocEx(OLAObject, hwnd, addr, size, type);
+            var func = OLAPlugDLLHelper.GetFunction<VirtualAllocExDelegate>("VirtualAllocEx");
+            return func(OLAObject, hwnd, addr, size, type);
         }
 
         /// <summary>
@@ -4707,7 +6621,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int VirtualFreeEx(long hwnd, long addr){
-            return OLAPlugDLLHelper.VirtualFreeEx(OLAObject, hwnd, addr);
+            var func = OLAPlugDLLHelper.GetFunction<VirtualFreeExDelegate>("VirtualFreeEx");
+            return func(OLAObject, hwnd, addr);
         }
 
         /// <summary>
@@ -4725,7 +6640,8 @@ namespace OLAPlug
         /// <param name="oldProtect">修改前的保护属性</param>
         /// <returns>成功返回修改之前的读写属性,失败返回-1</returns>
         public int VirtualProtectEx(long hwnd, long addr, int size, int newProtect, out int oldProtect){
-            return OLAPlugDLLHelper.VirtualProtectEx(OLAObject, hwnd, addr, size, newProtect, out oldProtect);
+            var func = OLAPlugDLLHelper.GetFunction<VirtualProtectExDelegate>("VirtualProtectEx");
+            return func(OLAObject, hwnd, addr, size, newProtect, out oldProtect);
         }
 
         /// <summary>
@@ -4739,7 +6655,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
         /// </remarks>
         public string VirtualQueryEx(long hwnd, long addr, long pmbi){
-            return PtrToStringUTF8(OLAPlugDLLHelper.VirtualQueryEx(OLAObject, hwnd, addr, pmbi));
+            var func = OLAPlugDLLHelper.GetFunction<VirtualQueryExDelegate>("VirtualQueryEx");
+            return PtrToStringUTF8(func(OLAObject, hwnd, addr, pmbi));
         }
 
         /// <summary>
@@ -4752,7 +6669,8 @@ namespace OLAPlug
         /// <param name="lpThreadId">返回线程ID</param>
         /// <returns>成功返回线程句柄,失败返回0</returns>
         public long CreateRemoteThread(long hwnd, long lpStartAddress, long lpParameter, int dwCreationFlags, out long lpThreadId){
-            return OLAPlugDLLHelper.CreateRemoteThread(OLAObject, hwnd, lpStartAddress, lpParameter, dwCreationFlags, out lpThreadId);
+            var func = OLAPlugDLLHelper.GetFunction<CreateRemoteThreadDelegate>("CreateRemoteThread");
+            return func(OLAObject, hwnd, lpStartAddress, lpParameter, dwCreationFlags, out lpThreadId);
         }
 
         /// <summary>
@@ -4764,7 +6682,265 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int CloseHandle(long handle){
-            return OLAPlugDLLHelper.CloseHandle(OLAObject, handle);
+            var func = OLAPlugDLLHelper.GetFunction<CloseHandleDelegate>("CloseHandle");
+            return func(OLAObject, handle);
+        }
+
+        /// <summary>
+        /// 远程Hook API
+        /// </summary>
+        /// <param name="hwnd">窗口句柄或者进程ID</param>
+        /// <param name="targetAddr">目标地址</param>
+        /// <param name="size">大小</param>
+        /// <param name="hook_proc">当前进程内回调函数地址（整型传参便于跨语言）</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 支持x86和x64目标进程为X64时回调函数为HookCallback64,目标进程为X86时回调函数为HookCallback32。回调在本进程内执行。C#等可使用 Marshal.GetFunctionPointerForDelegate 传入委托地址，并保持委托引用以防被GC回收。
+        /// </remarks>
+        public int HookRemoteApi(long hwnd, long targetAddr, long size, long hook_proc){
+            var func = OLAPlugDLLHelper.GetFunction<HookRemoteApiDelegate>("HookRemoteApi");
+            return func(OLAObject, hwnd, targetAddr, size, hook_proc);
+        }
+
+        /// <summary>
+        /// 卸载远程Hook API
+        /// </summary>
+        /// <param name="hwnd">窗口句柄或者进程ID</param>
+        /// <param name="targetAddr">目标地址</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        public int UnhookRemoteApi(long hwnd, long targetAddr){
+            var func = OLAPlugDLLHelper.GetFunction<UnhookRemoteApiDelegate>("UnhookRemoteApi");
+            return func(OLAObject, hwnd, targetAddr);
+        }
+
+        /// <summary>
+        /// 下载文件（支持断点续传与进度）
+        /// </summary>
+        /// <param name="url">完整 URL</param>
+        /// <param name="save_path">本地保存路径</param>
+        /// <param name="callback"> 回调函数 void DownloadCallback(int64_t current, int64_t total, int64_t speed,int64_t user_data)</param>
+        /// <param name="user_data">传给 callback 的用户数据,一般用于传递用户上下文数据</param>
+        /// <returns>错误码（OLAHttpDownloadError）：0=成功，负数=失败（参见 OLAHttpDownloadError 枚举）</returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 回调参数：current 已下载字节数，total 总字节数(0 表示未知)，speed 当前下载速度(字节/秒)，user_data 由调用方传入
+        /// </remarks>
+        public int HttpDownloadFile(string url, string save_path, DownloadCallback callback, long user_data){
+            var func = OLAPlugDLLHelper.GetFunction<HttpDownloadFileDelegate>("HttpDownloadFile");
+            return func(OLAObject, url, save_path, callback, user_data);
+        }
+
+        /// <summary>
+        /// 下载文件（带重试与超时）
+        /// </summary>
+        /// <param name="url">完整 URL</param>
+        /// <param name="save_path">本地保存路径</param>
+        /// <param name="callback"> 回调函数 void DownloadCallback(int64_t current, int64_t total, int64_t speed,int64_t user_data)</param>
+        /// <param name="user_data">传给 callback 的用户数据,一般用于传递用户上下文数据</param>
+        /// <param name="max_retries">断线后最大重试次数</param>
+        /// <param name="connect_timeout_sec">连接超时秒，0 用默认</param>
+        /// <param name="read_timeout_sec">读超时秒，0 用默认</param>
+        /// <returns>错误码（OLAHttpDownloadError）：0=成功，负数=失败（参见 OLAHttpDownloadError 枚举）</returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 回调参数：current 已下载字节数，total 总字节数(0 表示未知)，speed 当前下载速度(字节/秒)，user_data 由调用方传入
+        /// </remarks>
+        public int HttpDownloadFileEx(string url, string save_path, DownloadCallback callback, long user_data, int max_retries, int connect_timeout_sec, int read_timeout_sec){
+            var func = OLAPlugDLLHelper.GetFunction<HttpDownloadFileExDelegate>("HttpDownloadFileEx");
+            return func(OLAObject, url, save_path, callback, user_data, max_retries, connect_timeout_sec, read_timeout_sec);
+        }
+
+        /// <summary>
+        /// 发送简单 HTTP GET 请求，返回响应体字符串
+        /// </summary>
+        /// <param name="url">完整 URL</param>
+        /// <returns>响应体字符串指针，失败返回 0，需要调用 FreeStringPtr 释放</returns>
+        public string HttpGet(string url){
+            var func = OLAPlugDLLHelper.GetFunction<HttpGetDelegate>("HttpGet");
+            return PtrToStringUTF8(func(OLAObject, url));
+        }
+
+        /// <summary>
+        /// 发送简单 HTTP POST 请求，返回响应体字符串
+        /// </summary>
+        /// <param name="url">完整 URL</param>
+        /// <param name="body">请求体内容</param>
+        /// <param name="content_type">Content-Type，例如 \"application/json\"</param>
+        /// <returns>响应体字符串指针，失败返回 0，需要调用 FreeStringPtr 释放</returns>
+        public string HttpPost(string url, string body, string content_type){
+            var func = OLAPlugDLLHelper.GetFunction<HttpPostDelegate>("HttpPost");
+            return PtrToStringUTF8(func(OLAObject, url, body, content_type));
+        }
+
+        /// <summary>
+        /// 高级 HTTP 请求：支持自定义 Method、请求头（含 Cookie）、请求体
+        /// </summary>
+        /// <param name="method">方法，如 "GET"/"POST"/"PUT"/"DELETE"，大小写不敏感</param>
+        /// <param name="url">完整 URL</param>
+        /// <param name="headers">自定义请求头，多行字符串，每行 "Name: Value"，如 "Cookie: a=b\r\nUser-Agent:x\r\n"，可为空</param>
+        /// <param name="body">请求体，GET 可传空</param>
+        /// <param name="content_type">如 "application/json"，可为空</param>
+        /// <param name="status_code">输出 HTTP 状态码，可为 NULL</param>
+        /// <returns>响应体字符串指针，失败返回 0，需调用 FreeStringPtr 释放</returns>
+        public string HttpRequestEx(string method, string url, string headers, string body, string content_type, out int status_code){
+            var func = OLAPlugDLLHelper.GetFunction<HttpRequestExDelegate>("HttpRequestEx");
+            return PtrToStringUTF8(func(OLAObject, method, url, headers, body, content_type, out status_code));
+        }
+
+        /// <summary>
+        /// 创建 TCP 客户端（基于回调的事件驱动模式）
+        /// </summary>
+        /// <param name="callback">事件回调函数，插件内部会自动转发所有事件到此回调 void TcpClientCallback(int64_tclient_handle, int32_t event_type, int64_t data, int32_t data_len, int64_t user_data)</param>
+        /// <param name="user_data">用户自定义数据，会在回调时传回</param>
+        /// <param name="enable_packet_protocol">是否启用消息分包协议：1=启用（推荐），0=禁用（原始模式）</param>
+        /// <returns>客户端句柄，失败返回 0</returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 回调事件类型：0 = 连接成功1 = 连接失败2 = 接收到数据（data 指向数据，data_len 为长度）3 = 连接断开4 = 发送完成
+        /// <br/>2. 消息分包协议格式：[4字节长度前缀(小端序)][消息体]，可自动解决粘包问题
+        /// <br/>3. 禁用后为原始模式，可能出现粘包问题，适用于与第三方系统通信
+        /// </remarks>
+        public long TcpClientCreate(TcpClientCallback callback, long user_data, int enable_packet_protocol){
+            var func = OLAPlugDLLHelper.GetFunction<TcpClientCreateDelegate>("TcpClientCreate");
+            return func(OLAObject, callback, user_data, enable_packet_protocol);
+        }
+
+        /// <summary>
+        /// 连接到服务器（异步操作，结果通过回调通知）
+        /// </summary>
+        /// <param name="client_handle">客户端句柄</param>
+        /// <param name="host">主机名或 IP</param>
+        /// <param name="port">端口</param>
+        /// <returns>0 失败（参数错误等），1 开始连接（最终结果通过回调通知）</returns>
+        public int TcpClientConnect(long client_handle, string host, int port){
+            var func = OLAPlugDLLHelper.GetFunction<TcpClientConnectDelegate>("TcpClientConnect");
+            return func(OLAObject, client_handle, host, port);
+        }
+
+        /// <summary>
+        /// 发送数据（异步操作）
+        /// </summary>
+        /// <param name="client_handle">客户端句柄</param>
+        /// <param name="data">数据指针</param>
+        /// <param name="data_len">数据长度</param>
+        /// <returns>0 失败，1 成功加入发送队列</returns>
+        public int TcpClientSend(long client_handle, long data, int data_len){
+            var func = OLAPlugDLLHelper.GetFunction<TcpClientSendDelegate>("TcpClientSend");
+            return func(OLAObject, client_handle, data, data_len);
+        }
+
+        /// <summary>
+        /// 断开连接
+        /// </summary>
+        /// <param name="client_handle">客户端句柄</param>
+        /// <returns>0 失败，1 成功</returns>
+        public int TcpClientDisconnect(long client_handle){
+            var func = OLAPlugDLLHelper.GetFunction<TcpClientDisconnectDelegate>("TcpClientDisconnect");
+            return func(OLAObject, client_handle);
+        }
+
+        /// <summary>
+        /// 销毁客户端（会自动断开连接）
+        /// </summary>
+        /// <param name="client_handle">客户端句柄</param>
+        /// <returns>0 失败，1 成功</returns>
+        public int TcpClientDestroy(long client_handle){
+            var func = OLAPlugDLLHelper.GetFunction<TcpClientDestroyDelegate>("TcpClientDestroy");
+            return func(OLAObject, client_handle);
+        }
+
+        /// <summary>
+        /// 创建 TCP 服务端（基于回调的事件驱动模式）
+        /// </summary>
+        /// <param name="bind_addr">绑定地址，空或 "0.0.0.0" 表示所有接口</param>
+        /// <param name="port">端口</param>
+        /// <param name="callback">事件回调函数，插件内部会自动转发所有事件到此回调 void TcpServerCallback(int64_tserver_handle, int64_t conn_id, int32_t event_type, int64_t data, int32_t data_len, int64_tuser_data)</param>
+        /// <param name="user_data">用户自定义数据，会在回调时传回</param>
+        /// <param name="enable_packet_protocol">是否启用消息分包协议：1=启用（推荐），0=禁用（原始模式）</param>
+        /// <returns>服务端句柄，失败返回 0</returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 回调事件类型：0 = 新连接（conn_id 为新连接的 ID）1 = 接收到数据（data 指向数据，data_len 为长度）2 = 连接断开（conn_id 为断开的连接 ID）3 = 发送完成
+        /// <br/>2. 消息分包协议格式：[4字节长度前缀(小端序)][消息体]，可自动解决粘包问题
+        /// <br/>3. 禁用后为原始模式，可能出现粘包问题，适用于与第三方系统通信
+        /// </remarks>
+        public long TcpServerCreate(string bind_addr, int port, TcpServerCallback callback, long user_data, int enable_packet_protocol){
+            var func = OLAPlugDLLHelper.GetFunction<TcpServerCreateDelegate>("TcpServerCreate");
+            return func(OLAObject, bind_addr, port, callback, user_data, enable_packet_protocol);
+        }
+
+        /// <summary>
+        /// 向指定连接发送数据
+        /// </summary>
+        /// <param name="server_handle">服务端句柄</param>
+        /// <param name="conn_id">连接 ID（从回调中获得）</param>
+        /// <param name="data">数据指针</param>
+        /// <param name="data_len">数据长度</param>
+        /// <returns>0 失败，1 成功加入发送队列</returns>
+        public int TcpServerSend(long server_handle, long conn_id, long data, int data_len){
+            var func = OLAPlugDLLHelper.GetFunction<TcpServerSendDelegate>("TcpServerSend");
+            return func(OLAObject, server_handle, conn_id, data, data_len);
+        }
+
+        /// <summary>
+        /// 断开指定连接
+        /// </summary>
+        /// <param name="server_handle">服务端句柄</param>
+        /// <param name="conn_id">连接 ID</param>
+        /// <returns>0 失败，1 成功</returns>
+        public int TcpServerDisconnect(long server_handle, long conn_id){
+            var func = OLAPlugDLLHelper.GetFunction<TcpServerDisconnectDelegate>("TcpServerDisconnect");
+            return func(OLAObject, server_handle, conn_id);
+        }
+
+        /// <summary>
+        /// 停止服务端（会断开所有连接）
+        /// </summary>
+        /// <param name="server_handle">服务端句柄</param>
+        /// <returns>0 失败，1 成功</returns>
+        public int TcpServerStop(long server_handle){
+            var func = OLAPlugDLLHelper.GetFunction<TcpServerStopDelegate>("TcpServerStop");
+            return func(OLAObject, server_handle);
+        }
+
+        /// <summary>
+        /// 获取客户端地址信息
+        /// </summary>
+        /// <param name="server_handle">服务端句柄</param>
+        /// <param name="conn_id">连接 ID</param>
+        /// <returns>格式为 "IP:Port" 的字符串指针，失败返回 0，需要调用 FreeStringPtr 释放</returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 示例返回值: "192.168.1.100:12345" 或 "[::1]:54321" (IPv6)
+        /// </remarks>
+        public string TcpServerGetClientAddress(long server_handle, long conn_id){
+            var func = OLAPlugDLLHelper.GetFunction<TcpServerGetClientAddressDelegate>("TcpServerGetClientAddress");
+            return PtrToStringUTF8(func(OLAObject, server_handle, conn_id));
+        }
+
+        /// <summary>
+        /// 获取所有连接的 ID 列表
+        /// </summary>
+        /// <param name="server_handle">服务端句柄</param>
+        /// <returns>连接 ID 列表字符串指针，需要调用 FreeStringPtr 释放</returns>
+        /// <remarks>注意事项: 
+        /// <br/>1. 返回的列表字符串需要使用 FreeStringPtr 释放
+        /// <br/>2. 示例返回值: "1,2,3"
+        /// </remarks>
+        public string TcpServerGetAllConnectionIds(long server_handle){
+            var func = OLAPlugDLLHelper.GetFunction<TcpServerGetAllConnectionIdsDelegate>("TcpServerGetAllConnectionIds");
+            return PtrToStringUTF8(func(OLAObject, server_handle));
+        }
+
+        /// <summary>
+        /// 销毁服务端（会自动停止服务）
+        /// </summary>
+        /// <param name="server_handle">服务端句柄</param>
+        /// <returns>0 失败，1 成功</returns>
+        public int TcpServerDestroy(long server_handle){
+            var func = OLAPlugDLLHelper.GetFunction<TcpServerDestroyDelegate>("TcpServerDestroy");
+            return func(OLAObject, server_handle);
         }
 
         /// <summary>
@@ -4779,7 +6955,8 @@ namespace OLAPlug
         /// <br/>1. DLL调用返回字符串指针地址,需要调用 FreeStringPtr接口释放内存
         /// </remarks>
         public string Ocr(int x1, int y1, int x2, int y2){
-            return PtrToStringUTF8(OLAPlugDLLHelper.Ocr(OLAObject, x1, y1, x2, y2));
+            var func = OLAPlugDLLHelper.GetFunction<OcrDelegate>("Ocr");
+            return PtrToStringUTF8(func(OLAObject, x1, y1, x2, y2));
         }
 
         /// <summary>
@@ -4791,7 +6968,8 @@ namespace OLAPlug
         /// <br/>1. DLL调用返回字符串指针地址,需要调用 FreeStringPtr接口释放内存
         /// </remarks>
         public string OcrFromPtr(long ptr){
-            return PtrToStringUTF8(OLAPlugDLLHelper.OcrFromPtr(OLAObject, ptr));
+            var func = OLAPlugDLLHelper.GetFunction<OcrFromPtrDelegate>("OcrFromPtr");
+            return PtrToStringUTF8(func(OLAObject, ptr));
         }
 
         /// <summary>
@@ -4804,7 +6982,8 @@ namespace OLAPlug
         /// <br/>1. DLL调用返回字符串指针地址,需要调用 FreeStringPtr接口释放内存
         /// </remarks>
         public string OcrFromBmpData(long ptr, int size){
-            return PtrToStringUTF8(OLAPlugDLLHelper.OcrFromBmpData(OLAObject, ptr, size));
+            var func = OLAPlugDLLHelper.GetFunction<OcrFromBmpDataDelegate>("OcrFromBmpData");
+            return PtrToStringUTF8(func(OLAObject, ptr, size));
         }
 
         /// <summary>
@@ -4820,7 +6999,8 @@ namespace OLAPlug
         /// <br/>2. DLL调用返回字符串指针地址,需要调用 FreeStringPtr接口释放内存
         /// </remarks>
         public OcrResult OcrDetails(int x1, int y1, int x2, int y2){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.OcrDetails(OLAObject, x1, y1, x2, y2));
+            var func = OLAPlugDLLHelper.GetFunction<OcrDetailsDelegate>("OcrDetails");
+            var result = PtrToStringUTF8(func(OLAObject, x1, y1, x2, y2));
             if (string.IsNullOrEmpty(result))
             {
                 return new OcrResult();
@@ -4838,7 +7018,8 @@ namespace OLAPlug
         /// <br/>2. DLL调用返回字符串指针地址,需要调用 FreeStringPtr接口释放内存
         /// </remarks>
         public OcrResult OcrFromPtrDetails(long ptr){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.OcrFromPtrDetails(OLAObject, ptr));
+            var func = OLAPlugDLLHelper.GetFunction<OcrFromPtrDetailsDelegate>("OcrFromPtrDetails");
+            var result = PtrToStringUTF8(func(OLAObject, ptr));
             if (string.IsNullOrEmpty(result))
             {
                 return new OcrResult();
@@ -4857,7 +7038,8 @@ namespace OLAPlug
         /// <br/>2. DLL调用返回字符串指针地址,需要调用 FreeStringPtr接口释放内存
         /// </remarks>
         public OcrResult OcrFromBmpDataDetails(long ptr, int size){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.OcrFromBmpDataDetails(OLAObject, ptr, size));
+            var func = OLAPlugDLLHelper.GetFunction<OcrFromBmpDataDetailsDelegate>("OcrFromBmpDataDetails");
+            var result = PtrToStringUTF8(func(OLAObject, ptr, size));
             if (string.IsNullOrEmpty(result))
             {
                 return new OcrResult();
@@ -4877,7 +7059,8 @@ namespace OLAPlug
         /// <br/>1. DLL调用返回字符串指针地址,需要调用 FreeStringPtr接口释放内存
         /// </remarks>
         public string OcrV5(int x1, int y1, int x2, int y2){
-            return PtrToStringUTF8(OLAPlugDLLHelper.OcrV5(OLAObject, x1, y1, x2, y2));
+            var func = OLAPlugDLLHelper.GetFunction<OcrV5Delegate>("OcrV5");
+            return PtrToStringUTF8(func(OLAObject, x1, y1, x2, y2));
         }
 
         /// <summary>
@@ -4893,7 +7076,8 @@ namespace OLAPlug
         /// <br/>2. DLL调用返回字符串指针地址,需要调用 FreeStringPtr接口释放内存
         /// </remarks>
         public OcrResult OcrV5Details(int x1, int y1, int x2, int y2){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.OcrV5Details(OLAObject, x1, y1, x2, y2));
+            var func = OLAPlugDLLHelper.GetFunction<OcrV5DetailsDelegate>("OcrV5Details");
+            var result = PtrToStringUTF8(func(OLAObject, x1, y1, x2, y2));
             if (string.IsNullOrEmpty(result))
             {
                 return new OcrResult();
@@ -4910,7 +7094,8 @@ namespace OLAPlug
         /// <br/>1. DLL调用返回字符串指针地址,需要调用 FreeStringPtr接口释放内存
         /// </remarks>
         public string OcrV5FromPtr(long ptr){
-            return PtrToStringUTF8(OLAPlugDLLHelper.OcrV5FromPtr(OLAObject, ptr));
+            var func = OLAPlugDLLHelper.GetFunction<OcrV5FromPtrDelegate>("OcrV5FromPtr");
+            return PtrToStringUTF8(func(OLAObject, ptr));
         }
 
         /// <summary>
@@ -4923,7 +7108,8 @@ namespace OLAPlug
         /// <br/>2. DLL调用返回字符串指针地址,需要调用 FreeStringPtr接口释放内存
         /// </remarks>
         public OcrResult OcrV5FromPtrDetails(long ptr){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.OcrV5FromPtrDetails(OLAObject, ptr));
+            var func = OLAPlugDLLHelper.GetFunction<OcrV5FromPtrDetailsDelegate>("OcrV5FromPtrDetails");
+            var result = PtrToStringUTF8(func(OLAObject, ptr));
             if (string.IsNullOrEmpty(result))
             {
                 return new OcrResult();
@@ -4995,7 +7181,8 @@ namespace OLAPlug
         /// <br/>56. 适用于OCR配置管理和调试场景
         /// </remarks>
         public string GetOcrConfig(string configKey){
-            return PtrToStringUTF8(OLAPlugDLLHelper.GetOcrConfig(OLAObject, configKey));
+            var func = OLAPlugDLLHelper.GetFunction<GetOcrConfigDelegate>("GetOcrConfig");
+            return PtrToStringUTF8(func(OLAObject, configKey));
         }
 
         /// <summary>
@@ -5062,7 +7249,8 @@ namespace OLAPlug
         /// <br/>56. 适用于OCR配置管理和调试场景
         /// </remarks>
         public int SetOcrConfig(string configStr){
-            return OLAPlugDLLHelper.SetOcrConfig(OLAObject, configStr);
+            var func = OLAPlugDLLHelper.GetFunction<SetOcrConfigDelegate>("SetOcrConfig");
+            return func(OLAObject, configStr);
         }
 
         /// <summary>
@@ -5133,7 +7321,8 @@ namespace OLAPlug
         /// <br/>56. 适用于OCR配置管理和调试场景
         /// </remarks>
         public int SetOcrConfigByKey(string key, string value){
-            return OLAPlugDLLHelper.SetOcrConfigByKey(OLAObject, key, value);
+            var func = OLAPlugDLLHelper.GetFunction<SetOcrConfigByKeyDelegate>("SetOcrConfigByKey");
+            return func(OLAObject, key, value);
         }
 
         /// <summary>
@@ -5151,7 +7340,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
         /// </remarks>
         public string OcrFromDict(int x1, int y1, int x2, int y2, List<ColorModel> colorJson, string dict_name, double matchVal){
-            return PtrToStringUTF8(OLAPlugDLLHelper.OcrFromDict(OLAObject, x1, y1, x2, y2, JsonConvert.SerializeObject(colorJson), dict_name, matchVal));
+            var func = OLAPlugDLLHelper.GetFunction<OcrFromDictDelegate>("OcrFromDict");
+            return PtrToStringUTF8(func(OLAObject, x1, y1, x2, y2, JsonConvert.SerializeObject(colorJson), dict_name, matchVal));
         }
 
         /// <summary>
@@ -5169,7 +7359,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
         /// </remarks>
         public string OcrFromDict(int x1, int y1, int x2, int y2, string colorJson, string dict_name, double matchVal){
-            return PtrToStringUTF8(OLAPlugDLLHelper.OcrFromDict(OLAObject, x1, y1, x2, y2, colorJson, dict_name, matchVal));
+            var func = OLAPlugDLLHelper.GetFunction<OcrFromDictDelegate>("OcrFromDict");
+            return PtrToStringUTF8(func(OLAObject, x1, y1, x2, y2, colorJson, dict_name, matchVal));
         }
 
         /// <summary>
@@ -5187,7 +7378,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
         /// </remarks>
         public OcrResult OcrFromDictDetails(int x1, int y1, int x2, int y2, List<ColorModel> colorJson, string dict_name, double matchVal){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.OcrFromDictDetails(OLAObject, x1, y1, x2, y2, JsonConvert.SerializeObject(colorJson), dict_name, matchVal));
+            var func = OLAPlugDLLHelper.GetFunction<OcrFromDictDetailsDelegate>("OcrFromDictDetails");
+            var result = PtrToStringUTF8(func(OLAObject, x1, y1, x2, y2, JsonConvert.SerializeObject(colorJson), dict_name, matchVal));
             if (string.IsNullOrEmpty(result))
             {
                 return new OcrResult();
@@ -5210,7 +7402,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
         /// </remarks>
         public OcrResult OcrFromDictDetails(int x1, int y1, int x2, int y2, string colorJson, string dict_name, double matchVal){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.OcrFromDictDetails(OLAObject, x1, y1, x2, y2, colorJson, dict_name, matchVal));
+            var func = OLAPlugDLLHelper.GetFunction<OcrFromDictDetailsDelegate>("OcrFromDictDetails");
+            var result = PtrToStringUTF8(func(OLAObject, x1, y1, x2, y2, colorJson, dict_name, matchVal));
             if (string.IsNullOrEmpty(result))
             {
                 return new OcrResult();
@@ -5230,7 +7423,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
         /// </remarks>
         public string OcrFromDictPtr(long ptr, List<ColorModel> colorJson, string dict_name, double matchVal){
-            return PtrToStringUTF8(OLAPlugDLLHelper.OcrFromDictPtr(OLAObject, ptr, JsonConvert.SerializeObject(colorJson), dict_name, matchVal));
+            var func = OLAPlugDLLHelper.GetFunction<OcrFromDictPtrDelegate>("OcrFromDictPtr");
+            return PtrToStringUTF8(func(OLAObject, ptr, JsonConvert.SerializeObject(colorJson), dict_name, matchVal));
         }
 
         /// <summary>
@@ -5245,7 +7439,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
         /// </remarks>
         public string OcrFromDictPtr(long ptr, string colorJson, string dict_name, double matchVal){
-            return PtrToStringUTF8(OLAPlugDLLHelper.OcrFromDictPtr(OLAObject, ptr, colorJson, dict_name, matchVal));
+            var func = OLAPlugDLLHelper.GetFunction<OcrFromDictPtrDelegate>("OcrFromDictPtr");
+            return PtrToStringUTF8(func(OLAObject, ptr, colorJson, dict_name, matchVal));
         }
 
         /// <summary>
@@ -5260,7 +7455,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
         /// </remarks>
         public OcrResult OcrFromDictPtrDetails(long ptr, List<ColorModel> colorJson, string dict_name, double matchVal){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.OcrFromDictPtrDetails(OLAObject, ptr, JsonConvert.SerializeObject(colorJson), dict_name, matchVal));
+            var func = OLAPlugDLLHelper.GetFunction<OcrFromDictPtrDetailsDelegate>("OcrFromDictPtrDetails");
+            var result = PtrToStringUTF8(func(OLAObject, ptr, JsonConvert.SerializeObject(colorJson), dict_name, matchVal));
             if (string.IsNullOrEmpty(result))
             {
                 return new OcrResult();
@@ -5280,7 +7476,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串指针需调用FreeStringPtr释放内存
         /// </remarks>
         public OcrResult OcrFromDictPtrDetails(long ptr, string colorJson, string dict_name, double matchVal){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.OcrFromDictPtrDetails(OLAObject, ptr, colorJson, dict_name, matchVal));
+            var func = OLAPlugDLLHelper.GetFunction<OcrFromDictPtrDetailsDelegate>("OcrFromDictPtrDetails");
+            var result = PtrToStringUTF8(func(OLAObject, ptr, colorJson, dict_name, matchVal));
             if (string.IsNullOrEmpty(result))
             {
                 return new OcrResult();
@@ -5306,7 +7503,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int FindStr(int x1, int y1, int x2, int y2, string str, List<ColorModel> colorJson, string dict, double matchVal, out int outX, out int outY){
-            return OLAPlugDLLHelper.FindStr(OLAObject, x1, y1, x2, y2, str, JsonConvert.SerializeObject(colorJson), dict, matchVal, out outX, out outY);
+            var func = OLAPlugDLLHelper.GetFunction<FindStrDelegate>("FindStr");
+            return func(OLAObject, x1, y1, x2, y2, str, JsonConvert.SerializeObject(colorJson), dict, matchVal, out outX, out outY);
         }
 
         /// <summary>
@@ -5327,7 +7525,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int FindStr(int x1, int y1, int x2, int y2, string str, string colorJson, string dict, double matchVal, out int outX, out int outY){
-            return OLAPlugDLLHelper.FindStr(OLAObject, x1, y1, x2, y2, str, colorJson, dict, matchVal, out outX, out outY);
+            var func = OLAPlugDLLHelper.GetFunction<FindStrDelegate>("FindStr");
+            return func(OLAObject, x1, y1, x2, y2, str, colorJson, dict, matchVal, out outX, out outY);
         }
 
         /// <summary>
@@ -5346,7 +7545,8 @@ namespace OLAPlug
         /// <br/>1. DLL调用返回字符串指针地址，需要调用 FreeStringPtr 接口释放内存
         /// </remarks>
         public MatchResult FindStrDetail(int x1, int y1, int x2, int y2, string str, List<ColorModel> colorJson, string dict, double matchVal){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.FindStrDetail(OLAObject, x1, y1, x2, y2, str, JsonConvert.SerializeObject(colorJson), dict, matchVal));
+            var func = OLAPlugDLLHelper.GetFunction<FindStrDetailDelegate>("FindStrDetail");
+            var result = PtrToStringUTF8(func(OLAObject, x1, y1, x2, y2, str, JsonConvert.SerializeObject(colorJson), dict, matchVal));
             if (string.IsNullOrEmpty(result))
             {
                 return new MatchResult();
@@ -5370,7 +7570,8 @@ namespace OLAPlug
         /// <br/>1. DLL调用返回字符串指针地址，需要调用 FreeStringPtr 接口释放内存
         /// </remarks>
         public MatchResult FindStrDetail(int x1, int y1, int x2, int y2, string str, string colorJson, string dict, double matchVal){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.FindStrDetail(OLAObject, x1, y1, x2, y2, str, colorJson, dict, matchVal));
+            var func = OLAPlugDLLHelper.GetFunction<FindStrDetailDelegate>("FindStrDetail");
+            var result = PtrToStringUTF8(func(OLAObject, x1, y1, x2, y2, str, colorJson, dict, matchVal));
             if (string.IsNullOrEmpty(result))
             {
                 return new MatchResult();
@@ -5394,7 +7595,8 @@ namespace OLAPlug
         /// <br/>1. DLL调用返回字符串指针地址，需要调用 FreeStringPtr 接口释放内存
         /// </remarks>
         public List<MatchResult> FindStrAll(int x1, int y1, int x2, int y2, string str, List<ColorModel> colorJson, string dict, double matchVal){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.FindStrAll(OLAObject, x1, y1, x2, y2, str, JsonConvert.SerializeObject(colorJson), dict, matchVal));
+            var func = OLAPlugDLLHelper.GetFunction<FindStrAllDelegate>("FindStrAll");
+            var result = PtrToStringUTF8(func(OLAObject, x1, y1, x2, y2, str, JsonConvert.SerializeObject(colorJson), dict, matchVal));
             if (string.IsNullOrEmpty(result))
             {
                 return new List<MatchResult>();
@@ -5418,7 +7620,8 @@ namespace OLAPlug
         /// <br/>1. DLL调用返回字符串指针地址，需要调用 FreeStringPtr 接口释放内存
         /// </remarks>
         public List<MatchResult> FindStrAll(int x1, int y1, int x2, int y2, string str, string colorJson, string dict, double matchVal){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.FindStrAll(OLAObject, x1, y1, x2, y2, str, colorJson, dict, matchVal));
+            var func = OLAPlugDLLHelper.GetFunction<FindStrAllDelegate>("FindStrAll");
+            var result = PtrToStringUTF8(func(OLAObject, x1, y1, x2, y2, str, colorJson, dict, matchVal));
             if (string.IsNullOrEmpty(result))
             {
                 return new List<MatchResult>();
@@ -5439,7 +7642,8 @@ namespace OLAPlug
         /// <br/>1. DLL调用返回字符串指针地址，需要调用 FreeStringPtr 接口释放内存
         /// </remarks>
         public MatchResult FindStrFromPtr(long source, string str, List<ColorModel> colorJson, string dict, double matchVal){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.FindStrFromPtr(OLAObject, source, str, JsonConvert.SerializeObject(colorJson), dict, matchVal));
+            var func = OLAPlugDLLHelper.GetFunction<FindStrFromPtrDelegate>("FindStrFromPtr");
+            var result = PtrToStringUTF8(func(OLAObject, source, str, JsonConvert.SerializeObject(colorJson), dict, matchVal));
             if (string.IsNullOrEmpty(result))
             {
                 return new MatchResult();
@@ -5460,7 +7664,8 @@ namespace OLAPlug
         /// <br/>1. DLL调用返回字符串指针地址，需要调用 FreeStringPtr 接口释放内存
         /// </remarks>
         public MatchResult FindStrFromPtr(long source, string str, string colorJson, string dict, double matchVal){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.FindStrFromPtr(OLAObject, source, str, colorJson, dict, matchVal));
+            var func = OLAPlugDLLHelper.GetFunction<FindStrFromPtrDelegate>("FindStrFromPtr");
+            var result = PtrToStringUTF8(func(OLAObject, source, str, colorJson, dict, matchVal));
             if (string.IsNullOrEmpty(result))
             {
                 return new MatchResult();
@@ -5481,7 +7686,8 @@ namespace OLAPlug
         /// <br/>1. DLL调用返回字符串指针地址，需要调用 FreeStringPtr 接口释放内存
         /// </remarks>
         public List<MatchResult> FindStrFromPtrAll(long source, string str, List<ColorModel> colorJson, string dict, double matchVal){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.FindStrFromPtrAll(OLAObject, source, str, JsonConvert.SerializeObject(colorJson), dict, matchVal));
+            var func = OLAPlugDLLHelper.GetFunction<FindStrFromPtrAllDelegate>("FindStrFromPtrAll");
+            var result = PtrToStringUTF8(func(OLAObject, source, str, JsonConvert.SerializeObject(colorJson), dict, matchVal));
             if (string.IsNullOrEmpty(result))
             {
                 return new List<MatchResult>();
@@ -5502,7 +7708,8 @@ namespace OLAPlug
         /// <br/>1. DLL调用返回字符串指针地址，需要调用 FreeStringPtr 接口释放内存
         /// </remarks>
         public List<MatchResult> FindStrFromPtrAll(long source, string str, string colorJson, string dict, double matchVal){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.FindStrFromPtrAll(OLAObject, source, str, colorJson, dict, matchVal));
+            var func = OLAPlugDLLHelper.GetFunction<FindStrFromPtrAllDelegate>("FindStrFromPtrAll");
+            var result = PtrToStringUTF8(func(OLAObject, source, str, colorJson, dict, matchVal));
             if (string.IsNullOrEmpty(result))
             {
                 return new List<MatchResult>();
@@ -5519,7 +7726,8 @@ namespace OLAPlug
         /// <param name="matchVal">识别率</param>
         /// <returns>识别到的数字,如果失败返回-1</returns>
         public int FastNumberOcrFromPtr(long source, string numbers, List<ColorModel> colorJson, double matchVal){
-            return OLAPlugDLLHelper.FastNumberOcrFromPtr(OLAObject, source, numbers, JsonConvert.SerializeObject(colorJson), matchVal);
+            var func = OLAPlugDLLHelper.GetFunction<FastNumberOcrFromPtrDelegate>("FastNumberOcrFromPtr");
+            return func(OLAObject, source, numbers, JsonConvert.SerializeObject(colorJson), matchVal);
         }
 
         /// <summary>
@@ -5531,7 +7739,8 @@ namespace OLAPlug
         /// <param name="matchVal">识别率</param>
         /// <returns>识别到的数字,如果失败返回-1</returns>
         public int FastNumberOcrFromPtr(long source, string numbers, string colorJson, double matchVal){
-            return OLAPlugDLLHelper.FastNumberOcrFromPtr(OLAObject, source, numbers, colorJson, matchVal);
+            var func = OLAPlugDLLHelper.GetFunction<FastNumberOcrFromPtrDelegate>("FastNumberOcrFromPtr");
+            return func(OLAObject, source, numbers, colorJson, matchVal);
         }
 
         /// <summary>
@@ -5546,7 +7755,8 @@ namespace OLAPlug
         /// <param name="matchVal">识别率</param>
         /// <returns>识别到的数字,如果失败返回-1</returns>
         public int FastNumberOcr(int x1, int y1, int x2, int y2, string numbers, List<ColorModel> colorJson, double matchVal){
-            return OLAPlugDLLHelper.FastNumberOcr(OLAObject, x1, y1, x2, y2, numbers, JsonConvert.SerializeObject(colorJson), matchVal);
+            var func = OLAPlugDLLHelper.GetFunction<FastNumberOcrDelegate>("FastNumberOcr");
+            return func(OLAObject, x1, y1, x2, y2, numbers, JsonConvert.SerializeObject(colorJson), matchVal);
         }
 
         /// <summary>
@@ -5561,7 +7771,8 @@ namespace OLAPlug
         /// <param name="matchVal">识别率</param>
         /// <returns>识别到的数字,如果失败返回-1</returns>
         public int FastNumberOcr(int x1, int y1, int x2, int y2, string numbers, string colorJson, double matchVal){
-            return OLAPlugDLLHelper.FastNumberOcr(OLAObject, x1, y1, x2, y2, numbers, colorJson, matchVal);
+            var func = OLAPlugDLLHelper.GetFunction<FastNumberOcrDelegate>("FastNumberOcr");
+            return func(OLAObject, x1, y1, x2, y2, numbers, colorJson, matchVal);
         }
 
         /// <summary>
@@ -5571,7 +7782,8 @@ namespace OLAPlug
         /// <param name="dictPath">文本字库路径</param>
         /// <returns>是否成功</returns>
         public int ImportTxtDict(string dictName, string dictPath){
-            return OLAPlugDLLHelper.ImportTxtDict(OLAObject, dictName, dictPath);
+            var func = OLAPlugDLLHelper.GetFunction<ImportTxtDictDelegate>("ImportTxtDict");
+            return func(OLAObject, dictName, dictPath);
         }
 
         /// <summary>
@@ -5581,7 +7793,8 @@ namespace OLAPlug
         /// <param name="dictPath">文本字库路径</param>
         /// <returns>是否成功</returns>
         public int ExportTxtDict(string dictName, string dictPath){
-            return OLAPlugDLLHelper.ExportTxtDict(OLAObject, dictName, dictPath);
+            var func = OLAPlugDLLHelper.GetFunction<ExportTxtDictDelegate>("ExportTxtDict");
+            return func(OLAObject, dictName, dictPath);
         }
 
         /// <summary>
@@ -5600,7 +7813,8 @@ namespace OLAPlug
         /// <br/>1. 若目录不存在请确保先行创建；覆盖同名文件
         /// </remarks>
         public int Capture(int x1, int y1, int x2, int y2, string file){
-            return OLAPlugDLLHelper.Capture(OLAObject, x1, y1, x2, y2, file);
+            var func = OLAPlugDLLHelper.GetFunction<CaptureDelegate>("Capture");
+            return func(OLAObject, x1, y1, x2, y2, file);
         }
 
         /// <summary>
@@ -5620,7 +7834,8 @@ namespace OLAPlug
         /// <br/>1. data需调用FreeImageData释放；数据包含完整BMP文件头，可直接落盘
         /// </remarks>
         public int GetScreenDataBmp(int x1, int y1, int x2, int y2, out long data, out int dataLen){
-            return OLAPlugDLLHelper.GetScreenDataBmp(OLAObject, x1, y1, x2, y2, out data, out dataLen);
+            var func = OLAPlugDLLHelper.GetFunction<GetScreenDataBmpDelegate>("GetScreenDataBmp");
+            return func(OLAObject, x1, y1, x2, y2, out data, out dataLen);
         }
 
         /// <summary>
@@ -5641,11 +7856,12 @@ namespace OLAPlug
         /// <br/>1. data需调用FreeImageData释放；无文件头，按4字节边界对齐
         /// </remarks>
         public int GetScreenData(int x1, int y1, int x2, int y2, out long data, out int dataLen, out int stride){
-            return OLAPlugDLLHelper.GetScreenData(OLAObject, x1, y1, x2, y2, out data, out dataLen, out stride);
+            var func = OLAPlugDLLHelper.GetFunction<GetScreenDataDelegate>("GetScreenData");
+            return func(OLAObject, x1, y1, x2, y2, out data, out dataLen, out stride);
         }
 
         /// <summary>
-        /// 获取绑定窗口指定区域的图像数据句柄（内部缓存）
+        /// 获取绑定窗口指定区域的图像数据句柄
         /// </summary>
         /// <param name="x1">区域左上角X坐标（相对于窗口客户区）</param>
         /// <param name="y1">区域左上角Y坐标（相对于窗口客户区）</param>
@@ -5653,10 +7869,11 @@ namespace OLAPlug
         /// <param name="y2">区域右下角Y坐标（相对于窗口客户区）</param>
         /// <returns>返回内部缓存的图像句柄；失败返回0</returns>
         /// <remarks>注意事项: 
-        /// <br/>1. 返回句柄对应的内存由内部维护，不需要也不应该手动释放
+        /// <br/>1. 返回图像句柄,在不使用的时候需要手动释放
         /// </remarks>
         public long GetScreenDataPtr(int x1, int y1, int x2, int y2){
-            return OLAPlugDLLHelper.GetScreenDataPtr(OLAObject, x1, y1, x2, y2);
+            var func = OLAPlugDLLHelper.GetFunction<GetScreenDataPtrDelegate>("GetScreenDataPtr");
+            return func(OLAObject, x1, y1, x2, y2);
         }
 
         /// <summary>
@@ -5677,7 +7894,8 @@ namespace OLAPlug
         /// <br/>1. 持续截图编码，性能开销较大
         /// </remarks>
         public int CaptureGif(int x1, int y1, int x2, int y2, string file, int delay, int time){
-            return OLAPlugDLLHelper.CaptureGif(OLAObject, x1, y1, x2, y2, file, delay, time);
+            var func = OLAPlugDLLHelper.GetFunction<CaptureGifDelegate>("CaptureGif");
+            return func(OLAObject, x1, y1, x2, y2, file, delay, time);
         }
 
         /// <summary>
@@ -5695,7 +7913,8 @@ namespace OLAPlug
         /// <br/>1. 锁定后，CaptureMat等截图接口将返回锁定的图像数据
         /// </remarks>
         public int LockDisplay(int enable){
-            return OLAPlugDLLHelper.LockDisplay(OLAObject, enable);
+            var func = OLAPlugDLLHelper.GetFunction<LockDisplayDelegate>("LockDisplay");
+            return func(OLAObject, enable);
         }
 
         /// <summary>
@@ -5713,7 +7932,8 @@ namespace OLAPlug
         /// <br/>1. 设置缓存后，在缓存时间内多次截图将返回同一帧图像，提高性能
         /// </remarks>
         public int SetSnapCacheTime(int cacheTime){
-            return OLAPlugDLLHelper.SetSnapCacheTime(OLAObject, cacheTime);
+            var func = OLAPlugDLLHelper.GetFunction<SetSnapCacheTimeDelegate>("SetSnapCacheTime");
+            return func(OLAObject, cacheTime);
         }
 
         /// <summary>
@@ -5731,7 +7951,8 @@ namespace OLAPlug
         /// <br/>1. data需调用FreeImageData释放
         /// </remarks>
         public int GetImageData(long imgPtr, out long data, out int size, out int stride){
-            return OLAPlugDLLHelper.GetImageData(OLAObject, imgPtr, out data, out size, out stride);
+            var func = OLAPlugDLLHelper.GetFunction<GetImageDataDelegate>("GetImageData");
+            return func(OLAObject, imgPtr, out data, out size, out stride);
         }
 
         /// <summary>
@@ -5754,7 +7975,8 @@ namespace OLAPlug
         /// <br/>1. 实现取决于type/angle/scale的组合策略
         /// </remarks>
         public MatchResult MatchImageFromPath(string source, string templ, double matchVal, int type, double angle, double scale){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.MatchImageFromPath(OLAObject, source, templ, matchVal, type, angle, scale));
+            var func = OLAPlugDLLHelper.GetFunction<MatchImageFromPathDelegate>("MatchImageFromPath");
+            var result = PtrToStringUTF8(func(OLAObject, source, templ, matchVal, type, angle, scale));
             if (string.IsNullOrEmpty(result))
             {
                 return new MatchResult();
@@ -5782,7 +8004,8 @@ namespace OLAPlug
         /// <br/>1. 返回字符串需调用FreeStringPtr释放
         /// </remarks>
         public List<MatchResult> MatchImageFromPathAll(string source, string templ, double matchVal, int type, double angle, double scale){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.MatchImageFromPathAll(OLAObject, source, templ, matchVal, type, angle, scale));
+            var func = OLAPlugDLLHelper.GetFunction<MatchImageFromPathAllDelegate>("MatchImageFromPathAll");
+            var result = PtrToStringUTF8(func(OLAObject, source, templ, matchVal, type, angle, scale));
             if (string.IsNullOrEmpty(result))
             {
                 return new List<MatchResult>();
@@ -5807,7 +8030,8 @@ namespace OLAPlug
         /// <param name="scale">缩放比例</param>
         /// <returns>匹配结果（结构体/指针，失败返回0）</returns>
         public MatchResult MatchImagePtrFromPath(long source, string templ, double matchVal, int type, double angle, double scale){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.MatchImagePtrFromPath(OLAObject, source, templ, matchVal, type, angle, scale));
+            var func = OLAPlugDLLHelper.GetFunction<MatchImagePtrFromPathDelegate>("MatchImagePtrFromPath");
+            var result = PtrToStringUTF8(func(OLAObject, source, templ, matchVal, type, angle, scale));
             if (string.IsNullOrEmpty(result))
             {
                 return new MatchResult();
@@ -5835,7 +8059,8 @@ namespace OLAPlug
         /// <br/>1. 返回字符串需调用FreeStringPtr释放
         /// </remarks>
         public List<MatchResult> MatchImagePtrFromPathAll(long source, string templ, double matchVal, int type, double angle, double scale){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.MatchImagePtrFromPathAll(OLAObject, source, templ, matchVal, type, angle, scale));
+            var func = OLAPlugDLLHelper.GetFunction<MatchImagePtrFromPathAllDelegate>("MatchImagePtrFromPathAll");
+            var result = PtrToStringUTF8(func(OLAObject, source, templ, matchVal, type, angle, scale));
             if (string.IsNullOrEmpty(result))
             {
                 return new List<MatchResult>();
@@ -5850,7 +8075,8 @@ namespace OLAPlug
         /// <param name="y">指定点的Y坐标（相对于窗口客户区）</param>
         /// <returns>返回颜色值（BGR格式的整数），失败返回0</returns>
         public string GetColor(int x, int y){
-            return PtrToStringUTF8(OLAPlugDLLHelper.GetColor(OLAObject, x, y));
+            var func = OLAPlugDLLHelper.GetFunction<GetColorDelegate>("GetColor");
+            return PtrToStringUTF8(func(OLAObject, x, y));
         }
 
         /// <summary>
@@ -5864,7 +8090,8 @@ namespace OLAPlug
         /// <br/>1. 返回的指针指向内部缓存，不应手动释放；数据为BGR三个字节
         /// </remarks>
         public string GetColorPtr(long source, int x, int y){
-            return PtrToStringUTF8(OLAPlugDLLHelper.GetColorPtr(OLAObject, source, x, y));
+            var func = OLAPlugDLLHelper.GetFunction<GetColorPtrDelegate>("GetColorPtr");
+            return PtrToStringUTF8(func(OLAObject, source, x, y));
         }
 
         /// <summary>
@@ -5873,7 +8100,8 @@ namespace OLAPlug
         /// <param name="sourcePtr">原始图像句柄</param>
         /// <returns>返回新图像数据指针，需调用FreeImageData释放内存；失败返回0</returns>
         public long CopyImage(long sourcePtr){
-            return OLAPlugDLLHelper.CopyImage(OLAObject, sourcePtr);
+            var func = OLAPlugDLLHelper.GetFunction<CopyImageDelegate>("CopyImage");
+            return func(OLAObject, sourcePtr);
         }
 
         /// <summary>
@@ -5888,7 +8116,8 @@ namespace OLAPlug
         /// <br/>1. 用于释放由MatchImageFromPathAll等返回的字符串资源
         /// </remarks>
         public int FreeImagePath(string path){
-            return OLAPlugDLLHelper.FreeImagePath(OLAObject, path);
+            var func = OLAPlugDLLHelper.GetFunction<FreeImagePathDelegate>("FreeImagePath");
+            return func(OLAObject, path);
         }
 
         /// <summary>
@@ -5902,7 +8131,8 @@ namespace OLAPlug
         /// <br/>1. 调用后所有已加载的图像数据指针将失效
         /// </remarks>
         public int FreeImageAll(){
-            return OLAPlugDLLHelper.FreeImageAll(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<FreeImageAllDelegate>("FreeImageAll");
+            return func(OLAObject);
         }
 
         /// <summary>
@@ -5914,7 +8144,8 @@ namespace OLAPlug
         /// <br/>1. 加载后的图像可用于后续的图像匹配等操作
         /// </remarks>
         public long LoadImage(string path){
-            return OLAPlugDLLHelper.LoadImage(OLAObject, path);
+            var func = OLAPlugDLLHelper.GetFunction<LoadImageDelegate>("LoadImage");
+            return func(OLAObject, path);
         }
 
         /// <summary>
@@ -5927,7 +8158,8 @@ namespace OLAPlug
         /// <br/>1. 数据必须包含完整的BMP文件头
         /// </remarks>
         public long LoadImageFromBmpData(long data, int dataSize){
-            return OLAPlugDLLHelper.LoadImageFromBmpData(OLAObject, data, dataSize);
+            var func = OLAPlugDLLHelper.GetFunction<LoadImageFromBmpDataDelegate>("LoadImageFromBmpData");
+            return func(OLAObject, data, dataSize);
         }
 
         /// <summary>
@@ -5942,7 +8174,8 @@ namespace OLAPlug
         /// <br/>1. 数据为连续的BGR三通道数据，每行字节对齐到4字节边界
         /// </remarks>
         public long LoadImageFromRGBData(int width, int height, long scan0, int stride){
-            return OLAPlugDLLHelper.LoadImageFromRGBData(OLAObject, width, height, scan0, stride);
+            var func = OLAPlugDLLHelper.GetFunction<LoadImageFromRGBDataDelegate>("LoadImageFromRGBData");
+            return func(OLAObject, width, height, scan0, stride);
         }
 
         /// <summary>
@@ -5954,7 +8187,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int FreeImagePtr(long screenPtr){
-            return OLAPlugDLLHelper.FreeImagePtr(OLAObject, screenPtr);
+            var func = OLAPlugDLLHelper.GetFunction<FreeImagePtrDelegate>("FreeImagePtr");
+            return func(OLAObject, screenPtr);
         }
 
         /// <summary>
@@ -5977,7 +8211,8 @@ namespace OLAPlug
         /// <param name="scale">窗口缩放比例，默认为1 可以通过GetScaleFromWindows接口读取当前窗口缩放</param>
         /// <returns>匹配结果</returns>
         public MatchResult MatchWindowsFromPtr(int x1, int y1, int x2, int y2, long templ, double matchVal, int type, double angle, double scale){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.MatchWindowsFromPtr(OLAObject, x1, y1, x2, y2, templ, matchVal, type, angle, scale));
+            var func = OLAPlugDLLHelper.GetFunction<MatchWindowsFromPtrDelegate>("MatchWindowsFromPtr");
+            var result = PtrToStringUTF8(func(OLAObject, x1, y1, x2, y2, templ, matchVal, type, angle, scale));
             if (string.IsNullOrEmpty(result))
             {
                 return new MatchResult();
@@ -5986,7 +8221,7 @@ namespace OLAPlug
         }
 
         /// <summary>
-        /// 在绑定窗口中查找指定图像（使用内存数据）
+        /// 在指定图片中查找指定图像（使用内存数据）
         /// </summary>
         /// <param name="source">OLAImage对象的地址</param>
         /// <param name="templ">OLAImage对象的地址,由LoadImage 等接口生成</param>
@@ -6002,7 +8237,8 @@ namespace OLAPlug
         /// <param name="scale">窗口缩放比例，默认为1 可以通过GetScaleFromWindows接口读取当前窗口缩放</param>
         /// <returns>匹配结果</returns>
         public MatchResult MatchImageFromPtr(long source, long templ, double matchVal, int type, double angle, double scale){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.MatchImageFromPtr(OLAObject, source, templ, matchVal, type, angle, scale));
+            var func = OLAPlugDLLHelper.GetFunction<MatchImageFromPtrDelegate>("MatchImageFromPtr");
+            var result = PtrToStringUTF8(func(OLAObject, source, templ, matchVal, type, angle, scale));
             if (string.IsNullOrEmpty(result))
             {
                 return new MatchResult();
@@ -6011,7 +8247,7 @@ namespace OLAPlug
         }
 
         /// <summary>
-        /// 在绑定窗口中查找指定图像的所有匹配位置（使用内存数据）
+        /// 在指定图片中查找指定图像的所有匹配位置（使用内存数据）
         /// </summary>
         /// <param name="source">OLAImage对象的地址</param>
         /// <param name="templ">OLAImage对象的地址,由LoadImage 等接口生成</param>
@@ -6027,7 +8263,8 @@ namespace OLAPlug
         /// <param name="scale">窗口缩放比例，默认为1 可以通过GetScaleFromWindows接口读取当前窗口缩放</param>
         /// <returns>返回所有匹配结果字符串</returns>
         public List<MatchResult> MatchImageFromPtrAll(long source, long templ, double matchVal, int type, double angle, double scale){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.MatchImageFromPtrAll(OLAObject, source, templ, matchVal, type, angle, scale));
+            var func = OLAPlugDLLHelper.GetFunction<MatchImageFromPtrAllDelegate>("MatchImageFromPtrAll");
+            var result = PtrToStringUTF8(func(OLAObject, source, templ, matchVal, type, angle, scale));
             if (string.IsNullOrEmpty(result))
             {
                 return new List<MatchResult>();
@@ -6055,7 +8292,8 @@ namespace OLAPlug
         /// <param name="scale">窗口缩放比例，默认为1 可以通过GetScaleFromWindows接口读取当前窗口缩放</param>
         /// <returns>返回所有匹配点结果的字符串</returns>
         public List<MatchResult> MatchWindowsFromPtrAll(int x1, int y1, int x2, int y2, long templ, double matchVal, int type, double angle, double scale){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.MatchWindowsFromPtrAll(OLAObject, x1, y1, x2, y2, templ, matchVal, type, angle, scale));
+            var func = OLAPlugDLLHelper.GetFunction<MatchWindowsFromPtrAllDelegate>("MatchWindowsFromPtrAll");
+            var result = PtrToStringUTF8(func(OLAObject, x1, y1, x2, y2, templ, matchVal, type, angle, scale));
             if (string.IsNullOrEmpty(result))
             {
                 return new List<MatchResult>();
@@ -6083,7 +8321,8 @@ namespace OLAPlug
         /// <param name="scale">窗口缩放比例，默认为1 可以通过GetScaleFromWindows接口读取当前窗口缩放</param>
         /// <returns>匹配结果</returns>
         public MatchResult MatchWindowsFromPath(int x1, int y1, int x2, int y2, string templ, double matchVal, int type, double angle, double scale){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.MatchWindowsFromPath(OLAObject, x1, y1, x2, y2, templ, matchVal, type, angle, scale));
+            var func = OLAPlugDLLHelper.GetFunction<MatchWindowsFromPathDelegate>("MatchWindowsFromPath");
+            var result = PtrToStringUTF8(func(OLAObject, x1, y1, x2, y2, templ, matchVal, type, angle, scale));
             if (string.IsNullOrEmpty(result))
             {
                 return new MatchResult();
@@ -6111,7 +8350,8 @@ namespace OLAPlug
         /// <param name="scale">窗口缩放比例，默认为1 可以通过GetScaleFromWindows接口读取当前窗口缩放</param>
         /// <returns>返回所有匹配结果的字符串</returns>
         public List<MatchResult> MatchWindowsFromPathAll(int x1, int y1, int x2, int y2, string templ, double matchVal, int type, double angle, double scale){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.MatchWindowsFromPathAll(OLAObject, x1, y1, x2, y2, templ, matchVal, type, angle, scale));
+            var func = OLAPlugDLLHelper.GetFunction<MatchWindowsFromPathAllDelegate>("MatchWindowsFromPathAll");
+            var result = PtrToStringUTF8(func(OLAObject, x1, y1, x2, y2, templ, matchVal, type, angle, scale));
             if (string.IsNullOrEmpty(result))
             {
                 return new List<MatchResult>();
@@ -6136,7 +8376,8 @@ namespace OLAPlug
         ///<br/>1: 找到
         /// </returns>
         public MatchResult MatchWindowsThresholdFromPtr(int x1, int y1, int x2, int y2, List<ColorModel> colorJson, long templ, double matchVal, double angle, double scale){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.MatchWindowsThresholdFromPtr(OLAObject, x1, y1, x2, y2, JsonConvert.SerializeObject(colorJson), templ, matchVal, angle, scale));
+            var func = OLAPlugDLLHelper.GetFunction<MatchWindowsThresholdFromPtrDelegate>("MatchWindowsThresholdFromPtr");
+            var result = PtrToStringUTF8(func(OLAObject, x1, y1, x2, y2, JsonConvert.SerializeObject(colorJson), templ, matchVal, angle, scale));
             if (string.IsNullOrEmpty(result))
             {
                 return new MatchResult();
@@ -6161,7 +8402,8 @@ namespace OLAPlug
         ///<br/>1: 找到
         /// </returns>
         public MatchResult MatchWindowsThresholdFromPtr(int x1, int y1, int x2, int y2, string colorJson, long templ, double matchVal, double angle, double scale){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.MatchWindowsThresholdFromPtr(OLAObject, x1, y1, x2, y2, colorJson, templ, matchVal, angle, scale));
+            var func = OLAPlugDLLHelper.GetFunction<MatchWindowsThresholdFromPtrDelegate>("MatchWindowsThresholdFromPtr");
+            var result = PtrToStringUTF8(func(OLAObject, x1, y1, x2, y2, colorJson, templ, matchVal, angle, scale));
             if (string.IsNullOrEmpty(result))
             {
                 return new MatchResult();
@@ -6183,7 +8425,8 @@ namespace OLAPlug
         /// <param name="scale">窗口缩放比例，默认为1 可以通过GetScaleFromWindows接口读取当前窗口缩放</param>
         /// <returns></returns>
         public List<MatchResult> MatchWindowsThresholdFromPtrAll(int x1, int y1, int x2, int y2, List<ColorModel> colorJson, long templ, double matchVal, double angle, double scale){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.MatchWindowsThresholdFromPtrAll(OLAObject, x1, y1, x2, y2, JsonConvert.SerializeObject(colorJson), templ, matchVal, angle, scale));
+            var func = OLAPlugDLLHelper.GetFunction<MatchWindowsThresholdFromPtrAllDelegate>("MatchWindowsThresholdFromPtrAll");
+            var result = PtrToStringUTF8(func(OLAObject, x1, y1, x2, y2, JsonConvert.SerializeObject(colorJson), templ, matchVal, angle, scale));
             if (string.IsNullOrEmpty(result))
             {
                 return new List<MatchResult>();
@@ -6205,7 +8448,8 @@ namespace OLAPlug
         /// <param name="scale">窗口缩放比例，默认为1 可以通过GetScaleFromWindows接口读取当前窗口缩放</param>
         /// <returns></returns>
         public List<MatchResult> MatchWindowsThresholdFromPtrAll(int x1, int y1, int x2, int y2, string colorJson, long templ, double matchVal, double angle, double scale){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.MatchWindowsThresholdFromPtrAll(OLAObject, x1, y1, x2, y2, colorJson, templ, matchVal, angle, scale));
+            var func = OLAPlugDLLHelper.GetFunction<MatchWindowsThresholdFromPtrAllDelegate>("MatchWindowsThresholdFromPtrAll");
+            var result = PtrToStringUTF8(func(OLAObject, x1, y1, x2, y2, colorJson, templ, matchVal, angle, scale));
             if (string.IsNullOrEmpty(result))
             {
                 return new List<MatchResult>();
@@ -6230,7 +8474,8 @@ namespace OLAPlug
         ///<br/>1: 找到
         /// </returns>
         public MatchResult MatchWindowsThresholdFromPath(int x1, int y1, int x2, int y2, List<ColorModel> colorJson, string templ, double matchVal, double angle, double scale){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.MatchWindowsThresholdFromPath(OLAObject, x1, y1, x2, y2, JsonConvert.SerializeObject(colorJson), templ, matchVal, angle, scale));
+            var func = OLAPlugDLLHelper.GetFunction<MatchWindowsThresholdFromPathDelegate>("MatchWindowsThresholdFromPath");
+            var result = PtrToStringUTF8(func(OLAObject, x1, y1, x2, y2, JsonConvert.SerializeObject(colorJson), templ, matchVal, angle, scale));
             if (string.IsNullOrEmpty(result))
             {
                 return new MatchResult();
@@ -6255,7 +8500,8 @@ namespace OLAPlug
         ///<br/>1: 找到
         /// </returns>
         public MatchResult MatchWindowsThresholdFromPath(int x1, int y1, int x2, int y2, string colorJson, string templ, double matchVal, double angle, double scale){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.MatchWindowsThresholdFromPath(OLAObject, x1, y1, x2, y2, colorJson, templ, matchVal, angle, scale));
+            var func = OLAPlugDLLHelper.GetFunction<MatchWindowsThresholdFromPathDelegate>("MatchWindowsThresholdFromPath");
+            var result = PtrToStringUTF8(func(OLAObject, x1, y1, x2, y2, colorJson, templ, matchVal, angle, scale));
             if (string.IsNullOrEmpty(result))
             {
                 return new MatchResult();
@@ -6277,7 +8523,8 @@ namespace OLAPlug
         /// <param name="scale">窗口缩放比例，默认为1 可以通过GetScaleFromWindows接口读取当前窗口缩放</param>
         /// <returns></returns>
         public List<MatchResult> MatchWindowsThresholdFromPathAll(int x1, int y1, int x2, int y2, List<ColorModel> colorJson, string templ, double matchVal, double angle, double scale){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.MatchWindowsThresholdFromPathAll(OLAObject, x1, y1, x2, y2, JsonConvert.SerializeObject(colorJson), templ, matchVal, angle, scale));
+            var func = OLAPlugDLLHelper.GetFunction<MatchWindowsThresholdFromPathAllDelegate>("MatchWindowsThresholdFromPathAll");
+            var result = PtrToStringUTF8(func(OLAObject, x1, y1, x2, y2, JsonConvert.SerializeObject(colorJson), templ, matchVal, angle, scale));
             if (string.IsNullOrEmpty(result))
             {
                 return new List<MatchResult>();
@@ -6299,7 +8546,8 @@ namespace OLAPlug
         /// <param name="scale">窗口缩放比例，默认为1 可以通过GetScaleFromWindows接口读取当前窗口缩放</param>
         /// <returns></returns>
         public List<MatchResult> MatchWindowsThresholdFromPathAll(int x1, int y1, int x2, int y2, string colorJson, string templ, double matchVal, double angle, double scale){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.MatchWindowsThresholdFromPathAll(OLAObject, x1, y1, x2, y2, colorJson, templ, matchVal, angle, scale));
+            var func = OLAPlugDLLHelper.GetFunction<MatchWindowsThresholdFromPathAllDelegate>("MatchWindowsThresholdFromPathAll");
+            var result = PtrToStringUTF8(func(OLAObject, x1, y1, x2, y2, colorJson, templ, matchVal, angle, scale));
             if (string.IsNullOrEmpty(result))
             {
                 return new List<MatchResult>();
@@ -6313,7 +8561,8 @@ namespace OLAPlug
         /// <param name="flag">显示标志（0 关闭，1 打开）</param>
         /// <returns>操作结果，0 失败，1 成功</returns>
         public int ShowMatchWindow(int flag){
-            return OLAPlugDLLHelper.ShowMatchWindow(OLAObject, flag);
+            var func = OLAPlugDLLHelper.GetFunction<ShowMatchWindowDelegate>("ShowMatchWindow");
+            return func(OLAObject, flag);
         }
 
         /// <summary>
@@ -6323,7 +8572,8 @@ namespace OLAPlug
         /// <param name="image2">第二幅图像句柄</param>
         /// <returns>SSIM值（0~1），越接近1越相似</returns>
         public double CalculateSSIM(long image1, long image2){
-            return OLAPlugDLLHelper.CalculateSSIM(OLAObject, image1, image2);
+            var func = OLAPlugDLLHelper.GetFunction<CalculateSSIMDelegate>("CalculateSSIM");
+            return func(OLAObject, image1, image2);
         }
 
         /// <summary>
@@ -6333,7 +8583,8 @@ namespace OLAPlug
         /// <param name="image2">图像2句柄</param>
         /// <returns>直方图相似度（0~1）</returns>
         public double CalculateHistograms(long image1, long image2){
-            return OLAPlugDLLHelper.CalculateHistograms(OLAObject, image1, image2);
+            var func = OLAPlugDLLHelper.GetFunction<CalculateHistogramsDelegate>("CalculateHistograms");
+            return func(OLAObject, image1, image2);
         }
 
         /// <summary>
@@ -6343,7 +8594,8 @@ namespace OLAPlug
         /// <param name="image2">第二幅图像句柄</param>
         /// <returns>MSE值，越小越相似</returns>
         public double CalculateMSE(long image1, long image2){
-            return OLAPlugDLLHelper.CalculateMSE(OLAObject, image1, image2);
+            var func = OLAPlugDLLHelper.GetFunction<CalculateMSEDelegate>("CalculateMSE");
+            return func(OLAObject, image1, image2);
         }
 
         /// <summary>
@@ -6356,7 +8608,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int SaveImageFromPtr(long ptr, string path){
-            return OLAPlugDLLHelper.SaveImageFromPtr(OLAObject, ptr, path);
+            var func = OLAPlugDLLHelper.GetFunction<SaveImageFromPtrDelegate>("SaveImageFromPtr");
+            return func(OLAObject, ptr, path);
         }
 
         /// <summary>
@@ -6370,7 +8623,8 @@ namespace OLAPlug
         /// <br/>1. 使用双线性插值进行缩放
         /// </remarks>
         public long ReSize(long ptr, int width, int height){
-            return OLAPlugDLLHelper.ReSize(OLAObject, ptr, width, height);
+            var func = OLAPlugDLLHelper.GetFunction<ReSizeDelegate>("ReSize");
+            return func(OLAObject, ptr, width, height);
         }
 
         /// <summary>
@@ -6400,7 +8654,8 @@ namespace OLAPlug
         ///<br/>1: 找到
         /// </returns>
         public int FindColor(int x1, int y1, int x2, int y2, string color1, string color2, int dir, out int x, out int y){
-            return OLAPlugDLLHelper.FindColor(OLAObject, x1, y1, x2, y2, color1, color2, dir, out x, out y);
+            var func = OLAPlugDLLHelper.GetFunction<FindColorDelegate>("FindColor");
+            return func(OLAObject, x1, y1, x2, y2, color1, color2, dir, out x, out y);
         }
 
         /// <summary>
@@ -6414,7 +8669,8 @@ namespace OLAPlug
         /// <param name="color2">颜色结束范围，颜色格式 RRGGBB</param>
         /// <returns>查找结果返回所有匹配点坐标的字符串，格式为"["x":10,"y":20],"[x":30,"y":40]"；未找到返回空字符串指针，需调用FreeStringPtr释放内存</returns>
         public List<Point> FindColorList(int x1, int y1, int x2, int y2, string color1, string color2){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.FindColorList(OLAObject, x1, y1, x2, y2, color1, color2));
+            var func = OLAPlugDLLHelper.GetFunction<FindColorListDelegate>("FindColorList");
+            var result = PtrToStringUTF8(func(OLAObject, x1, y1, x2, y2, color1, color2));
             if (string.IsNullOrEmpty(result))
             {
                 return new List<Point>();
@@ -6448,7 +8704,8 @@ namespace OLAPlug
         ///<br/>1: 找到
         /// </returns>
         public int FindColorEx(int x1, int y1, int x2, int y2, string colorJson, int dir, out int x, out int y){
-            return OLAPlugDLLHelper.FindColorEx(OLAObject, x1, y1, x2, y2, colorJson, dir, out x, out y);
+            var func = OLAPlugDLLHelper.GetFunction<FindColorExDelegate>("FindColorEx");
+            return func(OLAObject, x1, y1, x2, y2, colorJson, dir, out x, out y);
         }
 
         /// <summary>
@@ -6461,12 +8718,71 @@ namespace OLAPlug
         /// <param name="colorJson">颜色范围定义（JSON）</param>
         /// <returns>查找结果返回所有匹配点坐标的字符串，格式为"["x":10,"y":20],"[x":30,"y":40]"；未找到返回空字符串指针，需调用FreeStringPtr释放内存</returns>
         public List<Point> FindColorListEx(int x1, int y1, int x2, int y2, string colorJson){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.FindColorListEx(OLAObject, x1, y1, x2, y2, colorJson));
+            var func = OLAPlugDLLHelper.GetFunction<FindColorListExDelegate>("FindColorListEx");
+            var result = PtrToStringUTF8(func(OLAObject, x1, y1, x2, y2, colorJson));
             if (string.IsNullOrEmpty(result))
             {
                 return new List<Point>();
             }
             return JsonConvert.DeserializeObject<List<Point>>(result);
+        }
+
+        /// <summary>
+        /// 在绑定窗口中对比多色点
+        /// </summary>
+        /// <param name="pointJson">点阵颜色列表，支持JSON格式或简化字符串格式，格式说明见 点阵颜色列表格式说明- PointColorListFormat</param>
+        /// <param name="sim">相似度阈值，范围0-1.0，默认1.0</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败，未找到符合条件的颜色点
+        ///<br/>1: 成功，找到符合条件的颜色点
+        /// </returns>
+        public int CmpMultiColor(List<PointColorModel> pointJson, double sim){
+            var func = OLAPlugDLLHelper.GetFunction<CmpMultiColorDelegate>("CmpMultiColor");
+            return func(OLAObject, JsonConvert.SerializeObject(pointJson), sim);
+        }
+
+        /// <summary>
+        /// 在绑定窗口中对比多色点
+        /// </summary>
+        /// <param name="pointJson">点阵颜色列表，支持JSON格式或简化字符串格式，格式说明见 点阵颜色列表格式说明- PointColorListFormat</param>
+        /// <param name="sim">相似度阈值，范围0-1.0，默认1.0</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败，未找到符合条件的颜色点
+        ///<br/>1: 成功，找到符合条件的颜色点
+        /// </returns>
+        public int CmpMultiColor(string pointJson, double sim){
+            var func = OLAPlugDLLHelper.GetFunction<CmpMultiColorDelegate>("CmpMultiColor");
+            return func(OLAObject, pointJson, sim);
+        }
+
+        /// <summary>
+        /// 在指定图片中对比多色点
+        /// </summary>
+        /// <param name="image">图像句柄</param>
+        /// <param name="pointJson">点阵颜色列表，支持JSON格式或简化字符串格式，格式说明见 点阵颜色列表格式说明- PointColorListFormat</param>
+        /// <param name="sim">相似度阈值，范围0-1.0，默认1.0</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败，未找到符合条件的颜色点
+        ///<br/>1: 成功，找到符合条件的颜色点
+        /// </returns>
+        public int CmpMultiColorPtr(long image, List<PointColorModel> pointJson, double sim){
+            var func = OLAPlugDLLHelper.GetFunction<CmpMultiColorPtrDelegate>("CmpMultiColorPtr");
+            return func(OLAObject, image, JsonConvert.SerializeObject(pointJson), sim);
+        }
+
+        /// <summary>
+        /// 在指定图片中对比多色点
+        /// </summary>
+        /// <param name="image">图像句柄</param>
+        /// <param name="pointJson">点阵颜色列表，支持JSON格式或简化字符串格式，格式说明见 点阵颜色列表格式说明- PointColorListFormat</param>
+        /// <param name="sim">相似度阈值，范围0-1.0，默认1.0</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败，未找到符合条件的颜色点
+        ///<br/>1: 成功，找到符合条件的颜色点
+        /// </returns>
+        public int CmpMultiColorPtr(long image, string pointJson, double sim){
+            var func = OLAPlugDLLHelper.GetFunction<CmpMultiColorPtrDelegate>("CmpMultiColorPtr");
+            return func(OLAObject, image, pointJson, sim);
         }
 
         /// <summary>
@@ -6477,7 +8793,8 @@ namespace OLAPlug
         /// <param name="x2">搜索区域右下角X坐标</param>
         /// <param name="y2">搜索区域右下角Y坐标</param>
         /// <param name="colorJson">颜色模型配置字符串，用于限定图像匹配中的颜色范围，格式说明见 颜色模型说明 -ColorModel</param>
-        /// <param name="pointJson">点阵颜色列表，支持JSON格式或简化字符串格式，格式说明见 点阵颜色列表格式说明 -PointColorListFormat</param>
+        /// <param name="pointJson">点阵颜色列表，支持JSON格式或简化字符串格式，格式说明见 点阵颜色列表格式说明- PointColorListFormat</param>
+        /// <param name="sim">相似度阈值，范围0-1.0，默认1.0</param>
         /// <param name="dir">查找方向
         ///<br/> 0: 从左到右,从上到下
         ///<br/> 1: 从左到右,从下到上
@@ -6495,8 +8812,9 @@ namespace OLAPlug
         ///<br/>0: 失败，未找到符合条件的颜色点
         ///<br/>1: 成功，找到符合条件的颜色点
         /// </returns>
-        public int FindMultiColor(int x1, int y1, int x2, int y2, List<ColorModel> colorJson, List<PointColorModel> pointJson, int dir, out int x, out int y){
-            return OLAPlugDLLHelper.FindMultiColor(OLAObject, x1, y1, x2, y2, JsonConvert.SerializeObject(colorJson), JsonConvert.SerializeObject(pointJson), dir, out x, out y);
+        public int FindMultiColor(int x1, int y1, int x2, int y2, List<ColorModel> colorJson, List<PointColorModel> pointJson, double sim, int dir, out int x, out int y){
+            var func = OLAPlugDLLHelper.GetFunction<FindMultiColorDelegate>("FindMultiColor");
+            return func(OLAObject, x1, y1, x2, y2, JsonConvert.SerializeObject(colorJson), JsonConvert.SerializeObject(pointJson), sim, dir, out x, out y);
         }
 
         /// <summary>
@@ -6507,7 +8825,8 @@ namespace OLAPlug
         /// <param name="x2">搜索区域右下角X坐标</param>
         /// <param name="y2">搜索区域右下角Y坐标</param>
         /// <param name="colorJson">颜色模型配置字符串，用于限定图像匹配中的颜色范围，格式说明见 颜色模型说明 -ColorModel</param>
-        /// <param name="pointJson">点阵颜色列表，支持JSON格式或简化字符串格式，格式说明见 点阵颜色列表格式说明 -PointColorListFormat</param>
+        /// <param name="pointJson">点阵颜色列表，支持JSON格式或简化字符串格式，格式说明见 点阵颜色列表格式说明- PointColorListFormat</param>
+        /// <param name="sim">相似度阈值，范围0-1.0，默认1.0</param>
         /// <param name="dir">查找方向
         ///<br/> 0: 从左到右,从上到下
         ///<br/> 1: 从左到右,从下到上
@@ -6525,8 +8844,9 @@ namespace OLAPlug
         ///<br/>0: 失败，未找到符合条件的颜色点
         ///<br/>1: 成功，找到符合条件的颜色点
         /// </returns>
-        public int FindMultiColor(int x1, int y1, int x2, int y2, string colorJson, string pointJson, int dir, out int x, out int y){
-            return OLAPlugDLLHelper.FindMultiColor(OLAObject, x1, y1, x2, y2, colorJson, pointJson, dir, out x, out y);
+        public int FindMultiColor(int x1, int y1, int x2, int y2, string colorJson, string pointJson, double sim, int dir, out int x, out int y){
+            var func = OLAPlugDLLHelper.GetFunction<FindMultiColorDelegate>("FindMultiColor");
+            return func(OLAObject, x1, y1, x2, y2, colorJson, pointJson, sim, dir, out x, out y);
         }
 
         /// <summary>
@@ -6538,9 +8858,11 @@ namespace OLAPlug
         /// <param name="y2">搜索区域右下角Y坐标</param>
         /// <param name="colorJson">颜色模型配置字符串，用于限定图像匹配中的颜色范围，格式说明见 颜色模型说明 -ColorModel</param>
         /// <param name="pointJson">点阵颜色列表，支持JSON格式或简化字符串格式，格式说明见 点阵颜色列表格式说明 -PointColorListFormat</param>
+        /// <param name="sim">相似度阈值，范围0-1.0，默认1.0</param>
         /// <returns>返回识别到的坐标点列表的JSON字符串</returns>
-        public List<Point> FindMultiColorList(int x1, int y1, int x2, int y2, List<ColorModel> colorJson, List<PointColorModel> pointJson){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.FindMultiColorList(OLAObject, x1, y1, x2, y2, JsonConvert.SerializeObject(colorJson), JsonConvert.SerializeObject(pointJson)));
+        public List<Point> FindMultiColorList(int x1, int y1, int x2, int y2, List<ColorModel> colorJson, List<PointColorModel> pointJson, double sim){
+            var func = OLAPlugDLLHelper.GetFunction<FindMultiColorListDelegate>("FindMultiColorList");
+            var result = PtrToStringUTF8(func(OLAObject, x1, y1, x2, y2, JsonConvert.SerializeObject(colorJson), JsonConvert.SerializeObject(pointJson), sim));
             if (string.IsNullOrEmpty(result))
             {
                 return new List<Point>();
@@ -6557,9 +8879,11 @@ namespace OLAPlug
         /// <param name="y2">搜索区域右下角Y坐标</param>
         /// <param name="colorJson">颜色模型配置字符串，用于限定图像匹配中的颜色范围，格式说明见 颜色模型说明 -ColorModel</param>
         /// <param name="pointJson">点阵颜色列表，支持JSON格式或简化字符串格式，格式说明见 点阵颜色列表格式说明 -PointColorListFormat</param>
+        /// <param name="sim">相似度阈值，范围0-1.0，默认1.0</param>
         /// <returns>返回识别到的坐标点列表的JSON字符串</returns>
-        public List<Point> FindMultiColorList(int x1, int y1, int x2, int y2, string colorJson, string pointJson){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.FindMultiColorList(OLAObject, x1, y1, x2, y2, colorJson, pointJson));
+        public List<Point> FindMultiColorList(int x1, int y1, int x2, int y2, string colorJson, string pointJson, double sim){
+            var func = OLAPlugDLLHelper.GetFunction<FindMultiColorListDelegate>("FindMultiColorList");
+            var result = PtrToStringUTF8(func(OLAObject, x1, y1, x2, y2, colorJson, pointJson, sim));
             if (string.IsNullOrEmpty(result))
             {
                 return new List<Point>();
@@ -6573,6 +8897,7 @@ namespace OLAPlug
         /// <param name="ptr">图像句柄</param>
         /// <param name="colorJson">颜色模型配置字符串，用于限定图像匹配中的颜色范围，格式说明见 颜色模型说明 -ColorModel</param>
         /// <param name="pointJson">点阵颜色列表，支持JSON格式或简化字符串格式，格式说明见 点阵颜色列表格式说明 -PointColorListFormat</param>
+        /// <param name="sim">相似度阈值，范围0-1.0，默认1.0</param>
         /// <param name="dir">查找方向
         ///<br/> 0: 从左到右,从上到下
         ///<br/> 1: 从左到右,从下到上
@@ -6590,8 +8915,9 @@ namespace OLAPlug
         ///<br/>0: 未找到
         ///<br/>1: 找到
         /// </returns>
-        public int FindMultiColorFromPtr(long ptr, List<ColorModel> colorJson, List<PointColorModel> pointJson, int dir, out int x, out int y){
-            return OLAPlugDLLHelper.FindMultiColorFromPtr(OLAObject, ptr, JsonConvert.SerializeObject(colorJson), JsonConvert.SerializeObject(pointJson), dir, out x, out y);
+        public int FindMultiColorFromPtr(long ptr, List<ColorModel> colorJson, List<PointColorModel> pointJson, double sim, int dir, out int x, out int y){
+            var func = OLAPlugDLLHelper.GetFunction<FindMultiColorFromPtrDelegate>("FindMultiColorFromPtr");
+            return func(OLAObject, ptr, JsonConvert.SerializeObject(colorJson), JsonConvert.SerializeObject(pointJson), sim, dir, out x, out y);
         }
 
         /// <summary>
@@ -6600,6 +8926,7 @@ namespace OLAPlug
         /// <param name="ptr">图像句柄</param>
         /// <param name="colorJson">颜色模型配置字符串，用于限定图像匹配中的颜色范围，格式说明见 颜色模型说明 -ColorModel</param>
         /// <param name="pointJson">点阵颜色列表，支持JSON格式或简化字符串格式，格式说明见 点阵颜色列表格式说明 -PointColorListFormat</param>
+        /// <param name="sim">相似度阈值，范围0-1.0，默认1.0</param>
         /// <param name="dir">查找方向
         ///<br/> 0: 从左到右,从上到下
         ///<br/> 1: 从左到右,从下到上
@@ -6617,8 +8944,9 @@ namespace OLAPlug
         ///<br/>0: 未找到
         ///<br/>1: 找到
         /// </returns>
-        public int FindMultiColorFromPtr(long ptr, string colorJson, string pointJson, int dir, out int x, out int y){
-            return OLAPlugDLLHelper.FindMultiColorFromPtr(OLAObject, ptr, colorJson, pointJson, dir, out x, out y);
+        public int FindMultiColorFromPtr(long ptr, string colorJson, string pointJson, double sim, int dir, out int x, out int y){
+            var func = OLAPlugDLLHelper.GetFunction<FindMultiColorFromPtrDelegate>("FindMultiColorFromPtr");
+            return func(OLAObject, ptr, colorJson, pointJson, sim, dir, out x, out y);
         }
 
         /// <summary>
@@ -6627,9 +8955,11 @@ namespace OLAPlug
         /// <param name="ptr">图像句柄</param>
         /// <param name="colorJson">颜色模型配置字符串，用于限定图像匹配中的颜色范围，格式说明见 颜色模型说明 -ColorModel</param>
         /// <param name="pointJson">点阵颜色列表，支持JSON格式或简化字符串格式，格式说明见 点阵颜色列表格式说明 -PointColorListFormat</param>
+        /// <param name="sim">相似度阈值，范围0-1.0，默认1.0</param>
         /// <returns>返回识别到的坐标点列表的JSON字符串</returns>
-        public List<Point> FindMultiColorListFromPtr(long ptr, List<ColorModel> colorJson, List<PointColorModel> pointJson){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.FindMultiColorListFromPtr(OLAObject, ptr, JsonConvert.SerializeObject(colorJson), JsonConvert.SerializeObject(pointJson)));
+        public List<Point> FindMultiColorListFromPtr(long ptr, List<ColorModel> colorJson, List<PointColorModel> pointJson, double sim){
+            var func = OLAPlugDLLHelper.GetFunction<FindMultiColorListFromPtrDelegate>("FindMultiColorListFromPtr");
+            var result = PtrToStringUTF8(func(OLAObject, ptr, JsonConvert.SerializeObject(colorJson), JsonConvert.SerializeObject(pointJson), sim));
             if (string.IsNullOrEmpty(result))
             {
                 return new List<Point>();
@@ -6643,9 +8973,11 @@ namespace OLAPlug
         /// <param name="ptr">图像句柄</param>
         /// <param name="colorJson">颜色模型配置字符串，用于限定图像匹配中的颜色范围，格式说明见 颜色模型说明 -ColorModel</param>
         /// <param name="pointJson">点阵颜色列表，支持JSON格式或简化字符串格式，格式说明见 点阵颜色列表格式说明 -PointColorListFormat</param>
+        /// <param name="sim">相似度阈值，范围0-1.0，默认1.0</param>
         /// <returns>返回识别到的坐标点列表的JSON字符串</returns>
-        public List<Point> FindMultiColorListFromPtr(long ptr, string colorJson, string pointJson){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.FindMultiColorListFromPtr(OLAObject, ptr, colorJson, pointJson));
+        public List<Point> FindMultiColorListFromPtr(long ptr, string colorJson, string pointJson, double sim){
+            var func = OLAPlugDLLHelper.GetFunction<FindMultiColorListFromPtrDelegate>("FindMultiColorListFromPtr");
+            var result = PtrToStringUTF8(func(OLAObject, ptr, colorJson, pointJson, sim));
             if (string.IsNullOrEmpty(result))
             {
                 return new List<Point>();
@@ -6664,7 +8996,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int GetImageSize(long ptr, out int width, out int height){
-            return OLAPlugDLLHelper.GetImageSize(OLAObject, ptr, out width, out height);
+            var func = OLAPlugDLLHelper.GetFunction<GetImageSizeDelegate>("GetImageSize");
+            return func(OLAObject, ptr, out width, out height);
         }
 
         /// <summary>
@@ -6685,7 +9018,8 @@ namespace OLAPlug
         ///<br/>1: 找到
         /// </returns>
         public int FindColorBlock(int x1, int y1, int x2, int y2, List<ColorModel> colorList, int count, int width, int height, out int x, out int y){
-            return OLAPlugDLLHelper.FindColorBlock(OLAObject, x1, y1, x2, y2, JsonConvert.SerializeObject(colorList), count, width, height, out x, out y);
+            var func = OLAPlugDLLHelper.GetFunction<FindColorBlockDelegate>("FindColorBlock");
+            return func(OLAObject, x1, y1, x2, y2, JsonConvert.SerializeObject(colorList), count, width, height, out x, out y);
         }
 
         /// <summary>
@@ -6706,7 +9040,8 @@ namespace OLAPlug
         ///<br/>1: 找到
         /// </returns>
         public int FindColorBlock(int x1, int y1, int x2, int y2, string colorList, int count, int width, int height, out int x, out int y){
-            return OLAPlugDLLHelper.FindColorBlock(OLAObject, x1, y1, x2, y2, colorList, count, width, height, out x, out y);
+            var func = OLAPlugDLLHelper.GetFunction<FindColorBlockDelegate>("FindColorBlock");
+            return func(OLAObject, x1, y1, x2, y2, colorList, count, width, height, out x, out y);
         }
 
         /// <summary>
@@ -6724,7 +9059,8 @@ namespace OLAPlug
         ///<br/>1: 找到
         /// </returns>
         public int FindColorBlockPtr(long ptr, List<ColorModel> colorList, int count, int width, int height, out int x, out int y){
-            return OLAPlugDLLHelper.FindColorBlockPtr(OLAObject, ptr, JsonConvert.SerializeObject(colorList), count, width, height, out x, out y);
+            var func = OLAPlugDLLHelper.GetFunction<FindColorBlockPtrDelegate>("FindColorBlockPtr");
+            return func(OLAObject, ptr, JsonConvert.SerializeObject(colorList), count, width, height, out x, out y);
         }
 
         /// <summary>
@@ -6742,7 +9078,8 @@ namespace OLAPlug
         ///<br/>1: 找到
         /// </returns>
         public int FindColorBlockPtr(long ptr, string colorList, int count, int width, int height, out int x, out int y){
-            return OLAPlugDLLHelper.FindColorBlockPtr(OLAObject, ptr, colorList, count, width, height, out x, out y);
+            var func = OLAPlugDLLHelper.GetFunction<FindColorBlockPtrDelegate>("FindColorBlockPtr");
+            return func(OLAObject, ptr, colorList, count, width, height, out x, out y);
         }
 
         /// <summary>
@@ -6762,7 +9099,8 @@ namespace OLAPlug
         /// </param>
         /// <returns></returns>
         public List<Point> FindColorBlockList(int x1, int y1, int x2, int y2, List<ColorModel> colorList, int count, int width, int height, int type){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.FindColorBlockList(OLAObject, x1, y1, x2, y2, JsonConvert.SerializeObject(colorList), count, width, height, type));
+            var func = OLAPlugDLLHelper.GetFunction<FindColorBlockListDelegate>("FindColorBlockList");
+            var result = PtrToStringUTF8(func(OLAObject, x1, y1, x2, y2, JsonConvert.SerializeObject(colorList), count, width, height, type));
             if (string.IsNullOrEmpty(result))
             {
                 return new List<Point>();
@@ -6787,7 +9125,8 @@ namespace OLAPlug
         /// </param>
         /// <returns></returns>
         public List<Point> FindColorBlockList(int x1, int y1, int x2, int y2, string colorList, int count, int width, int height, int type){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.FindColorBlockList(OLAObject, x1, y1, x2, y2, colorList, count, width, height, type));
+            var func = OLAPlugDLLHelper.GetFunction<FindColorBlockListDelegate>("FindColorBlockList");
+            var result = PtrToStringUTF8(func(OLAObject, x1, y1, x2, y2, colorList, count, width, height, type));
             if (string.IsNullOrEmpty(result))
             {
                 return new List<Point>();
@@ -6809,7 +9148,8 @@ namespace OLAPlug
         /// </param>
         /// <returns></returns>
         public List<Point> FindColorBlockListPtr(long ptr, List<ColorModel> colorList, int count, int width, int height, int type){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.FindColorBlockListPtr(OLAObject, ptr, JsonConvert.SerializeObject(colorList), count, width, height, type));
+            var func = OLAPlugDLLHelper.GetFunction<FindColorBlockListPtrDelegate>("FindColorBlockListPtr");
+            var result = PtrToStringUTF8(func(OLAObject, ptr, JsonConvert.SerializeObject(colorList), count, width, height, type));
             if (string.IsNullOrEmpty(result))
             {
                 return new List<Point>();
@@ -6831,7 +9171,8 @@ namespace OLAPlug
         /// </param>
         /// <returns></returns>
         public List<Point> FindColorBlockListPtr(long ptr, string colorList, int count, int width, int height, int type){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.FindColorBlockListPtr(OLAObject, ptr, colorList, count, width, height, type));
+            var func = OLAPlugDLLHelper.GetFunction<FindColorBlockListPtrDelegate>("FindColorBlockListPtr");
+            var result = PtrToStringUTF8(func(OLAObject, ptr, colorList, count, width, height, type));
             if (string.IsNullOrEmpty(result))
             {
                 return new List<Point>();
@@ -6868,7 +9209,8 @@ namespace OLAPlug
         ///<br/>1: 找到
         /// </returns>
         public int FindColorBlockEx(int x1, int y1, int x2, int y2, List<ColorModel> colorList, int count, int width, int height, int dir, out int x, out int y){
-            return OLAPlugDLLHelper.FindColorBlockEx(OLAObject, x1, y1, x2, y2, JsonConvert.SerializeObject(colorList), count, width, height, dir, out x, out y);
+            var func = OLAPlugDLLHelper.GetFunction<FindColorBlockExDelegate>("FindColorBlockEx");
+            return func(OLAObject, x1, y1, x2, y2, JsonConvert.SerializeObject(colorList), count, width, height, dir, out x, out y);
         }
 
         /// <summary>
@@ -6900,7 +9242,8 @@ namespace OLAPlug
         ///<br/>1: 找到
         /// </returns>
         public int FindColorBlockEx(int x1, int y1, int x2, int y2, string colorList, int count, int width, int height, int dir, out int x, out int y){
-            return OLAPlugDLLHelper.FindColorBlockEx(OLAObject, x1, y1, x2, y2, colorList, count, width, height, dir, out x, out y);
+            var func = OLAPlugDLLHelper.GetFunction<FindColorBlockExDelegate>("FindColorBlockEx");
+            return func(OLAObject, x1, y1, x2, y2, colorList, count, width, height, dir, out x, out y);
         }
 
         /// <summary>
@@ -6929,7 +9272,8 @@ namespace OLAPlug
         ///<br/>1: 找到
         /// </returns>
         public int FindColorBlockPtrEx(long ptr, List<ColorModel> colorList, int count, int width, int height, int dir, out int x, out int y){
-            return OLAPlugDLLHelper.FindColorBlockPtrEx(OLAObject, ptr, JsonConvert.SerializeObject(colorList), count, width, height, dir, out x, out y);
+            var func = OLAPlugDLLHelper.GetFunction<FindColorBlockPtrExDelegate>("FindColorBlockPtrEx");
+            return func(OLAObject, ptr, JsonConvert.SerializeObject(colorList), count, width, height, dir, out x, out y);
         }
 
         /// <summary>
@@ -6958,7 +9302,8 @@ namespace OLAPlug
         ///<br/>1: 找到
         /// </returns>
         public int FindColorBlockPtrEx(long ptr, string colorList, int count, int width, int height, int dir, out int x, out int y){
-            return OLAPlugDLLHelper.FindColorBlockPtrEx(OLAObject, ptr, colorList, count, width, height, dir, out x, out y);
+            var func = OLAPlugDLLHelper.GetFunction<FindColorBlockPtrExDelegate>("FindColorBlockPtrEx");
+            return func(OLAObject, ptr, colorList, count, width, height, dir, out x, out y);
         }
 
         /// <summary>
@@ -6989,7 +9334,8 @@ namespace OLAPlug
         /// </param>
         /// <returns></returns>
         public List<Point> FindColorBlockListEx(int x1, int y1, int x2, int y2, List<ColorModel> colorList, int count, int width, int height, int type, int dir){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.FindColorBlockListEx(OLAObject, x1, y1, x2, y2, JsonConvert.SerializeObject(colorList), count, width, height, type, dir));
+            var func = OLAPlugDLLHelper.GetFunction<FindColorBlockListExDelegate>("FindColorBlockListEx");
+            var result = PtrToStringUTF8(func(OLAObject, x1, y1, x2, y2, JsonConvert.SerializeObject(colorList), count, width, height, type, dir));
             if (string.IsNullOrEmpty(result))
             {
                 return new List<Point>();
@@ -7025,7 +9371,8 @@ namespace OLAPlug
         /// </param>
         /// <returns></returns>
         public List<Point> FindColorBlockListEx(int x1, int y1, int x2, int y2, string colorList, int count, int width, int height, int type, int dir){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.FindColorBlockListEx(OLAObject, x1, y1, x2, y2, colorList, count, width, height, type, dir));
+            var func = OLAPlugDLLHelper.GetFunction<FindColorBlockListExDelegate>("FindColorBlockListEx");
+            var result = PtrToStringUTF8(func(OLAObject, x1, y1, x2, y2, colorList, count, width, height, type, dir));
             if (string.IsNullOrEmpty(result))
             {
                 return new List<Point>();
@@ -7058,7 +9405,8 @@ namespace OLAPlug
         /// </param>
         /// <returns></returns>
         public List<Point> FindColorBlockListPtrEx(long ptr, List<ColorModel> colorList, int count, int width, int height, int type, int dir){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.FindColorBlockListPtrEx(OLAObject, ptr, JsonConvert.SerializeObject(colorList), count, width, height, type, dir));
+            var func = OLAPlugDLLHelper.GetFunction<FindColorBlockListPtrExDelegate>("FindColorBlockListPtrEx");
+            var result = PtrToStringUTF8(func(OLAObject, ptr, JsonConvert.SerializeObject(colorList), count, width, height, type, dir));
             if (string.IsNullOrEmpty(result))
             {
                 return new List<Point>();
@@ -7091,7 +9439,8 @@ namespace OLAPlug
         /// </param>
         /// <returns></returns>
         public List<Point> FindColorBlockListPtrEx(long ptr, string colorList, int count, int width, int height, int type, int dir){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.FindColorBlockListPtrEx(OLAObject, ptr, colorList, count, width, height, type, dir));
+            var func = OLAPlugDLLHelper.GetFunction<FindColorBlockListPtrExDelegate>("FindColorBlockListPtrEx");
+            var result = PtrToStringUTF8(func(OLAObject, ptr, colorList, count, width, height, type, dir));
             if (string.IsNullOrEmpty(result))
             {
                 return new List<Point>();
@@ -7109,7 +9458,8 @@ namespace OLAPlug
         /// <param name="colorList">要统计的颜色值（JSON格式）</param>
         /// <returns>返回指定颜色的像素数量</returns>
         public int GetColorNum(int x1, int y1, int x2, int y2, List<ColorModel> colorList){
-            return OLAPlugDLLHelper.GetColorNum(OLAObject, x1, y1, x2, y2, JsonConvert.SerializeObject(colorList));
+            var func = OLAPlugDLLHelper.GetFunction<GetColorNumDelegate>("GetColorNum");
+            return func(OLAObject, x1, y1, x2, y2, JsonConvert.SerializeObject(colorList));
         }
 
         /// <summary>
@@ -7122,7 +9472,8 @@ namespace OLAPlug
         /// <param name="colorList">要统计的颜色值（JSON格式）</param>
         /// <returns>返回指定颜色的像素数量</returns>
         public int GetColorNum(int x1, int y1, int x2, int y2, string colorList){
-            return OLAPlugDLLHelper.GetColorNum(OLAObject, x1, y1, x2, y2, colorList);
+            var func = OLAPlugDLLHelper.GetFunction<GetColorNumDelegate>("GetColorNum");
+            return func(OLAObject, x1, y1, x2, y2, colorList);
         }
 
         /// <summary>
@@ -7132,7 +9483,8 @@ namespace OLAPlug
         /// <param name="colorList">要统计的颜色值（JSON格式）</param>
         /// <returns>返回指定颜色的像素数量</returns>
         public int GetColorNumPtr(long ptr, List<ColorModel> colorList){
-            return OLAPlugDLLHelper.GetColorNumPtr(OLAObject, ptr, JsonConvert.SerializeObject(colorList));
+            var func = OLAPlugDLLHelper.GetFunction<GetColorNumPtrDelegate>("GetColorNumPtr");
+            return func(OLAObject, ptr, JsonConvert.SerializeObject(colorList));
         }
 
         /// <summary>
@@ -7142,7 +9494,8 @@ namespace OLAPlug
         /// <param name="colorList">要统计的颜色值（JSON格式）</param>
         /// <returns>返回指定颜色的像素数量</returns>
         public int GetColorNumPtr(long ptr, string colorList){
-            return OLAPlugDLLHelper.GetColorNumPtr(OLAObject, ptr, colorList);
+            var func = OLAPlugDLLHelper.GetFunction<GetColorNumPtrDelegate>("GetColorNumPtr");
+            return func(OLAObject, ptr, colorList);
         }
 
         /// <summary>
@@ -7155,7 +9508,8 @@ namespace OLAPlug
         /// <param name="y2">裁剪区域右下角Y坐标</param>
         /// <returns>裁剪后图像句柄，失败返回0</returns>
         public long Cropped(long image, int x1, int y1, int x2, int y2){
-            return OLAPlugDLLHelper.Cropped(OLAObject, image, x1, y1, x2, y2);
+            var func = OLAPlugDLLHelper.GetFunction<CroppedDelegate>("Cropped");
+            return func(OLAObject, image, x1, y1, x2, y2);
         }
 
         /// <summary>
@@ -7165,7 +9519,8 @@ namespace OLAPlug
         /// <param name="colorJson">颜色范围定义（JSON）</param>
         /// <returns>返回阈值图像数据指针，需调用FreeImageData释放内存；失败返回0</returns>
         public long GetThresholdImageFromMultiColorPtr(long ptr, List<ColorModel> colorJson){
-            return OLAPlugDLLHelper.GetThresholdImageFromMultiColorPtr(OLAObject, ptr, JsonConvert.SerializeObject(colorJson));
+            var func = OLAPlugDLLHelper.GetFunction<GetThresholdImageFromMultiColorPtrDelegate>("GetThresholdImageFromMultiColorPtr");
+            return func(OLAObject, ptr, JsonConvert.SerializeObject(colorJson));
         }
 
         /// <summary>
@@ -7175,7 +9530,8 @@ namespace OLAPlug
         /// <param name="colorJson">颜色范围定义（JSON）</param>
         /// <returns>返回阈值图像数据指针，需调用FreeImageData释放内存；失败返回0</returns>
         public long GetThresholdImageFromMultiColorPtr(long ptr, string colorJson){
-            return OLAPlugDLLHelper.GetThresholdImageFromMultiColorPtr(OLAObject, ptr, colorJson);
+            var func = OLAPlugDLLHelper.GetFunction<GetThresholdImageFromMultiColorPtrDelegate>("GetThresholdImageFromMultiColorPtr");
+            return func(OLAObject, ptr, colorJson);
         }
 
         /// <summary>
@@ -7188,7 +9544,8 @@ namespace OLAPlug
         /// <param name="colorJson">要统计的颜色值（JSON格式）</param>
         /// <returns>返回阈值图像数据指针，需调用FreeImageData释放内存；失败返回0</returns>
         public long GetThresholdImageFromMultiColor(int x1, int y1, int x2, int y2, List<ColorModel> colorJson){
-            return OLAPlugDLLHelper.GetThresholdImageFromMultiColor(OLAObject, x1, y1, x2, y2, JsonConvert.SerializeObject(colorJson));
+            var func = OLAPlugDLLHelper.GetFunction<GetThresholdImageFromMultiColorDelegate>("GetThresholdImageFromMultiColor");
+            return func(OLAObject, x1, y1, x2, y2, JsonConvert.SerializeObject(colorJson));
         }
 
         /// <summary>
@@ -7201,7 +9558,8 @@ namespace OLAPlug
         /// <param name="colorJson">要统计的颜色值（JSON格式）</param>
         /// <returns>返回阈值图像数据指针，需调用FreeImageData释放内存；失败返回0</returns>
         public long GetThresholdImageFromMultiColor(int x1, int y1, int x2, int y2, string colorJson){
-            return OLAPlugDLLHelper.GetThresholdImageFromMultiColor(OLAObject, x1, y1, x2, y2, colorJson);
+            var func = OLAPlugDLLHelper.GetFunction<GetThresholdImageFromMultiColorDelegate>("GetThresholdImageFromMultiColor");
+            return func(OLAObject, x1, y1, x2, y2, colorJson);
         }
 
         /// <summary>
@@ -7214,7 +9572,8 @@ namespace OLAPlug
         ///<br/>1: 相同
         /// </returns>
         public int IsSameImage(long ptr, long ptr2){
-            return OLAPlugDLLHelper.IsSameImage(OLAObject, ptr, ptr2);
+            var func = OLAPlugDLLHelper.GetFunction<IsSameImageDelegate>("IsSameImage");
+            return func(OLAObject, ptr, ptr2);
         }
 
         /// <summary>
@@ -7226,7 +9585,8 @@ namespace OLAPlug
         /// <br/>1. 在独立窗口中显示图像，用于调试和查看
         /// </remarks>
         public int ShowImage(long ptr){
-            return OLAPlugDLLHelper.ShowImage(OLAObject, ptr);
+            var func = OLAPlugDLLHelper.GetFunction<ShowImageDelegate>("ShowImage");
+            return func(OLAObject, ptr);
         }
 
         /// <summary>
@@ -7238,7 +9598,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int ShowImageFromFile(string file){
-            return OLAPlugDLLHelper.ShowImageFromFile(OLAObject, file);
+            var func = OLAPlugDLLHelper.GetFunction<ShowImageFromFileDelegate>("ShowImageFromFile");
+            return func(OLAObject, file);
         }
 
         /// <summary>
@@ -7249,7 +9610,8 @@ namespace OLAPlug
         /// <param name="color">目标颜色（BGR十六进制字符串）</param>
         /// <returns>返回处理后的图像数据指针，需调用FreeImageData释放内存；失败返回0</returns>
         public long SetColorsToNewColor(long ptr, List<ColorModel> colorJson, string color){
-            return OLAPlugDLLHelper.SetColorsToNewColor(OLAObject, ptr, JsonConvert.SerializeObject(colorJson), color);
+            var func = OLAPlugDLLHelper.GetFunction<SetColorsToNewColorDelegate>("SetColorsToNewColor");
+            return func(OLAObject, ptr, JsonConvert.SerializeObject(colorJson), color);
         }
 
         /// <summary>
@@ -7260,7 +9622,8 @@ namespace OLAPlug
         /// <param name="color">目标颜色（BGR十六进制字符串）</param>
         /// <returns>返回处理后的图像数据指针，需调用FreeImageData释放内存；失败返回0</returns>
         public long SetColorsToNewColor(long ptr, string colorJson, string color){
-            return OLAPlugDLLHelper.SetColorsToNewColor(OLAObject, ptr, colorJson, color);
+            var func = OLAPlugDLLHelper.GetFunction<SetColorsToNewColorDelegate>("SetColorsToNewColor");
+            return func(OLAObject, ptr, colorJson, color);
         }
 
         /// <summary>
@@ -7270,7 +9633,8 @@ namespace OLAPlug
         /// <param name="colorJson">要保留的颜色范围（JSON）</param>
         /// <returns>返回处理后的图像数据指针，需调用FreeImageData释放内存；失败返回0</returns>
         public long RemoveOtherColors(long ptr, List<ColorModel> colorJson){
-            return OLAPlugDLLHelper.RemoveOtherColors(OLAObject, ptr, JsonConvert.SerializeObject(colorJson));
+            var func = OLAPlugDLLHelper.GetFunction<RemoveOtherColorsDelegate>("RemoveOtherColors");
+            return func(OLAObject, ptr, JsonConvert.SerializeObject(colorJson));
         }
 
         /// <summary>
@@ -7280,7 +9644,8 @@ namespace OLAPlug
         /// <param name="colorJson">要保留的颜色范围（JSON）</param>
         /// <returns>返回处理后的图像数据指针，需调用FreeImageData释放内存；失败返回0</returns>
         public long RemoveOtherColors(long ptr, string colorJson){
-            return OLAPlugDLLHelper.RemoveOtherColors(OLAObject, ptr, colorJson);
+            var func = OLAPlugDLLHelper.GetFunction<RemoveOtherColorsDelegate>("RemoveOtherColors");
+            return func(OLAObject, ptr, colorJson);
         }
 
         /// <summary>
@@ -7295,7 +9660,8 @@ namespace OLAPlug
         /// <param name="color">绘制颜色（BGR格式）</param>
         /// <returns>返回绘制后的图像数据指针，需调用FreeImageData释放内存；失败返回0</returns>
         public long DrawRectangle(long ptr, int x1, int y1, int x2, int y2, int thickness, string color){
-            return OLAPlugDLLHelper.DrawRectangle(OLAObject, ptr, x1, y1, x2, y2, thickness, color);
+            var func = OLAPlugDLLHelper.GetFunction<DrawRectangleDelegate>("DrawRectangle");
+            return func(OLAObject, ptr, x1, y1, x2, y2, thickness, color);
         }
 
         /// <summary>
@@ -7309,7 +9675,8 @@ namespace OLAPlug
         /// <param name="color">绘制颜色（BGR格式）</param>
         /// <returns>返回绘制后的图像数据指针，需调用FreeImageData释放内存；失败返回0</returns>
         public long DrawCircle(long ptr, int x, int y, int radius, int thickness, string color){
-            return OLAPlugDLLHelper.DrawCircle(OLAObject, ptr, x, y, radius, thickness, color);
+            var func = OLAPlugDLLHelper.GetFunction<DrawCircleDelegate>("DrawCircle");
+            return func(OLAObject, ptr, x, y, radius, thickness, color);
         }
 
         /// <summary>
@@ -7320,7 +9687,8 @@ namespace OLAPlug
         /// <param name="color">填充颜色（BGR格式）</param>
         /// <returns>返回绘制后的图像数据指针，需调用FreeImageData释放内存；失败返回0</returns>
         public long DrawFillPoly(long ptr, List<Point> pointJson, string color){
-            return OLAPlugDLLHelper.DrawFillPoly(OLAObject, ptr, JsonConvert.SerializeObject(pointJson), color);
+            var func = OLAPlugDLLHelper.GetFunction<DrawFillPolyDelegate>("DrawFillPoly");
+            return func(OLAObject, ptr, JsonConvert.SerializeObject(pointJson), color);
         }
 
         /// <summary>
@@ -7331,7 +9699,8 @@ namespace OLAPlug
         /// <param name="color">填充颜色（BGR格式）</param>
         /// <returns>返回绘制后的图像数据指针，需调用FreeImageData释放内存；失败返回0</returns>
         public long DrawFillPoly(long ptr, string pointJson, string color){
-            return OLAPlugDLLHelper.DrawFillPoly(OLAObject, ptr, pointJson, color);
+            var func = OLAPlugDLLHelper.GetFunction<DrawFillPolyDelegate>("DrawFillPoly");
+            return func(OLAObject, ptr, pointJson, color);
         }
 
         /// <summary>
@@ -7340,7 +9709,8 @@ namespace OLAPlug
         /// <param name="ptr">图像句柄</param>
         /// <returns>返回解码的二维码内容字符串，需调用FreeStringPtr释放内存；失败返回0</returns>
         public string DecodeQRCode(long ptr){
-            return PtrToStringUTF8(OLAPlugDLLHelper.DecodeQRCode(OLAObject, ptr));
+            var func = OLAPlugDLLHelper.GetFunction<DecodeQRCodeDelegate>("DecodeQRCode");
+            return PtrToStringUTF8(func(OLAObject, ptr));
         }
 
         /// <summary>
@@ -7350,7 +9720,8 @@ namespace OLAPlug
         /// <param name="pixelsPerModule">模块像素大小</param>
         /// <returns>返回二维码图像数据指针，需调用FreeImageData释放内存；失败返回0</returns>
         public long CreateQRCode(string str, int pixelsPerModule){
-            return OLAPlugDLLHelper.CreateQRCode(OLAObject, str, pixelsPerModule);
+            var func = OLAPlugDLLHelper.GetFunction<CreateQRCodeDelegate>("CreateQRCode");
+            return func(OLAObject, str, pixelsPerModule);
         }
 
         /// <summary>
@@ -7364,7 +9735,8 @@ namespace OLAPlug
         /// <param name="structure_number">结构编号</param>
         /// <returns>返回二维码图像数据指针，需调用FreeImageData释放内存；失败返回0</returns>
         public long CreateQRCodeEx(string str, int pixelsPerModule, int version, int correction_level, int mode, int structure_number){
-            return OLAPlugDLLHelper.CreateQRCodeEx(OLAObject, str, pixelsPerModule, version, correction_level, mode, structure_number);
+            var func = OLAPlugDLLHelper.GetFunction<CreateQRCodeExDelegate>("CreateQRCodeEx");
+            return func(OLAObject, str, pixelsPerModule, version, correction_level, mode, structure_number);
         }
 
         /// <summary>
@@ -7408,7 +9780,8 @@ namespace OLAPlug
         /// <br/>16. 返回的坐标是相对于绑定窗口客户区的坐标
         /// </remarks>
         public MatchResult MatchAnimationFromPtr(int x1, int y1, int x2, int y2, long templ, double matchVal, int type, double angle, double scale, int delay, int time, int threadCount){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.MatchAnimationFromPtr(OLAObject, x1, y1, x2, y2, templ, matchVal, type, angle, scale, delay, time, threadCount));
+            var func = OLAPlugDLLHelper.GetFunction<MatchAnimationFromPtrDelegate>("MatchAnimationFromPtr");
+            var result = PtrToStringUTF8(func(OLAObject, x1, y1, x2, y2, templ, matchVal, type, angle, scale, delay, time, threadCount));
             if (string.IsNullOrEmpty(result))
             {
                 return new MatchResult();
@@ -7442,7 +9815,8 @@ namespace OLAPlug
         /// <br/>1. 线程数需要根据delay帧率自行调整，过小会导致识别时间到期未识别完，过大会导致CPU占用过大
         /// </remarks>
         public MatchResult MatchAnimationFromPath(int x1, int y1, int x2, int y2, string templ, double matchVal, int type, double angle, double scale, int delay, int time, int threadCount){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.MatchAnimationFromPath(OLAObject, x1, y1, x2, y2, templ, matchVal, type, angle, scale, delay, time, threadCount));
+            var func = OLAPlugDLLHelper.GetFunction<MatchAnimationFromPathDelegate>("MatchAnimationFromPath");
+            var result = PtrToStringUTF8(func(OLAObject, x1, y1, x2, y2, templ, matchVal, type, angle, scale, delay, time, threadCount));
             if (string.IsNullOrEmpty(result))
             {
                 return new MatchResult();
@@ -7460,7 +9834,8 @@ namespace OLAPlug
         /// <br/>1. 将两幅图像的相同部分保留，不同部分变为黑色
         /// </remarks>
         public long RemoveImageDiff(long image1, long image2){
-            return OLAPlugDLLHelper.RemoveImageDiff(OLAObject, image1, image2);
+            var func = OLAPlugDLLHelper.GetFunction<RemoveImageDiffDelegate>("RemoveImageDiff");
+            return func(OLAObject, image1, image2);
         }
 
         /// <summary>
@@ -7474,7 +9849,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int GetImageBmpData(long imgPtr, out long data, out int size){
-            return OLAPlugDLLHelper.GetImageBmpData(OLAObject, imgPtr, out data, out size);
+            var func = OLAPlugDLLHelper.GetFunction<GetImageBmpDataDelegate>("GetImageBmpData");
+            return func(OLAObject, imgPtr, out data, out size);
         }
 
         /// <summary>
@@ -7488,7 +9864,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int GetImagePngData(long imgPtr, out long data, out int size){
-            return OLAPlugDLLHelper.GetImagePngData(OLAObject, imgPtr, out data, out size);
+            var func = OLAPlugDLLHelper.GetFunction<GetImagePngDataDelegate>("GetImagePngData");
+            return func(OLAObject, imgPtr, out data, out size);
         }
 
         /// <summary>
@@ -7500,7 +9877,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int FreeImageData(long screenPtr){
-            return OLAPlugDLLHelper.FreeImageData(OLAObject, screenPtr);
+            var func = OLAPlugDLLHelper.GetFunction<FreeImageDataDelegate>("FreeImageData");
+            return func(OLAObject, screenPtr);
         }
 
         /// <summary>
@@ -7510,7 +9888,8 @@ namespace OLAPlug
         /// <param name="pixelsPerModule">像素缩放系数</param>
         /// <returns>处理后图像句柄，失败返回0</returns>
         public long ScalePixels(long ptr, int pixelsPerModule){
-            return OLAPlugDLLHelper.ScalePixels(OLAObject, ptr, pixelsPerModule);
+            var func = OLAPlugDLLHelper.GetFunction<ScalePixelsDelegate>("ScalePixels");
+            return func(OLAObject, ptr, pixelsPerModule);
         }
 
         /// <summary>
@@ -7521,7 +9900,8 @@ namespace OLAPlug
         /// <param name="color">初始填充颜色（BGR格式）</param>
         /// <returns>返回新图像数据指针，需调用FreeImageData释放内存；失败返回0</returns>
         public long CreateImage(int width, int height, string color){
-            return OLAPlugDLLHelper.CreateImage(OLAObject, width, height, color);
+            var func = OLAPlugDLLHelper.GetFunction<CreateImageDelegate>("CreateImage");
+            return func(OLAObject, width, height, color);
         }
 
         /// <summary>
@@ -7536,7 +9916,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int SetPixel(long image, int x, int y, string color){
-            return OLAPlugDLLHelper.SetPixel(OLAObject, image, x, y, color);
+            var func = OLAPlugDLLHelper.GetFunction<SetPixelDelegate>("SetPixel");
+            return func(OLAObject, image, x, y, color);
         }
 
         /// <summary>
@@ -7550,7 +9931,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int SetPixelList(long image, List<Point> points, string color){
-            return OLAPlugDLLHelper.SetPixelList(OLAObject, image, JsonConvert.SerializeObject(points), color);
+            var func = OLAPlugDLLHelper.GetFunction<SetPixelListDelegate>("SetPixelList");
+            return func(OLAObject, image, JsonConvert.SerializeObject(points), color);
         }
 
         /// <summary>
@@ -7564,7 +9946,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int SetPixelList(long image, string points, string color){
-            return OLAPlugDLLHelper.SetPixelList(OLAObject, image, points, color);
+            var func = OLAPlugDLLHelper.GetFunction<SetPixelListDelegate>("SetPixelList");
+            return func(OLAObject, image, points, color);
         }
 
         /// <summary>
@@ -7577,7 +9960,8 @@ namespace OLAPlug
         /// <param name="dir">拼接方向（0 水平，1 垂直）</param>
         /// <returns>新图像句柄，失败返回0</returns>
         public long ConcatImage(long image1, long image2, int gap, string color, int dir){
-            return OLAPlugDLLHelper.ConcatImage(OLAObject, image1, image2, gap, color, dir);
+            var func = OLAPlugDLLHelper.GetFunction<ConcatImageDelegate>("ConcatImage");
+            return func(OLAObject, image1, image2, gap, color, dir);
         }
 
         /// <summary>
@@ -7590,7 +9974,8 @@ namespace OLAPlug
         /// <param name="alpha">全局透明度系数 (0~1)</param>
         /// <returns>混合后的图像</returns>
         public long CoverImage(long image1, long image2, int x, int y, double alpha){
-            return OLAPlugDLLHelper.CoverImage(OLAObject, image1, image2, x, y, alpha);
+            var func = OLAPlugDLLHelper.GetFunction<CoverImageDelegate>("CoverImage");
+            return func(OLAObject, image1, image2, x, y, alpha);
         }
 
         /// <summary>
@@ -7600,7 +9985,8 @@ namespace OLAPlug
         /// <param name="angle">旋转角度（度）</param>
         /// <returns>新图像句柄，失败返回0</returns>
         public long RotateImage(long image, double angle){
-            return OLAPlugDLLHelper.RotateImage(OLAObject, image, angle);
+            var func = OLAPlugDLLHelper.GetFunction<RotateImageDelegate>("RotateImage");
+            return func(OLAObject, image, angle);
         }
 
         /// <summary>
@@ -7609,7 +9995,8 @@ namespace OLAPlug
         /// <param name="image">图像句柄</param>
         /// <returns>Base64字符串指针，需调用FreeStringPtr释放</returns>
         public string ImageToBase64(long image){
-            return PtrToStringUTF8(OLAPlugDLLHelper.ImageToBase64(OLAObject, image));
+            var func = OLAPlugDLLHelper.GetFunction<ImageToBase64Delegate>("ImageToBase64");
+            return PtrToStringUTF8(func(OLAObject, image));
         }
 
         /// <summary>
@@ -7618,7 +10005,8 @@ namespace OLAPlug
         /// <param name="base64">Base64字符串</param>
         /// <returns>图像句柄，失败返回0</returns>
         public long Base64ToImage(string base64){
-            return OLAPlugDLLHelper.Base64ToImage(OLAObject, base64);
+            var func = OLAPlugDLLHelper.GetFunction<Base64ToImageDelegate>("Base64ToImage");
+            return func(OLAObject, base64);
         }
 
         /// <summary>
@@ -7634,7 +10022,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int Hex2ARGB(string hex, out int a, out int r, out int g, out int b){
-            return OLAPlugDLLHelper.Hex2ARGB(OLAObject, hex, out a, out r, out g, out b);
+            var func = OLAPlugDLLHelper.GetFunction<Hex2ARGBDelegate>("Hex2ARGB");
+            return func(OLAObject, hex, out a, out r, out g, out b);
         }
 
         /// <summary>
@@ -7649,7 +10038,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int Hex2RGB(string hex, out int r, out int g, out int b){
-            return OLAPlugDLLHelper.Hex2RGB(OLAObject, hex, out r, out g, out b);
+            var func = OLAPlugDLLHelper.GetFunction<Hex2RGBDelegate>("Hex2RGB");
+            return func(OLAObject, hex, out r, out g, out b);
         }
 
         /// <summary>
@@ -7661,7 +10051,8 @@ namespace OLAPlug
         /// <param name="b">Blue分量</param>
         /// <returns>十六进制颜色字符串指针，需调用FreeStringPtr释放</returns>
         public string ARGB2Hex(int a, int r, int g, int b){
-            return PtrToStringUTF8(OLAPlugDLLHelper.ARGB2Hex(OLAObject, a, r, g, b));
+            var func = OLAPlugDLLHelper.GetFunction<ARGB2HexDelegate>("ARGB2Hex");
+            return PtrToStringUTF8(func(OLAObject, a, r, g, b));
         }
 
         /// <summary>
@@ -7672,7 +10063,8 @@ namespace OLAPlug
         /// <param name="b">蓝色值</param>
         /// <returns>十六进制字符串</returns>
         public string RGB2Hex(int r, int g, int b){
-            return PtrToStringUTF8(OLAPlugDLLHelper.RGB2Hex(OLAObject, r, g, b));
+            var func = OLAPlugDLLHelper.GetFunction<RGB2HexDelegate>("RGB2Hex");
+            return PtrToStringUTF8(func(OLAObject, r, g, b));
         }
 
         /// <summary>
@@ -7681,7 +10073,8 @@ namespace OLAPlug
         /// <param name="hex">十六进制颜色</param>
         /// <returns>HSV颜色</returns>
         public string Hex2HSV(string hex){
-            return PtrToStringUTF8(OLAPlugDLLHelper.Hex2HSV(OLAObject, hex));
+            var func = OLAPlugDLLHelper.GetFunction<Hex2HSVDelegate>("Hex2HSV");
+            return PtrToStringUTF8(func(OLAObject, hex));
         }
 
         /// <summary>
@@ -7692,7 +10085,8 @@ namespace OLAPlug
         /// <param name="b">蓝色值</param>
         /// <returns>HSV颜色</returns>
         public string RGB2HSV(int r, int g, int b){
-            return PtrToStringUTF8(OLAPlugDLLHelper.RGB2HSV(OLAObject, r, g, b));
+            var func = OLAPlugDLLHelper.GetFunction<RGB2HSVDelegate>("RGB2HSV");
+            return PtrToStringUTF8(func(OLAObject, r, g, b));
         }
 
         /// <summary>
@@ -7703,11 +10097,12 @@ namespace OLAPlug
         /// <param name="colorStart">起始颜色（含）</param>
         /// <param name="colorEnd">结束颜色（含）</param>
         /// <returns>操作结果
-        ///<br/>0: 否
-        ///<br/>1: 是
+        ///<br/>0: 失败，未找到符合条件的颜色点
+        ///<br/>1: 成功，找到符合条件的颜色点
         /// </returns>
         public int CmpColor(int x1, int y1, string colorStart, string colorEnd){
-            return OLAPlugDLLHelper.CmpColor(OLAObject, x1, y1, colorStart, colorEnd);
+            var func = OLAPlugDLLHelper.GetFunction<CmpColorDelegate>("CmpColor");
+            return func(OLAObject, x1, y1, colorStart, colorEnd);
         }
 
         /// <summary>
@@ -7719,11 +10114,12 @@ namespace OLAPlug
         /// <param name="colorStart">起始颜色（含）</param>
         /// <param name="colorEnd">结束颜色（含）</param>
         /// <returns>操作结果
-        ///<br/>0: 否
-        ///<br/>1: 是
+        ///<br/>0: 失败，未找到符合条件的颜色点
+        ///<br/>1: 成功，找到符合条件的颜色点
         /// </returns>
         public int CmpColorPtr(long ptr, int x, int y, string colorStart, string colorEnd){
-            return OLAPlugDLLHelper.CmpColorPtr(OLAObject, ptr, x, y, colorStart, colorEnd);
+            var func = OLAPlugDLLHelper.GetFunction<CmpColorPtrDelegate>("CmpColorPtr");
+            return func(OLAObject, ptr, x, y, colorStart, colorEnd);
         }
 
         /// <summary>
@@ -7733,11 +10129,12 @@ namespace OLAPlug
         /// <param name="y1">Y坐标</param>
         /// <param name="colorJson">颜色（JSON）</param>
         /// <returns>操作结果
-        ///<br/>0: 否
-        ///<br/>1: 是
+        ///<br/>0: 失败，未找到符合条件的颜色点
+        ///<br/>1: 成功，找到符合条件的颜色点
         /// </returns>
         public int CmpColorEx(int x1, int y1, string colorJson){
-            return OLAPlugDLLHelper.CmpColorEx(OLAObject, x1, y1, colorJson);
+            var func = OLAPlugDLLHelper.GetFunction<CmpColorExDelegate>("CmpColorEx");
+            return func(OLAObject, x1, y1, colorJson);
         }
 
         /// <summary>
@@ -7748,11 +10145,12 @@ namespace OLAPlug
         /// <param name="y">Y坐标</param>
         /// <param name="colorJson">颜色（JSON）</param>
         /// <returns>操作结果
-        ///<br/>0: 否
-        ///<br/>1: 是
+        ///<br/>0: 失败，未找到符合条件的颜色点
+        ///<br/>1: 成功，找到符合条件的颜色点
         /// </returns>
         public int CmpColorPtrEx(long ptr, int x, int y, string colorJson){
-            return OLAPlugDLLHelper.CmpColorPtrEx(OLAObject, ptr, x, y, colorJson);
+            var func = OLAPlugDLLHelper.GetFunction<CmpColorPtrExDelegate>("CmpColorPtrEx");
+            return func(OLAObject, ptr, x, y, colorJson);
         }
 
         /// <summary>
@@ -7765,7 +10163,8 @@ namespace OLAPlug
         ///<br/>1: 是
         /// </returns>
         public int CmpColorHexEx(string hex, string colorJson){
-            return OLAPlugDLLHelper.CmpColorHexEx(OLAObject, hex, colorJson);
+            var func = OLAPlugDLLHelper.GetFunction<CmpColorHexExDelegate>("CmpColorHexEx");
+            return func(OLAObject, hex, colorJson);
         }
 
         /// <summary>
@@ -7775,11 +10174,12 @@ namespace OLAPlug
         /// <param name="colorStart">起始颜色（含）</param>
         /// <param name="colorEnd">结束颜色（含）</param>
         /// <returns>操作结果
-        ///<br/>0: 否
-        ///<br/>1: 是
+        ///<br/>0: 失败，未找到符合条件的颜色点
+        ///<br/>1: 成功，找到符合条件的颜色点
         /// </returns>
         public int CmpColorHex(string hex, string colorStart, string colorEnd){
-            return OLAPlugDLLHelper.CmpColorHex(OLAObject, hex, colorStart, colorEnd);
+            var func = OLAPlugDLLHelper.GetFunction<CmpColorHexDelegate>("CmpColorHex");
+            return func(OLAObject, hex, colorStart, colorEnd);
         }
 
         /// <summary>
@@ -7790,7 +10190,8 @@ namespace OLAPlug
         /// <param name="tolerance">容差阈值</param>
         /// <returns>连通域点数组字符串指针（JSON），需调用FreeStringPtr释放</returns>
         public long GetConnectedComponents(long ptr, List<Point> points, int tolerance){
-            return OLAPlugDLLHelper.GetConnectedComponents(OLAObject, ptr, JsonConvert.SerializeObject(points), tolerance);
+            var func = OLAPlugDLLHelper.GetFunction<GetConnectedComponentsDelegate>("GetConnectedComponents");
+            return func(OLAObject, ptr, JsonConvert.SerializeObject(points), tolerance);
         }
 
         /// <summary>
@@ -7801,7 +10202,8 @@ namespace OLAPlug
         /// <param name="tolerance">容差阈值</param>
         /// <returns>连通域点数组字符串指针（JSON），需调用FreeStringPtr释放</returns>
         public long GetConnectedComponents(long ptr, string points, int tolerance){
-            return OLAPlugDLLHelper.GetConnectedComponents(OLAObject, ptr, points, tolerance);
+            var func = OLAPlugDLLHelper.GetFunction<GetConnectedComponentsDelegate>("GetConnectedComponents");
+            return func(OLAObject, ptr, points, tolerance);
         }
 
         /// <summary>
@@ -7812,7 +10214,8 @@ namespace OLAPlug
         /// <param name="y">参考点Y坐标</param>
         /// <returns>方向角（度）</returns>
         public double DetectPointerDirection(long ptr, int x, int y){
-            return OLAPlugDLLHelper.DetectPointerDirection(OLAObject, ptr, x, y);
+            var func = OLAPlugDLLHelper.GetFunction<DetectPointerDirectionDelegate>("DetectPointerDirection");
+            return func(OLAObject, ptr, x, y);
         }
 
         /// <summary>
@@ -7825,7 +10228,8 @@ namespace OLAPlug
         /// <param name="useTemplate">是否启用模板匹配</param>
         /// <returns>方向角（度）</returns>
         public double DetectPointerDirectionByFeatures(long ptr, long templatePtr, int x, int y, bool useTemplate){
-            return OLAPlugDLLHelper.DetectPointerDirectionByFeatures(OLAObject, ptr, templatePtr, x, y, useTemplate);
+            var func = OLAPlugDLLHelper.GetFunction<DetectPointerDirectionByFeaturesDelegate>("DetectPointerDirectionByFeatures");
+            return func(OLAObject, ptr, templatePtr, x, y, useTemplate);
         }
 
         /// <summary>
@@ -7839,7 +10243,8 @@ namespace OLAPlug
         /// <param name="scale">缩放比例</param>
         /// <returns>匹配结果（结构体/指针，失败返回0）</returns>
         public MatchResult FastMatch(long ptr, long templatePtr, double matchVal, int type, double angle, double scale){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.FastMatch(OLAObject, ptr, templatePtr, matchVal, type, angle, scale));
+            var func = OLAPlugDLLHelper.GetFunction<FastMatchDelegate>("FastMatch");
+            var result = PtrToStringUTF8(func(OLAObject, ptr, templatePtr, matchVal, type, angle, scale));
             if (string.IsNullOrEmpty(result))
             {
                 return new MatchResult();
@@ -7853,7 +10258,8 @@ namespace OLAPlug
         /// <param name="ptr">图像句柄</param>
         /// <returns>返回ROI区域子图像句柄，失败返回0</returns>
         public long FastROI(long ptr){
-            return OLAPlugDLLHelper.FastROI(OLAObject, ptr);
+            var func = OLAPlugDLLHelper.GetFunction<FastROIDelegate>("FastROI");
+            return func(OLAObject, ptr);
         }
 
         /// <summary>
@@ -7869,7 +10275,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int GetROIRegion(long ptr, out int x1, out int y1, out int x2, out int y2){
-            return OLAPlugDLLHelper.GetROIRegion(OLAObject, ptr, out x1, out y1, out x2, out y2);
+            var func = OLAPlugDLLHelper.GetFunction<GetROIRegionDelegate>("GetROIRegion");
+            return func(OLAObject, ptr, out x1, out y1, out x2, out y2);
         }
 
         /// <summary>
@@ -7878,7 +10285,8 @@ namespace OLAPlug
         /// <param name="ptr">图像句柄</param>
         /// <returns>前景点数组字符串指针（JSON，如[{"x":10,"y":10}]]），需调用FreeStringPtr释放</returns>
         public List<Point> GetForegroundPoints(long ptr){
-            var result = PtrToStringUTF8(OLAPlugDLLHelper.GetForegroundPoints(OLAObject, ptr));
+            var func = OLAPlugDLLHelper.GetFunction<GetForegroundPointsDelegate>("GetForegroundPoints");
+            var result = PtrToStringUTF8(func(OLAObject, ptr));
             if (string.IsNullOrEmpty(result))
             {
                 return new List<Point>();
@@ -7893,7 +10301,8 @@ namespace OLAPlug
         /// <param name="type">0转为灰度 ,1.BGRA-RGBA,2.BGRA-BGR,3.BGRA-HSVA,4.BGRA-HSV</param>
         /// <returns>返回转换后的图像句柄，失败返回0</returns>
         public long ConvertColor(long ptr, int type){
-            return OLAPlugDLLHelper.ConvertColor(OLAObject, ptr, type);
+            var func = OLAPlugDLLHelper.GetFunction<ConvertColorDelegate>("ConvertColor");
+            return func(OLAObject, ptr, type);
         }
 
         /// <summary>
@@ -7905,7 +10314,8 @@ namespace OLAPlug
         /// <param name="type">0.二值化,1.反二值化,2.截断,3.阈值化,4.反阈值化,5.阈值化OTSU,6.反阈值化OTSU</param>
         /// <returns>返回阈值化后的图像句柄，失败返回0</returns>
         public long Threshold(long ptr, double thresh, double maxVal, int type){
-            return OLAPlugDLLHelper.Threshold(OLAObject, ptr, thresh, maxVal, type);
+            var func = OLAPlugDLLHelper.GetFunction<ThresholdDelegate>("Threshold");
+            return func(OLAObject, ptr, thresh, maxVal, type);
         }
 
         /// <summary>
@@ -7915,7 +10325,8 @@ namespace OLAPlug
         /// <param name="minArea">最小面积</param>
         /// <returns>返回处理后的图像句柄，失败返回0</returns>
         public long RemoveIslands(long ptr, int minArea){
-            return OLAPlugDLLHelper.RemoveIslands(OLAObject, ptr, minArea);
+            var func = OLAPlugDLLHelper.GetFunction<RemoveIslandsDelegate>("RemoveIslands");
+            return func(OLAObject, ptr, minArea);
         }
 
         /// <summary>
@@ -7925,7 +10336,8 @@ namespace OLAPlug
         /// <param name="kernelSize">形态学核的大小，通常为奇数（3、5、7等）</param>
         /// <returns>返回处理后的图像句柄，失败返回0</returns>
         public long MorphGradient(long ptr, int kernelSize){
-            return OLAPlugDLLHelper.MorphGradient(OLAObject, ptr, kernelSize);
+            var func = OLAPlugDLLHelper.GetFunction<MorphGradientDelegate>("MorphGradient");
+            return func(OLAObject, ptr, kernelSize);
         }
 
         /// <summary>
@@ -7935,7 +10347,8 @@ namespace OLAPlug
         /// <param name="kernelSize">形态学核的大小，通常为奇数（3、5、7等）</param>
         /// <returns>返回处理后的图像句柄，失败返回0</returns>
         public long MorphTophat(long ptr, int kernelSize){
-            return OLAPlugDLLHelper.MorphTophat(OLAObject, ptr, kernelSize);
+            var func = OLAPlugDLLHelper.GetFunction<MorphTophatDelegate>("MorphTophat");
+            return func(OLAObject, ptr, kernelSize);
         }
 
         /// <summary>
@@ -7945,7 +10358,8 @@ namespace OLAPlug
         /// <param name="kernelSize">形态学核的大小，通常为奇数（3、5、7等）</param>
         /// <returns>返回处理后的图像句柄，失败返回0</returns>
         public long MorphBlackhat(long ptr, int kernelSize){
-            return OLAPlugDLLHelper.MorphBlackhat(OLAObject, ptr, kernelSize);
+            var func = OLAPlugDLLHelper.GetFunction<MorphBlackhatDelegate>("MorphBlackhat");
+            return func(OLAObject, ptr, kernelSize);
         }
 
         /// <summary>
@@ -7955,7 +10369,8 @@ namespace OLAPlug
         /// <param name="kernelSize">形态学核的大小，通常为奇数（3、5、7等）</param>
         /// <returns>返回处理后的图像句柄，失败返回0</returns>
         public long Dilation(long ptr, int kernelSize){
-            return OLAPlugDLLHelper.Dilation(OLAObject, ptr, kernelSize);
+            var func = OLAPlugDLLHelper.GetFunction<DilationDelegate>("Dilation");
+            return func(OLAObject, ptr, kernelSize);
         }
 
         /// <summary>
@@ -7965,7 +10380,8 @@ namespace OLAPlug
         /// <param name="kernelSize">形态学核的大小，通常为奇数（3、5、7等）</param>
         /// <returns>返回处理后的图像句柄，失败返回0</returns>
         public long Erosion(long ptr, int kernelSize){
-            return OLAPlugDLLHelper.Erosion(OLAObject, ptr, kernelSize);
+            var func = OLAPlugDLLHelper.GetFunction<ErosionDelegate>("Erosion");
+            return func(OLAObject, ptr, kernelSize);
         }
 
         /// <summary>
@@ -7975,7 +10391,8 @@ namespace OLAPlug
         /// <param name="kernelSize">形态学核的大小，通常为奇数（3、5、7等）</param>
         /// <returns>返回处理后的图像句柄，失败返回0</returns>
         public long GaussianBlur(long ptr, int kernelSize){
-            return OLAPlugDLLHelper.GaussianBlur(OLAObject, ptr, kernelSize);
+            var func = OLAPlugDLLHelper.GetFunction<GaussianBlurDelegate>("GaussianBlur");
+            return func(OLAObject, ptr, kernelSize);
         }
 
         /// <summary>
@@ -7984,7 +10401,8 @@ namespace OLAPlug
         /// <param name="ptr">图像句柄</param>
         /// <returns>返回处理后的图像句柄，失败返回0</returns>
         public long Sharpen(long ptr){
-            return OLAPlugDLLHelper.Sharpen(OLAObject, ptr);
+            var func = OLAPlugDLLHelper.GetFunction<SharpenDelegate>("Sharpen");
+            return func(OLAObject, ptr);
         }
 
         /// <summary>
@@ -7994,7 +10412,8 @@ namespace OLAPlug
         /// <param name="kernelSize">形态学核的大小，通常为奇数（3、5、7等）</param>
         /// <returns>返回边缘图像句柄，失败返回0</returns>
         public long CannyEdge(long ptr, int kernelSize){
-            return OLAPlugDLLHelper.CannyEdge(OLAObject, ptr, kernelSize);
+            var func = OLAPlugDLLHelper.GetFunction<CannyEdgeDelegate>("CannyEdge");
+            return func(OLAObject, ptr, kernelSize);
         }
 
         /// <summary>
@@ -8008,7 +10427,8 @@ namespace OLAPlug
         /// </param>
         /// <returns>返回翻转后的图像句柄，失败返回0</returns>
         public long Flip(long ptr, int flipCode){
-            return OLAPlugDLLHelper.Flip(OLAObject, ptr, flipCode);
+            var func = OLAPlugDLLHelper.GetFunction<FlipDelegate>("Flip");
+            return func(OLAObject, ptr, flipCode);
         }
 
         /// <summary>
@@ -8018,7 +10438,8 @@ namespace OLAPlug
         /// <param name="kernelSize">形态学核的大小，通常为奇数（3、5、7等）</param>
         /// <returns>返回处理后的图像句柄，失败返回0</returns>
         public long MorphOpen(long ptr, int kernelSize){
-            return OLAPlugDLLHelper.MorphOpen(OLAObject, ptr, kernelSize);
+            var func = OLAPlugDLLHelper.GetFunction<MorphOpenDelegate>("MorphOpen");
+            return func(OLAObject, ptr, kernelSize);
         }
 
         /// <summary>
@@ -8028,7 +10449,8 @@ namespace OLAPlug
         /// <param name="kernelSize">形态学核的大小，通常为奇数（3、5、7等）</param>
         /// <returns>返回处理后的图像句柄，失败返回0</returns>
         public long MorphClose(long ptr, int kernelSize){
-            return OLAPlugDLLHelper.MorphClose(OLAObject, ptr, kernelSize);
+            var func = OLAPlugDLLHelper.GetFunction<MorphCloseDelegate>("MorphClose");
+            return func(OLAObject, ptr, kernelSize);
         }
 
         /// <summary>
@@ -8037,7 +10459,8 @@ namespace OLAPlug
         /// <param name="ptr">图像句柄</param>
         /// <returns>返回骨架化后的图像句柄，失败返回0</returns>
         public long Skeletonize(long ptr){
-            return OLAPlugDLLHelper.Skeletonize(OLAObject, ptr);
+            var func = OLAPlugDLLHelper.GetFunction<SkeletonizeDelegate>("Skeletonize");
+            return func(OLAObject, ptr);
         }
 
         /// <summary>
@@ -8047,7 +10470,8 @@ namespace OLAPlug
         /// <param name="trajectory">返回轨迹数据指针（输出，可为0）</param>
         /// <returns>返回拼接后的图像句柄，失败返回0</returns>
         public long ImageStitchFromPath(string path, out long trajectory){
-            return OLAPlugDLLHelper.ImageStitchFromPath(OLAObject, path, out trajectory);
+            var func = OLAPlugDLLHelper.GetFunction<ImageStitchFromPathDelegate>("ImageStitchFromPath");
+            return func(OLAObject, path, out trajectory);
         }
 
         /// <summary>
@@ -8055,7 +10479,8 @@ namespace OLAPlug
         /// </summary>
         /// <returns>返回拼接实例句柄，失败返回0</returns>
         public long ImageStitchCreate(){
-            return OLAPlugDLLHelper.ImageStitchCreate(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<ImageStitchCreateDelegate>("ImageStitchCreate");
+            return func(OLAObject);
         }
 
         /// <summary>
@@ -8068,7 +10493,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int ImageStitchAppend(long imageStitch, long image){
-            return OLAPlugDLLHelper.ImageStitchAppend(OLAObject, imageStitch, image);
+            var func = OLAPlugDLLHelper.GetFunction<ImageStitchAppendDelegate>("ImageStitchAppend");
+            return func(OLAObject, imageStitch, image);
         }
 
         /// <summary>
@@ -8078,7 +10504,8 @@ namespace OLAPlug
         /// <param name="trajectory">输出参数，可为0；返回轨迹数据的字符串指针，需使用 FreeStringPtr 释放</param>
         /// <returns>返回拼接后的图像句柄，失败返回0</returns>
         public long ImageStitchGetResult(long imageStitch, out long trajectory){
-            return OLAPlugDLLHelper.ImageStitchGetResult(OLAObject, imageStitch, out trajectory);
+            var func = OLAPlugDLLHelper.GetFunction<ImageStitchGetResultDelegate>("ImageStitchGetResult");
+            return func(OLAObject, imageStitch, out trajectory);
         }
 
         /// <summary>
@@ -8090,7 +10517,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int ImageStitchFree(long imageStitch){
-            return OLAPlugDLLHelper.ImageStitchFree(OLAObject, imageStitch);
+            var func = OLAPlugDLLHelper.GetFunction<ImageStitchFreeDelegate>("ImageStitchFree");
+            return func(OLAObject, imageStitch);
         }
 
         /// <summary>
@@ -8102,7 +10530,8 @@ namespace OLAPlug
         /// <br/>1. DLL调用返回字符串指针地址,需要调用 FreeStringPtr接口释放内存
         /// </remarks>
         public string BitPacking(long image){
-            return PtrToStringUTF8(OLAPlugDLLHelper.BitPacking(OLAObject, image));
+            var func = OLAPlugDLLHelper.GetFunction<BitPackingDelegate>("BitPacking");
+            return PtrToStringUTF8(func(OLAObject, image));
         }
 
         /// <summary>
@@ -8111,7 +10540,8 @@ namespace OLAPlug
         /// <param name="imageStr">BitPacking压缩结果</param>
         /// <returns>返回图像句柄,失败返回0</returns>
         public long BitUnpacking(string imageStr){
-            return OLAPlugDLLHelper.BitUnpacking(OLAObject, imageStr);
+            var func = OLAPlugDLLHelper.GetFunction<BitUnpackingDelegate>("BitUnpacking");
+            return func(OLAObject, imageStr);
         }
 
         /// <summary>
@@ -8126,7 +10556,208 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int SetImageCache(int enable){
-            return OLAPlugDLLHelper.SetImageCache(enable);
+            var func = OLAPlugDLLHelper.GetFunction<SetImageCacheDelegate>("SetImageCache");
+            return func(enable);
+        }
+
+        /// <summary>
+        /// 在指定图片中查找指定图像（使用内存数据）
+        /// </summary>
+        /// <param name="source">OLAImage对象的地址</param>
+        /// <param name="templ">OLAImage对象的地址,由LoadImage 等接口生成</param>
+        /// <param name="deltaColor">颜色差值，格式为"RRGGBB"，如"101010"</param>
+        /// <param name="matchVal">相似度，如0.85，最大为1</param>
+        /// <param name="dir">查找方向
+        ///<br/> 0: 从左到右,从上到下
+        ///<br/> 1: 从左到右,从下到上
+        ///<br/> 2: 从右到左,从上到下
+        ///<br/> 3: 从右到左,从下到上
+        ///<br/> 4: 从中心往外查找
+        ///<br/> 5: 从上到下,从左到右
+        ///<br/> 6: 从上到下,从右到左
+        ///<br/> 7: 从下到上,从左到右
+        ///<br/> 8: 从下到上,从右到左
+        /// </param>
+        /// <returns>匹配结果</returns>
+        public MatchResult FindImageFromPtr(long source, long templ, string deltaColor, double matchVal, int dir){
+            var func = OLAPlugDLLHelper.GetFunction<FindImageFromPtrDelegate>("FindImageFromPtr");
+            var result = PtrToStringUTF8(func(OLAObject, source, templ, deltaColor, matchVal, dir));
+            if (string.IsNullOrEmpty(result))
+            {
+                return new MatchResult();
+            }
+            return JsonConvert.DeserializeObject<MatchResult>(result);
+        }
+
+        /// <summary>
+        /// 在指定图片中查找指定图像的所有匹配位置（使用内存数据）
+        /// </summary>
+        /// <param name="source">OLAImage对象的地址</param>
+        /// <param name="templ">OLAImage对象的地址,由LoadImage 等接口生成</param>
+        /// <param name="deltaColor">颜色差值，格式为"RRGGBB"，如"101010"</param>
+        /// <param name="matchVal">相似度，如0.85，最大为1</param>
+        /// <returns>返回所有匹配结果字符串</returns>
+        public List<MatchResult> FindImageFromPtrAll(long source, long templ, string deltaColor, double matchVal){
+            var func = OLAPlugDLLHelper.GetFunction<FindImageFromPtrAllDelegate>("FindImageFromPtrAll");
+            var result = PtrToStringUTF8(func(OLAObject, source, templ, deltaColor, matchVal));
+            if (string.IsNullOrEmpty(result))
+            {
+                return new List<MatchResult>();
+            }
+            return JsonConvert.DeserializeObject<List<MatchResult>>(result);
+        }
+
+        /// <summary>
+        /// 在指定图片中查找指定图像（使用文件路径）
+        /// </summary>
+        /// <param name="source">源图片的路径</param>
+        /// <param name="templ">模板图片的路径，可以是多个图片，比如”test.bmp|test2.bmp|test3.bmp”</param>
+        /// <param name="deltaColor">颜色差值，格式为"RRGGBB"，如"101010"</param>
+        /// <param name="matchVal">相似度，如0.85，最大为1</param>
+        /// <param name="dir">查找方向
+        ///<br/> 0: 从左到右,从上到下
+        ///<br/> 1: 从左到右,从下到上
+        ///<br/> 2: 从右到左,从上到下
+        ///<br/> 3: 从右到左,从下到上
+        ///<br/> 4: 从中心往外查找
+        ///<br/> 5: 从上到下,从左到右
+        ///<br/> 6: 从上到下,从右到左
+        ///<br/> 7: 从下到上,从左到右
+        ///<br/> 8: 从下到上,从右到左
+        /// </param>
+        /// <returns>匹配结果</returns>
+        public MatchResult FindImageFromPath(string source, string templ, string deltaColor, double matchVal, int dir){
+            var func = OLAPlugDLLHelper.GetFunction<FindImageFromPathDelegate>("FindImageFromPath");
+            var result = PtrToStringUTF8(func(OLAObject, source, templ, deltaColor, matchVal, dir));
+            if (string.IsNullOrEmpty(result))
+            {
+                return new MatchResult();
+            }
+            return JsonConvert.DeserializeObject<MatchResult>(result);
+        }
+
+        /// <summary>
+        /// 在指定图片中查找指定图像的所有匹配位置（使用文件路径）
+        /// </summary>
+        /// <param name="source">源图片的路径</param>
+        /// <param name="templ">模板图片的路径，可以是多个图片，比如”test.bmp|test2.bmp|test3.bmp”</param>
+        /// <param name="deltaColor">颜色差值，格式为"RRGGBB"，如"101010"</param>
+        /// <param name="matchVal">相似度，如0.85，最大为1</param>
+        /// <returns>返回所有匹配结果字符串</returns>
+        public List<MatchResult> FindImageFromPathAll(string source, string templ, string deltaColor, double matchVal){
+            var func = OLAPlugDLLHelper.GetFunction<FindImageFromPathAllDelegate>("FindImageFromPathAll");
+            var result = PtrToStringUTF8(func(OLAObject, source, templ, deltaColor, matchVal));
+            if (string.IsNullOrEmpty(result))
+            {
+                return new List<MatchResult>();
+            }
+            return JsonConvert.DeserializeObject<List<MatchResult>>(result);
+        }
+
+        /// <summary>
+        /// 在绑定窗口中查找指定图像（使用内存数据）
+        /// </summary>
+        /// <param name="x1">搜索区域左上角X坐标</param>
+        /// <param name="y1">搜索区域左上角Y坐标</param>
+        /// <param name="x2">搜索区域右下角X坐标</param>
+        /// <param name="y2">搜索区域右下角Y坐标</param>
+        /// <param name="templ">OLAImage对象的地址,由LoadImage 等接口生成</param>
+        /// <param name="deltaColor">颜色差值，格式为"RRGGBB"，如"101010"</param>
+        /// <param name="matchVal">相似度，如0.85，最大为1</param>
+        /// <param name="dir">查找方向
+        ///<br/> 0: 从左到右,从上到下
+        ///<br/> 1: 从左到右,从下到上
+        ///<br/> 2: 从右到左,从上到下
+        ///<br/> 3: 从右到左,从下到上
+        ///<br/> 4: 从中心往外查找
+        ///<br/> 5: 从上到下,从左到右
+        ///<br/> 6: 从上到下,从右到左
+        ///<br/> 7: 从下到上,从左到右
+        ///<br/> 8: 从下到上,从右到左
+        /// </param>
+        /// <returns>匹配结果</returns>
+        public MatchResult FindWindowsFromPtr(int x1, int y1, int x2, int y2, long templ, string deltaColor, double matchVal, int dir){
+            var func = OLAPlugDLLHelper.GetFunction<FindWindowsFromPtrDelegate>("FindWindowsFromPtr");
+            var result = PtrToStringUTF8(func(OLAObject, x1, y1, x2, y2, templ, deltaColor, matchVal, dir));
+            if (string.IsNullOrEmpty(result))
+            {
+                return new MatchResult();
+            }
+            return JsonConvert.DeserializeObject<MatchResult>(result);
+        }
+
+        /// <summary>
+        /// 在绑定窗口中查找指定图像的所有匹配位置（使用内存数据）
+        /// </summary>
+        /// <param name="x1">搜索区域左上角X坐标</param>
+        /// <param name="y1">搜索区域左上角Y坐标</param>
+        /// <param name="x2">搜索区域右下角X坐标</param>
+        /// <param name="y2">搜索区域右下角Y坐标</param>
+        /// <param name="templ">OLAImage对象的地址,由LoadImage 等接口生成</param>
+        /// <param name="deltaColor">颜色差值，格式为"RRGGBB"，如"101010"</param>
+        /// <param name="matchVal">相似度，如0.85，最大为1</param>
+        /// <returns>返回所有匹配结果字符串</returns>
+        public List<MatchResult> FindWindowsFromPtrAll(int x1, int y1, int x2, int y2, long templ, string deltaColor, double matchVal){
+            var func = OLAPlugDLLHelper.GetFunction<FindWindowsFromPtrAllDelegate>("FindWindowsFromPtrAll");
+            var result = PtrToStringUTF8(func(OLAObject, x1, y1, x2, y2, templ, deltaColor, matchVal));
+            if (string.IsNullOrEmpty(result))
+            {
+                return new List<MatchResult>();
+            }
+            return JsonConvert.DeserializeObject<List<MatchResult>>(result);
+        }
+
+        /// <summary>
+        /// 在绑定窗口中查找指定图像（使用文件路径）
+        /// </summary>
+        /// <param name="x1">搜索区域左上角X坐标</param>
+        /// <param name="y1">搜索区域左上角Y坐标</param>
+        /// <param name="x2">搜索区域右下角X坐标</param>
+        /// <param name="y2">搜索区域右下角Y坐标</param>
+        /// <param name="templ">模板图片的路径，可以是多个图片，比如”test.bmp|test2.bmp|test3.bmp”</param>
+        /// <param name="deltaColor">颜色差值，格式为"RRGGBB"，如"101010"</param>
+        /// <param name="matchVal">相似度，如0.85，最大为1</param>
+        /// <param name="dir">查找方向
+        ///<br/> 0: 从左到右,从上到下
+        ///<br/> 1: 从左到右,从下到上
+        ///<br/> 2: 从右到左,从上到下
+        ///<br/> 3: 从右到左,从下到上
+        ///<br/> 4: 从中心往外查找
+        ///<br/> 5: 从上到下,从左到右
+        ///<br/> 6: 从上到下,从右到左
+        ///<br/> 7: 从下到上,从左到右
+        ///<br/> 8: 从下到上,从右到左
+        /// </param>
+        /// <returns>匹配结果</returns>
+        public MatchResult FindWindowsFromPath(int x1, int y1, int x2, int y2, string templ, string deltaColor, double matchVal, int dir){
+            var func = OLAPlugDLLHelper.GetFunction<FindWindowsFromPathDelegate>("FindWindowsFromPath");
+            var result = PtrToStringUTF8(func(OLAObject, x1, y1, x2, y2, templ, deltaColor, matchVal, dir));
+            if (string.IsNullOrEmpty(result))
+            {
+                return new MatchResult();
+            }
+            return JsonConvert.DeserializeObject<MatchResult>(result);
+        }
+
+        /// <summary>
+        /// 在绑定窗口中查找指定图像的所有匹配位置（使用文件路径）
+        /// </summary>
+        /// <param name="x1">搜索区域左上角X坐标</param>
+        /// <param name="y1">搜索区域左上角Y坐标</param>
+        /// <param name="x2">搜索区域右下角X坐标</param>
+        /// <param name="y2">搜索区域右下角Y坐标</param>
+        /// <param name="templ">模板图片的路径，可以是多个图片，比如”test.bmp|test2.bmp|test3.bmp”</param>
+        /// <param name="deltaColor">颜色差值，格式为"RRGGBB"，如"101010"</param>
+        /// <param name="matchVal">相似度，如0.85，最大为1</param>
+        /// <returns>返回所有匹配结果字符串</returns>
+        public List<MatchResult> FindWindowsFromPathAll(int x1, int y1, int x2, int y2, string templ, string deltaColor, double matchVal){
+            var func = OLAPlugDLLHelper.GetFunction<FindWindowsFromPathAllDelegate>("FindWindowsFromPathAll");
+            var result = PtrToStringUTF8(func(OLAObject, x1, y1, x2, y2, templ, deltaColor, matchVal));
+            if (string.IsNullOrEmpty(result))
+            {
+                return new List<MatchResult>();
+            }
+            return JsonConvert.DeserializeObject<List<MatchResult>>(result);
         }
 
         /// <summary>
@@ -8140,7 +10771,8 @@ namespace OLAPlug
         /// <br/>2. 使用完成后必须调用 RegistryCloseKey 释放句柄
         /// </remarks>
         public long RegistryOpenKey(int rootKey, string subKey){
-            return OLAPlugDLLHelper.RegistryOpenKey(OLAObject, rootKey, subKey);
+            var func = OLAPlugDLLHelper.GetFunction<RegistryOpenKeyDelegate>("RegistryOpenKey");
+            return func(OLAObject, rootKey, subKey);
         }
 
         /// <summary>
@@ -8154,7 +10786,8 @@ namespace OLAPlug
         /// <br/>2. 使用完成后必须调用 RegistryCloseKey 释放句柄
         /// </remarks>
         public long RegistryCreateKey(int rootKey, string subKey){
-            return OLAPlugDLLHelper.RegistryCreateKey(OLAObject, rootKey, subKey);
+            var func = OLAPlugDLLHelper.GetFunction<RegistryCreateKeyDelegate>("RegistryCreateKey");
+            return func(OLAObject, rootKey, subKey);
         }
 
         /// <summary>
@@ -8169,7 +10802,8 @@ namespace OLAPlug
         /// <br/>1. 关闭后句柄失效，不可再使用
         /// </remarks>
         public int RegistryCloseKey(long key){
-            return OLAPlugDLLHelper.RegistryCloseKey(OLAObject, key);
+            var func = OLAPlugDLLHelper.GetFunction<RegistryCloseKeyDelegate>("RegistryCloseKey");
+            return func(OLAObject, key);
         }
 
         /// <summary>
@@ -8182,7 +10816,8 @@ namespace OLAPlug
         ///<br/>1: 表示存在
         /// </returns>
         public int RegistryKeyExists(int rootKey, string subKey){
-            return OLAPlugDLLHelper.RegistryKeyExists(OLAObject, rootKey, subKey);
+            var func = OLAPlugDLLHelper.GetFunction<RegistryKeyExistsDelegate>("RegistryKeyExists");
+            return func(OLAObject, rootKey, subKey);
         }
 
         /// <summary>
@@ -8202,7 +10837,8 @@ namespace OLAPlug
         /// <br/>1. 建议谨慎使用递归删除，避免误删系统关键配置
         /// </remarks>
         public int RegistryDeleteKey(int rootKey, string subKey, int recursive){
-            return OLAPlugDLLHelper.RegistryDeleteKey(OLAObject, rootKey, subKey, recursive);
+            var func = OLAPlugDLLHelper.GetFunction<RegistryDeleteKeyDelegate>("RegistryDeleteKey");
+            return func(OLAObject, rootKey, subKey, recursive);
         }
 
         /// <summary>
@@ -8216,7 +10852,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int RegistrySetString(long key, string valueName, string value){
-            return OLAPlugDLLHelper.RegistrySetString(OLAObject, key, valueName, value);
+            var func = OLAPlugDLLHelper.GetFunction<RegistrySetStringDelegate>("RegistrySetString");
+            return func(OLAObject, key, valueName, value);
         }
 
         /// <summary>
@@ -8229,7 +10866,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串句柄需使用 FreeStringPtr 释放
         /// </remarks>
         public string RegistryGetString(long key, string valueName){
-            return PtrToStringUTF8(OLAPlugDLLHelper.RegistryGetString(OLAObject, key, valueName));
+            var func = OLAPlugDLLHelper.GetFunction<RegistryGetStringDelegate>("RegistryGetString");
+            return PtrToStringUTF8(func(OLAObject, key, valueName));
         }
 
         /// <summary>
@@ -8243,7 +10881,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int RegistrySetDword(long key, string valueName, int value){
-            return OLAPlugDLLHelper.RegistrySetDword(OLAObject, key, valueName, value);
+            var func = OLAPlugDLLHelper.GetFunction<RegistrySetDwordDelegate>("RegistrySetDword");
+            return func(OLAObject, key, valueName, value);
         }
 
         /// <summary>
@@ -8253,7 +10892,8 @@ namespace OLAPlug
         /// <param name="valueName">值名称</param>
         /// <returns>读取到的数值；如果值不存在或类型不匹配，则返回 0</returns>
         public int RegistryGetDword(long key, string valueName){
-            return OLAPlugDLLHelper.RegistryGetDword(OLAObject, key, valueName);
+            var func = OLAPlugDLLHelper.GetFunction<RegistryGetDwordDelegate>("RegistryGetDword");
+            return func(OLAObject, key, valueName);
         }
 
         /// <summary>
@@ -8267,7 +10907,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int RegistrySetQword(long key, string valueName, long value){
-            return OLAPlugDLLHelper.RegistrySetQword(OLAObject, key, valueName, value);
+            var func = OLAPlugDLLHelper.GetFunction<RegistrySetQwordDelegate>("RegistrySetQword");
+            return func(OLAObject, key, valueName, value);
         }
 
         /// <summary>
@@ -8277,7 +10918,8 @@ namespace OLAPlug
         /// <param name="valueName">值名称</param>
         /// <returns>读取到的数值；如果值不存在或类型不匹配，则返回 0</returns>
         public long RegistryGetQword(long key, string valueName){
-            return OLAPlugDLLHelper.RegistryGetQword(OLAObject, key, valueName);
+            var func = OLAPlugDLLHelper.GetFunction<RegistryGetQwordDelegate>("RegistryGetQword");
+            return func(OLAObject, key, valueName);
         }
 
         /// <summary>
@@ -8290,7 +10932,8 @@ namespace OLAPlug
         ///<br/>1: 表示成功或值不存在
         /// </returns>
         public int RegistryDeleteValue(long key, string valueName){
-            return OLAPlugDLLHelper.RegistryDeleteValue(OLAObject, key, valueName);
+            var func = OLAPlugDLLHelper.GetFunction<RegistryDeleteValueDelegate>("RegistryDeleteValue");
+            return func(OLAObject, key, valueName);
         }
 
         /// <summary>
@@ -8302,7 +10945,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串句柄需使用 FreeStringPtr 释放
         /// </remarks>
         public string RegistryEnumSubKeys(long key){
-            return PtrToStringUTF8(OLAPlugDLLHelper.RegistryEnumSubKeys(OLAObject, key));
+            var func = OLAPlugDLLHelper.GetFunction<RegistryEnumSubKeysDelegate>("RegistryEnumSubKeys");
+            return PtrToStringUTF8(func(OLAObject, key));
         }
 
         /// <summary>
@@ -8314,7 +10958,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串句柄需使用 FreeStringPtr 释放
         /// </remarks>
         public string RegistryEnumValues(long key){
-            return PtrToStringUTF8(OLAPlugDLLHelper.RegistryEnumValues(OLAObject, key));
+            var func = OLAPlugDLLHelper.GetFunction<RegistryEnumValuesDelegate>("RegistryEnumValues");
+            return PtrToStringUTF8(func(OLAObject, key));
         }
 
         /// <summary>
@@ -8331,7 +10976,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int RegistrySetEnvironmentVariable(string name, string value, int systemWide){
-            return OLAPlugDLLHelper.RegistrySetEnvironmentVariable(OLAObject, name, value, systemWide);
+            var func = OLAPlugDLLHelper.GetFunction<RegistrySetEnvironmentVariableDelegate>("RegistrySetEnvironmentVariable");
+            return func(OLAObject, name, value, systemWide);
         }
 
         /// <summary>
@@ -8347,7 +10993,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串句柄需使用 FreeStringPtr 释放
         /// </remarks>
         public string RegistryGetEnvironmentVariable(string name, int systemWide){
-            return PtrToStringUTF8(OLAPlugDLLHelper.RegistryGetEnvironmentVariable(OLAObject, name, systemWide));
+            var func = OLAPlugDLLHelper.GetFunction<RegistryGetEnvironmentVariableDelegate>("RegistryGetEnvironmentVariable");
+            return PtrToStringUTF8(func(OLAObject, name, systemWide));
         }
 
         /// <summary>
@@ -8358,7 +11005,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串句柄需使用 FreeStringPtr 释放
         /// </remarks>
         public string RegistryGetUserRegistryPath(){
-            return PtrToStringUTF8(OLAPlugDLLHelper.RegistryGetUserRegistryPath(OLAObject));
+            var func = OLAPlugDLLHelper.GetFunction<RegistryGetUserRegistryPathDelegate>("RegistryGetUserRegistryPath");
+            return PtrToStringUTF8(func(OLAObject));
         }
 
         /// <summary>
@@ -8369,7 +11017,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串句柄需使用 FreeStringPtr 释放
         /// </remarks>
         public string RegistryGetSystemRegistryPath(){
-            return PtrToStringUTF8(OLAPlugDLLHelper.RegistryGetSystemRegistryPath(OLAObject));
+            var func = OLAPlugDLLHelper.GetFunction<RegistryGetSystemRegistryPathDelegate>("RegistryGetSystemRegistryPath");
+            return PtrToStringUTF8(func(OLAObject));
         }
 
         /// <summary>
@@ -8383,7 +11032,8 @@ namespace OLAPlug
         ///<br/>1: 成功 * @note 文件将以标准 .reg 格式保存，可以使用 regedit 导入
         /// </returns>
         public int RegistryBackupToFile(int rootKey, string subKey, string filePath){
-            return OLAPlugDLLHelper.RegistryBackupToFile(OLAObject, rootKey, subKey, filePath);
+            var func = OLAPlugDLLHelper.GetFunction<RegistryBackupToFileDelegate>("RegistryBackupToFile");
+            return func(OLAObject, rootKey, subKey, filePath);
         }
 
         /// <summary>
@@ -8395,7 +11045,8 @@ namespace OLAPlug
         ///<br/>1: 成功 * @note 文件必须是标准 .reg 格式
         /// </returns>
         public int RegistryRestoreFromFile(string filePath){
-            return OLAPlugDLLHelper.RegistryRestoreFromFile(OLAObject, filePath);
+            var func = OLAPlugDLLHelper.GetFunction<RegistryRestoreFromFileDelegate>("RegistryRestoreFromFile");
+            return func(OLAObject, filePath);
         }
 
         /// <summary>
@@ -8410,7 +11061,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串句柄需使用 FreeStringPtr 释放
         /// </remarks>
         public string RegistryCompareKeys(int rootKey1, string subKey1, int rootKey2, string subKey2){
-            return PtrToStringUTF8(OLAPlugDLLHelper.RegistryCompareKeys(OLAObject, rootKey1, subKey1, rootKey2, subKey2));
+            var func = OLAPlugDLLHelper.GetFunction<RegistryCompareKeysDelegate>("RegistryCompareKeys");
+            return PtrToStringUTF8(func(OLAObject, rootKey1, subKey1, rootKey2, subKey2));
         }
 
         /// <summary>
@@ -8428,7 +11080,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串句柄需使用 FreeStringPtr 释放
         /// </remarks>
         public string RegistrySearchKeys(int rootKey, string searchPath, string searchPattern, int recursive){
-            return PtrToStringUTF8(OLAPlugDLLHelper.RegistrySearchKeys(OLAObject, rootKey, searchPath, searchPattern, recursive));
+            var func = OLAPlugDLLHelper.GetFunction<RegistrySearchKeysDelegate>("RegistrySearchKeys");
+            return PtrToStringUTF8(func(OLAObject, rootKey, searchPath, searchPattern, recursive));
         }
 
         /// <summary>
@@ -8440,7 +11093,8 @@ namespace OLAPlug
         /// <br/>2. 该函数会同时扫描 32 位和 64 位软件列表
         /// </remarks>
         public string RegistryGetInstalledSoftware(){
-            return PtrToStringUTF8(OLAPlugDLLHelper.RegistryGetInstalledSoftware(OLAObject));
+            var func = OLAPlugDLLHelper.GetFunction<RegistryGetInstalledSoftwareDelegate>("RegistryGetInstalledSoftware");
+            return PtrToStringUTF8(func(OLAObject));
         }
 
         /// <summary>
@@ -8451,7 +11105,8 @@ namespace OLAPlug
         /// <br/>1. 返回的字符串句柄需使用 FreeStringPtr 释放
         /// </remarks>
         public string RegistryGetWindowsVersion(){
-            return PtrToStringUTF8(OLAPlugDLLHelper.RegistryGetWindowsVersion(OLAObject));
+            var func = OLAPlugDLLHelper.GetFunction<RegistryGetWindowsVersionDelegate>("RegistryGetWindowsVersion");
+            return PtrToStringUTF8(func(OLAObject));
         }
 
         /// <summary>
@@ -8461,7 +11116,8 @@ namespace OLAPlug
         /// <param name="password">数据库密码</param>
         /// <returns>数据库对象，若打开失败，返回0</returns>
         public long CreateDatabase(string dbName, string password){
-            return OLAPlugDLLHelper.CreateDatabase(OLAObject, dbName, password);
+            var func = OLAPlugDLLHelper.GetFunction<CreateDatabaseDelegate>("CreateDatabase");
+            return func(OLAObject, dbName, password);
         }
 
         /// <summary>
@@ -8471,7 +11127,8 @@ namespace OLAPlug
         /// <param name="password">数据库密码</param>
         /// <returns>数据库对象，若打开失败，返回0</returns>
         public long OpenDatabase(string dbName, string password){
-            return OLAPlugDLLHelper.OpenDatabase(OLAObject, dbName, password);
+            var func = OLAPlugDLLHelper.GetFunction<OpenDatabaseDelegate>("OpenDatabase");
+            return func(OLAObject, dbName, password);
         }
 
         /// <summary>
@@ -8482,7 +11139,8 @@ namespace OLAPlug
         /// <param name="password">数据库密码</param>
         /// <returns>数据库连接句柄，如果打开失败则返回 0</returns>
         public long OpenMemoryDatabase(long address, int size, string password){
-            return OLAPlugDLLHelper.OpenMemoryDatabase(OLAObject, address, size, password);
+            var func = OLAPlugDLLHelper.GetFunction<OpenMemoryDatabaseDelegate>("OpenMemoryDatabase");
+            return func(OLAObject, address, size, password);
         }
 
         /// <summary>
@@ -8496,7 +11154,8 @@ namespace OLAPlug
         /// <br/>3. 此函数通常在数据库操作返回错误码后立即调用，以获取当前的错误状态
         /// </remarks>
         public string GetDatabaseError(long db){
-            return PtrToStringUTF8(OLAPlugDLLHelper.GetDatabaseError(OLAObject, db));
+            var func = OLAPlugDLLHelper.GetFunction<GetDatabaseErrorDelegate>("GetDatabaseError");
+            return PtrToStringUTF8(func(OLAObject, db));
         }
 
         /// <summary>
@@ -8514,7 +11173,8 @@ namespace OLAPlug
         /// <br/>4. 为防止资源泄漏，每个成功打开的数据库连接都应调用此接口进行关闭
         /// </remarks>
         public int CloseDatabase(long db){
-            return OLAPlugDLLHelper.CloseDatabase(OLAObject, db);
+            var func = OLAPlugDLLHelper.GetFunction<CloseDatabaseDelegate>("CloseDatabase");
+            return func(OLAObject, db);
         }
 
         /// <summary>
@@ -8529,7 +11189,8 @@ namespace OLAPlug
         /// <br/>4. 此操作不会修改数据库内容，是只读操作
         /// </remarks>
         public string GetAllTableNames(long db){
-            return PtrToStringUTF8(OLAPlugDLLHelper.GetAllTableNames(OLAObject, db));
+            var func = OLAPlugDLLHelper.GetFunction<GetAllTableNamesDelegate>("GetAllTableNames");
+            return PtrToStringUTF8(func(OLAObject, db));
         }
 
         /// <summary>
@@ -8545,7 +11206,8 @@ namespace OLAPlug
         /// <br/>4. 数据类型通常为数据库原生类型，如 INTEGER, TEXT, REAL, BLOB 等
         /// </remarks>
         public string GetTableInfo(long db, string tableName){
-            return PtrToStringUTF8(OLAPlugDLLHelper.GetTableInfo(OLAObject, db, tableName));
+            var func = OLAPlugDLLHelper.GetFunction<GetTableInfoDelegate>("GetTableInfo");
+            return PtrToStringUTF8(func(OLAObject, db, tableName));
         }
 
         /// <summary>
@@ -8561,7 +11223,8 @@ namespace OLAPlug
         /// <br/>4. 此信息可用于动态生成SQL语句或进行数据验证
         /// </remarks>
         public string GetTableInfoDetail(long db, string tableName){
-            return PtrToStringUTF8(OLAPlugDLLHelper.GetTableInfoDetail(OLAObject, db, tableName));
+            var func = OLAPlugDLLHelper.GetFunction<GetTableInfoDetailDelegate>("GetTableInfoDetail");
+            return PtrToStringUTF8(func(OLAObject, db, tableName));
         }
 
         /// <summary>
@@ -8580,7 +11243,8 @@ namespace OLAPlug
         /// <br/>4. 如果SQL语句语法错误或违反约束，将返回 0，可通过 GetDatabaseError 获取错误信息
         /// </remarks>
         public int ExecuteSql(long db, string sql){
-            return OLAPlugDLLHelper.ExecuteSql(OLAObject, db, sql);
+            var func = OLAPlugDLLHelper.GetFunction<ExecuteSqlDelegate>("ExecuteSql");
+            return func(OLAObject, db, sql);
         }
 
         /// <summary>
@@ -8595,7 +11259,8 @@ namespace OLAPlug
         /// <br/>3. 如果查询返回多行或多列，此函数的行为是未定义的，应使用 ExecuteReader
         /// </remarks>
         public int ExecuteScalar(long db, string sql){
-            return OLAPlugDLLHelper.ExecuteScalar(OLAObject, db, sql);
+            var func = OLAPlugDLLHelper.GetFunction<ExecuteScalarDelegate>("ExecuteScalar");
+            return func(OLAObject, db, sql);
         }
 
         /// <summary>
@@ -8611,7 +11276,8 @@ namespace OLAPlug
         /// <br/>4. 如果SQL语句不是查询语句，行为是未定义的，应使用 ExecuteSql
         /// </remarks>
         public long ExecuteReader(long db, string sql){
-            return OLAPlugDLLHelper.ExecuteReader(OLAObject, db, sql);
+            var func = OLAPlugDLLHelper.GetFunction<ExecuteReaderDelegate>("ExecuteReader");
+            return func(OLAObject, db, sql);
         }
 
         /// <summary>
@@ -8630,7 +11296,8 @@ namespace OLAPlug
         /// <br/>4. 返回 1 表示成功读取了一行，此时可以使用 GetXXXByColumnName 或 GetXXX 系列函数获取该行数据
         /// </remarks>
         public int Read(long stmt){
-            return OLAPlugDLLHelper.Read(OLAObject, stmt);
+            var func = OLAPlugDLLHelper.GetFunction<ReadDelegate>("Read");
+            return func(OLAObject, stmt);
         }
 
         /// <summary>
@@ -8645,7 +11312,8 @@ namespace OLAPlug
         /// <br/>4. 在调用 Read 遍历结果集前后调用此函数，返回值应相同
         /// </remarks>
         public int GetDataCount(long stmt){
-            return OLAPlugDLLHelper.GetDataCount(OLAObject, stmt);
+            var func = OLAPlugDLLHelper.GetFunction<GetDataCountDelegate>("GetDataCount");
+            return func(OLAObject, stmt);
         }
 
         /// <summary>
@@ -8660,7 +11328,8 @@ namespace OLAPlug
         /// <br/>4. 获取列数后，可以通过 GetColumnName, GetColumnType 等函数获取每列的元信息
         /// </remarks>
         public int GetColumnCount(long stmt){
-            return OLAPlugDLLHelper.GetColumnCount(OLAObject, stmt);
+            var func = OLAPlugDLLHelper.GetFunction<GetColumnCountDelegate>("GetColumnCount");
+            return func(OLAObject, stmt);
         }
 
         /// <summary>
@@ -8676,7 +11345,8 @@ namespace OLAPlug
         /// <br/>4. 返回的字符串指针由系统管理，调用者无需手动释放内存
         /// </remarks>
         public string GetColumnName(long stmt, int iCol){
-            return PtrToStringUTF8(OLAPlugDLLHelper.GetColumnName(OLAObject, stmt, iCol));
+            var func = OLAPlugDLLHelper.GetFunction<GetColumnNameDelegate>("GetColumnName");
+            return PtrToStringUTF8(func(OLAObject, stmt, iCol));
         }
 
         /// <summary>
@@ -8692,7 +11362,8 @@ namespace OLAPlug
         /// <br/>4. 此函数对于通过列名访问数据非常有用，可以避免硬编码列索引
         /// </remarks>
         public int GetColumnIndex(long stmt, string columnName){
-            return OLAPlugDLLHelper.GetColumnIndex(OLAObject, stmt, columnName);
+            var func = OLAPlugDLLHelper.GetFunction<GetColumnIndexDelegate>("GetColumnIndex");
+            return func(OLAObject, stmt, columnName);
         }
 
         /// <summary>
@@ -8708,7 +11379,8 @@ namespace OLAPlug
         /// <br/>4. 此信息可用于在获取数据前进行类型检查或转换
         /// </remarks>
         public int GetColumnType(long stmt, int iCol){
-            return OLAPlugDLLHelper.GetColumnType(OLAObject, stmt, iCol);
+            var func = OLAPlugDLLHelper.GetFunction<GetColumnTypeDelegate>("GetColumnType");
+            return func(OLAObject, stmt, iCol);
         }
 
         /// <summary>
@@ -8726,7 +11398,8 @@ namespace OLAPlug
         /// <br/>4. 调用此函数后，传入的 reader 句柄将失效，不能再使用
         /// </remarks>
         public int Finalize(long stmt){
-            return OLAPlugDLLHelper.Finalize(OLAObject, stmt);
+            var func = OLAPlugDLLHelper.GetFunction<FinalizeDelegate>("Finalize");
+            return func(OLAObject, stmt);
         }
 
         /// <summary>
@@ -8742,7 +11415,8 @@ namespace OLAPlug
         /// <br/>4. 调用此函数前必须确保已经通过 Read 成功读取到一行有效数据
         /// </remarks>
         public double GetDouble(long stmt, int iCol){
-            return OLAPlugDLLHelper.GetDouble(OLAObject, stmt, iCol);
+            var func = OLAPlugDLLHelper.GetFunction<GetDoubleDelegate>("GetDouble");
+            return func(OLAObject, stmt, iCol);
         }
 
         /// <summary>
@@ -8758,7 +11432,8 @@ namespace OLAPlug
         /// <br/>4. 调用此函数前必须确保已经通过 Read 成功读取到一行有效数据
         /// </remarks>
         public int GetInt32(long stmt, int iCol){
-            return OLAPlugDLLHelper.GetInt32(OLAObject, stmt, iCol);
+            var func = OLAPlugDLLHelper.GetFunction<GetInt32Delegate>("GetInt32");
+            return func(OLAObject, stmt, iCol);
         }
 
         /// <summary>
@@ -8775,7 +11450,8 @@ namespace OLAPlug
         /// <br/>5. 调用此函数前必须确保已经通过 Read 成功读取到一行有效数据
         /// </remarks>
         public long GetInt64(long stmt, int iCol){
-            return OLAPlugDLLHelper.GetInt64(OLAObject, stmt, iCol);
+            var func = OLAPlugDLLHelper.GetFunction<GetInt64Delegate>("GetInt64");
+            return func(OLAObject, stmt, iCol);
         }
 
         /// <summary>
@@ -8792,7 +11468,8 @@ namespace OLAPlug
         /// <br/>5. 调用此函数前必须确保已经通过 Read 成功读取到一行有效数据
         /// </remarks>
         public string GetString(long stmt, int iCol){
-            return PtrToStringUTF8(OLAPlugDLLHelper.GetString(OLAObject, stmt, iCol));
+            var func = OLAPlugDLLHelper.GetFunction<GetStringDelegate>("GetString");
+            return PtrToStringUTF8(func(OLAObject, stmt, iCol));
         }
 
         /// <summary>
@@ -8809,7 +11486,8 @@ namespace OLAPlug
         /// <br/>5. 调用此函数前必须确保已经通过 Read 成功读取到一行有效数据
         /// </remarks>
         public double GetDoubleByColumnName(long stmt, string columnName){
-            return OLAPlugDLLHelper.GetDoubleByColumnName(OLAObject, stmt, columnName);
+            var func = OLAPlugDLLHelper.GetFunction<GetDoubleByColumnNameDelegate>("GetDoubleByColumnName");
+            return func(OLAObject, stmt, columnName);
         }
 
         /// <summary>
@@ -8825,7 +11503,8 @@ namespace OLAPlug
         /// <br/>4. 调用此函数前必须确保已经通过 Read 成功读取到一行有效数据
         /// </remarks>
         public int GetInt32ByColumnName(long stmt, string columnName){
-            return OLAPlugDLLHelper.GetInt32ByColumnName(OLAObject, stmt, columnName);
+            var func = OLAPlugDLLHelper.GetFunction<GetInt32ByColumnNameDelegate>("GetInt32ByColumnName");
+            return func(OLAObject, stmt, columnName);
         }
 
         /// <summary>
@@ -8841,7 +11520,8 @@ namespace OLAPlug
         /// <br/>4. 调用此函数前必须确保已经通过 Read 成功读取到一行有效数据
         /// </remarks>
         public long GetInt64ByColumnName(long stmt, string columnName){
-            return OLAPlugDLLHelper.GetInt64ByColumnName(OLAObject, stmt, columnName);
+            var func = OLAPlugDLLHelper.GetFunction<GetInt64ByColumnNameDelegate>("GetInt64ByColumnName");
+            return func(OLAObject, stmt, columnName);
         }
 
         /// <summary>
@@ -8858,7 +11538,8 @@ namespace OLAPlug
         /// <br/>5. 调用此函数前必须确保已经通过 Read 成功读取到一行有效数据
         /// </remarks>
         public string GetStringByColumnName(long stmt, string columnName){
-            return PtrToStringUTF8(OLAPlugDLLHelper.GetStringByColumnName(OLAObject, stmt, columnName));
+            var func = OLAPlugDLLHelper.GetFunction<GetStringByColumnNameDelegate>("GetStringByColumnName");
+            return PtrToStringUTF8(func(OLAObject, stmt, columnName));
         }
 
         /// <summary>
@@ -8876,7 +11557,8 @@ namespace OLAPlug
         /// <br/>4. 初始化失败通常是因为数据库文件不可写或磁盘空间不足
         /// </remarks>
         public int InitOlaDatabase(long db){
-            return OLAPlugDLLHelper.InitOlaDatabase(OLAObject, db);
+            var func = OLAPlugDLLHelper.GetFunction<InitOlaDatabaseDelegate>("InitOlaDatabase");
+            return func(OLAObject, db);
         }
 
         /// <summary>
@@ -8896,7 +11578,8 @@ namespace OLAPlug
         /// <br/>4. 此操作可能耗时较长，取决于目录中文件的数量和大小
         /// </remarks>
         public int InitOlaImageFromDir(long db, string dir, int cover){
-            return OLAPlugDLLHelper.InitOlaImageFromDir(OLAObject, db, dir, cover);
+            var func = OLAPlugDLLHelper.GetFunction<InitOlaImageFromDirDelegate>("InitOlaImageFromDir");
+            return func(OLAObject, db, dir, cover);
         }
 
         /// <summary>
@@ -8915,7 +11598,8 @@ namespace OLAPlug
         /// <br/>4. 在执行此操作前，请确保不再需要这些图像数据，且没有其他功能依赖于它们
         /// </remarks>
         public int RemoveOlaImageFromDir(long db, string dir){
-            return OLAPlugDLLHelper.RemoveOlaImageFromDir(OLAObject, db, dir);
+            var func = OLAPlugDLLHelper.GetFunction<RemoveOlaImageFromDirDelegate>("RemoveOlaImageFromDir");
+            return func(OLAObject, db, dir);
         }
 
         /// <summary>
@@ -8935,7 +11619,8 @@ namespace OLAPlug
         /// <br/>4. 此操作可用于备份图像数据或在不同系统间迁移数据
         /// </remarks>
         public int ExportOlaImageDir(long db, string dir, string exportDir){
-            return OLAPlugDLLHelper.ExportOlaImageDir(OLAObject, db, dir, exportDir);
+            var func = OLAPlugDLLHelper.GetFunction<ExportOlaImageDirDelegate>("ExportOlaImageDir");
+            return func(OLAObject, db, dir, exportDir);
         }
 
         /// <summary>
@@ -8956,7 +11641,8 @@ namespace OLAPlug
         /// <br/>4. cover 参数决定是否替换数据库中已存在的同名图像
         /// </remarks>
         public int ImportOlaImage(long db, string dir, string fileName, int cover){
-            return OLAPlugDLLHelper.ImportOlaImage(OLAObject, db, dir, fileName, cover);
+            var func = OLAPlugDLLHelper.GetFunction<ImportOlaImageDelegate>("ImportOlaImage");
+            return func(OLAObject, db, dir, fileName, cover);
         }
 
         /// <summary>
@@ -8973,7 +11659,8 @@ namespace OLAPlug
         /// <br/>4. 使用完返回的图像对象指针后，应妥善处理资源，避免内存泄漏。
         /// </remarks>
         public long GetOlaImage(long db, string dir, string fileName){
-            return OLAPlugDLLHelper.GetOlaImage(OLAObject, db, dir, fileName);
+            var func = OLAPlugDLLHelper.GetFunction<GetOlaImageDelegate>("GetOlaImage");
+            return func(OLAObject, db, dir, fileName);
         }
 
         /// <summary>
@@ -8992,7 +11679,8 @@ namespace OLAPlug
         /// <br/>3. 确保目录路径和文件名正确，且图像数据存在于数据库中，否则可能导致移除失败。
         /// </remarks>
         public int RemoveOlaImage(long db, string dir, string fileName){
-            return OLAPlugDLLHelper.RemoveOlaImage(OLAObject, db, dir, fileName);
+            var func = OLAPlugDLLHelper.GetFunction<RemoveOlaImageDelegate>("RemoveOlaImage");
+            return func(OLAObject, db, dir, fileName);
         }
 
         /// <summary>
@@ -9012,7 +11700,8 @@ namespace OLAPlug
         /// <br/>4. 配置项的存储是持久化的，即使关闭数据库后依然存在
         /// </remarks>
         public int SetDbConfig(long db, string key, string value){
-            return OLAPlugDLLHelper.SetDbConfig(OLAObject, db, key, value);
+            var func = OLAPlugDLLHelper.GetFunction<SetDbConfigDelegate>("SetDbConfig");
+            return func(OLAObject, db, key, value);
         }
 
         /// <summary>
@@ -9028,7 +11717,8 @@ namespace OLAPlug
         /// <br/>4. 获取配置项是应用程序读取持久化设置的标准方式
         /// </remarks>
         public string GetDbConfig(long db, string key){
-            return PtrToStringUTF8(OLAPlugDLLHelper.GetDbConfig(OLAObject, db, key));
+            var func = OLAPlugDLLHelper.GetFunction<GetDbConfigDelegate>("GetDbConfig");
+            return PtrToStringUTF8(func(OLAObject, db, key));
         }
 
         /// <summary>
@@ -9047,7 +11737,8 @@ namespace OLAPlug
         /// <br/>4. 此操作不会影响其他配置项
         /// </remarks>
         public int RemoveDbConfig(long db, string key){
-            return OLAPlugDLLHelper.RemoveDbConfig(OLAObject, db, key);
+            var func = OLAPlugDLLHelper.GetFunction<RemoveDbConfigDelegate>("RemoveDbConfig");
+            return func(OLAObject, db, key);
         }
 
         /// <summary>
@@ -9066,7 +11757,8 @@ namespace OLAPlug
         /// <br/>4. 此函数提供了更灵活的配置管理能力
         /// </remarks>
         public int SetDbConfigEx(string key, string value){
-            return OLAPlugDLLHelper.SetDbConfigEx(OLAObject, key, value);
+            var func = OLAPlugDLLHelper.GetFunction<SetDbConfigExDelegate>("SetDbConfigEx");
+            return func(OLAObject, key, value);
         }
 
         /// <summary>
@@ -9081,7 +11773,8 @@ namespace OLAPlug
         /// <br/>4. 如果指定的作用域和键的组合不存在，函数返回 0
         /// </remarks>
         public string GetDbConfigEx(string key){
-            return PtrToStringUTF8(OLAPlugDLLHelper.GetDbConfigEx(OLAObject, key));
+            var func = OLAPlugDLLHelper.GetFunction<GetDbConfigExDelegate>("GetDbConfigEx");
+            return PtrToStringUTF8(func(OLAObject, key));
         }
 
         /// <summary>
@@ -9099,7 +11792,8 @@ namespace OLAPlug
         /// <br/>4. 删除后，该作用域下的该键将不再存在
         /// </remarks>
         public int RemoveDbConfigEx(string key){
-            return OLAPlugDLLHelper.RemoveDbConfigEx(OLAObject, key);
+            var func = OLAPlugDLLHelper.GetFunction<RemoveDbConfigExDelegate>("RemoveDbConfigEx");
+            return func(OLAObject, key);
         }
 
         /// <summary>
@@ -9120,7 +11814,8 @@ namespace OLAPlug
         /// <br/>4. 确保目录路径正确，且图像文件格式受支持，否则可能导致初始化失败
         /// </remarks>
         public int InitDictFromDir(long db, string dict_name, string dict_path, int cover){
-            return OLAPlugDLLHelper.InitDictFromDir(OLAObject, db, dict_name, dict_path, cover);
+            var func = OLAPlugDLLHelper.GetFunction<InitDictFromDirDelegate>("InitDictFromDir");
+            return func(OLAObject, db, dict_name, dict_path, cover);
         }
 
         /// <summary>
@@ -9141,7 +11836,8 @@ namespace OLAPlug
         /// <br/>4. 确保文本路径正确，且文本文件格式受支持，否则可能导致初始化失败
         /// </remarks>
         public int InitDictFromTxt(long db, string dict_name, string dict_path, int cover){
-            return OLAPlugDLLHelper.InitDictFromTxt(OLAObject, db, dict_name, dict_path, cover);
+            var func = OLAPlugDLLHelper.GetFunction<InitDictFromTxtDelegate>("InitDictFromTxt");
+            return func(OLAObject, db, dict_name, dict_path, cover);
         }
 
         /// <summary>
@@ -9165,7 +11861,8 @@ namespace OLAPlug
         /// <br/>4. 确保目录路径和文件名正确，且图像文件格式受支持，否则可能导致导入失败。
         /// </remarks>
         public int ImportDictWord(long db, string dict_name, string pic_file_name, int cover){
-            return OLAPlugDLLHelper.ImportDictWord(OLAObject, db, dict_name, pic_file_name, cover);
+            var func = OLAPlugDLLHelper.GetFunction<ImportDictWordDelegate>("ImportDictWord");
+            return func(OLAObject, db, dict_name, pic_file_name, cover);
         }
 
         /// <summary>
@@ -9185,7 +11882,8 @@ namespace OLAPlug
         /// <br/>4. 导出的图像文件将保存在 exportDir 指定的目录中，确保目标目录有足够的存储空间
         /// </remarks>
         public int ExportDict(long db, string dict_name, string export_dir){
-            return OLAPlugDLLHelper.ExportDict(OLAObject, db, dict_name, export_dir);
+            var func = OLAPlugDLLHelper.GetFunction<ExportDictDelegate>("ExportDict");
+            return func(OLAObject, db, dict_name, export_dir);
         }
 
         /// <summary>
@@ -9204,7 +11902,8 @@ namespace OLAPlug
         /// <br/>4. 在执行此操作前应确保没有其他进程或功能依赖于该字库
         /// </remarks>
         public int RemoveDict(long db, string dict_name){
-            return OLAPlugDLLHelper.RemoveDict(OLAObject, db, dict_name);
+            var func = OLAPlugDLLHelper.GetFunction<RemoveDictDelegate>("RemoveDict");
+            return func(OLAObject, db, dict_name);
         }
 
         /// <summary>
@@ -9224,7 +11923,8 @@ namespace OLAPlug
         /// <br/>4. 此接口适用于维护和更新字库，移除不再需要或错误的字符
         /// </remarks>
         public int RemoveDictWord(long db, string dict_name, string word){
-            return OLAPlugDLLHelper.RemoveDictWord(OLAObject, db, dict_name, word);
+            var func = OLAPlugDLLHelper.GetFunction<RemoveDictWordDelegate>("RemoveDictWord");
+            return func(OLAObject, db, dict_name, word);
         }
 
         /// <summary>
@@ -9246,7 +11946,8 @@ namespace OLAPlug
         /// <br/>4. 使用完返回的图像对象指针后，应妥善处理资源，避免内存泄漏
         /// </remarks>
         public long GetDictImage(long db, string dict_name, string word, int gap, int dir){
-            return OLAPlugDLLHelper.GetDictImage(OLAObject, db, dict_name, word, gap, dir);
+            var func = OLAPlugDLLHelper.GetFunction<GetDictImageDelegate>("GetDictImage");
+            return func(OLAObject, db, dict_name, word, gap, dir);
         }
 
         /// <summary>
@@ -9258,7 +11959,8 @@ namespace OLAPlug
         /// <br/>1. 返回的句柄用于后续的视频操作，使用完毕后需调用CloseVideo释放
         /// </remarks>
         public long OpenVideo(string videoPath){
-            return OLAPlugDLLHelper.OpenVideo(OLAObject, videoPath);
+            var func = OLAPlugDLLHelper.GetFunction<OpenVideoDelegate>("OpenVideo");
+            return func(OLAObject, videoPath);
         }
 
         /// <summary>
@@ -9270,7 +11972,8 @@ namespace OLAPlug
         /// <br/>1. 返回的句柄用于后续的视频操作，使用完毕后需调用CloseVideo释放
         /// </remarks>
         public long OpenCamera(int deviceIndex){
-            return OLAPlugDLLHelper.OpenCamera(OLAObject, deviceIndex);
+            var func = OLAPlugDLLHelper.GetFunction<OpenCameraDelegate>("OpenCamera");
+            return func(OLAObject, deviceIndex);
         }
 
         /// <summary>
@@ -9282,7 +11985,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int CloseVideo(long videoHandle){
-            return OLAPlugDLLHelper.CloseVideo(OLAObject, videoHandle);
+            var func = OLAPlugDLLHelper.GetFunction<CloseVideoDelegate>("CloseVideo");
+            return func(OLAObject, videoHandle);
         }
 
         /// <summary>
@@ -9294,7 +11998,8 @@ namespace OLAPlug
         ///<br/>1: 已打开
         /// </returns>
         public int IsVideoOpened(long videoHandle){
-            return OLAPlugDLLHelper.IsVideoOpened(OLAObject, videoHandle);
+            var func = OLAPlugDLLHelper.GetFunction<IsVideoOpenedDelegate>("IsVideoOpened");
+            return func(OLAObject, videoHandle);
         }
 
         /// <summary>
@@ -9306,7 +12011,8 @@ namespace OLAPlug
         /// <br/>1. JSON包含：width, height, fps, totalFrames, duration, codecName, fileSize
         /// </remarks>
         public string GetVideoInfo(long videoHandle){
-            return PtrToStringUTF8(OLAPlugDLLHelper.GetVideoInfo(OLAObject, videoHandle));
+            var func = OLAPlugDLLHelper.GetFunction<GetVideoInfoDelegate>("GetVideoInfo");
+            return PtrToStringUTF8(func(OLAObject, videoHandle));
         }
 
         /// <summary>
@@ -9315,7 +12021,8 @@ namespace OLAPlug
         /// <param name="videoHandle">视频句柄</param>
         /// <returns>视频宽度（像素），失败返回0</returns>
         public int GetVideoWidth(long videoHandle){
-            return OLAPlugDLLHelper.GetVideoWidth(OLAObject, videoHandle);
+            var func = OLAPlugDLLHelper.GetFunction<GetVideoWidthDelegate>("GetVideoWidth");
+            return func(OLAObject, videoHandle);
         }
 
         /// <summary>
@@ -9324,7 +12031,8 @@ namespace OLAPlug
         /// <param name="videoHandle">视频句柄</param>
         /// <returns>视频高度（像素），失败返回0</returns>
         public int GetVideoHeight(long videoHandle){
-            return OLAPlugDLLHelper.GetVideoHeight(OLAObject, videoHandle);
+            var func = OLAPlugDLLHelper.GetFunction<GetVideoHeightDelegate>("GetVideoHeight");
+            return func(OLAObject, videoHandle);
         }
 
         /// <summary>
@@ -9333,7 +12041,8 @@ namespace OLAPlug
         /// <param name="videoHandle">视频句柄</param>
         /// <returns>视频帧率（FPS），失败返回0.0</returns>
         public double GetVideoFPS(long videoHandle){
-            return OLAPlugDLLHelper.GetVideoFPS(OLAObject, videoHandle);
+            var func = OLAPlugDLLHelper.GetFunction<GetVideoFPSDelegate>("GetVideoFPS");
+            return func(OLAObject, videoHandle);
         }
 
         /// <summary>
@@ -9342,7 +12051,8 @@ namespace OLAPlug
         /// <param name="videoHandle">视频句柄</param>
         /// <returns>视频总帧数，失败返回0</returns>
         public int GetVideoTotalFrames(long videoHandle){
-            return OLAPlugDLLHelper.GetVideoTotalFrames(OLAObject, videoHandle);
+            var func = OLAPlugDLLHelper.GetFunction<GetVideoTotalFramesDelegate>("GetVideoTotalFrames");
+            return func(OLAObject, videoHandle);
         }
 
         /// <summary>
@@ -9351,7 +12061,8 @@ namespace OLAPlug
         /// <param name="videoHandle">视频句柄</param>
         /// <returns>视频时长（秒），失败返回0.0</returns>
         public double GetVideoDuration(long videoHandle){
-            return OLAPlugDLLHelper.GetVideoDuration(OLAObject, videoHandle);
+            var func = OLAPlugDLLHelper.GetFunction<GetVideoDurationDelegate>("GetVideoDuration");
+            return func(OLAObject, videoHandle);
         }
 
         /// <summary>
@@ -9360,7 +12071,8 @@ namespace OLAPlug
         /// <param name="videoHandle">视频句柄</param>
         /// <returns>当前帧索引，失败返回-1</returns>
         public int GetCurrentFrameIndex(long videoHandle){
-            return OLAPlugDLLHelper.GetCurrentFrameIndex(OLAObject, videoHandle);
+            var func = OLAPlugDLLHelper.GetFunction<GetCurrentFrameIndexDelegate>("GetCurrentFrameIndex");
+            return func(OLAObject, videoHandle);
         }
 
         /// <summary>
@@ -9369,7 +12081,8 @@ namespace OLAPlug
         /// <param name="videoHandle">视频句柄</param>
         /// <returns>当前时间戳（秒），失败返回0.0</returns>
         public double GetCurrentTimestamp(long videoHandle){
-            return OLAPlugDLLHelper.GetCurrentTimestamp(OLAObject, videoHandle);
+            var func = OLAPlugDLLHelper.GetFunction<GetCurrentTimestampDelegate>("GetCurrentTimestamp");
+            return func(OLAObject, videoHandle);
         }
 
         /// <summary>
@@ -9381,7 +12094,8 @@ namespace OLAPlug
         /// <br/>1. 返回的图像句柄由内部管理，不需要手动释放
         /// </remarks>
         public long ReadNextFrame(long videoHandle){
-            return OLAPlugDLLHelper.ReadNextFrame(OLAObject, videoHandle);
+            var func = OLAPlugDLLHelper.GetFunction<ReadNextFrameDelegate>("ReadNextFrame");
+            return func(OLAObject, videoHandle);
         }
 
         /// <summary>
@@ -9394,7 +12108,8 @@ namespace OLAPlug
         /// <br/>1. 返回的图像句柄由内部管理，不需要手动释放
         /// </remarks>
         public long ReadFrameAtIndex(long videoHandle, int frameIndex){
-            return OLAPlugDLLHelper.ReadFrameAtIndex(OLAObject, videoHandle, frameIndex);
+            var func = OLAPlugDLLHelper.GetFunction<ReadFrameAtIndexDelegate>("ReadFrameAtIndex");
+            return func(OLAObject, videoHandle, frameIndex);
         }
 
         /// <summary>
@@ -9407,7 +12122,8 @@ namespace OLAPlug
         /// <br/>1. 返回的图像句柄由内部管理，不需要手动释放
         /// </remarks>
         public long ReadFrameAtTime(long videoHandle, double timestamp){
-            return OLAPlugDLLHelper.ReadFrameAtTime(OLAObject, videoHandle, timestamp);
+            var func = OLAPlugDLLHelper.GetFunction<ReadFrameAtTimeDelegate>("ReadFrameAtTime");
+            return func(OLAObject, videoHandle, timestamp);
         }
 
         /// <summary>
@@ -9419,7 +12135,8 @@ namespace OLAPlug
         /// <br/>1. 返回的图像句柄由内部管理，不需要手动释放
         /// </remarks>
         public long ReadCurrentFrame(long videoHandle){
-            return OLAPlugDLLHelper.ReadCurrentFrame(OLAObject, videoHandle);
+            var func = OLAPlugDLLHelper.GetFunction<ReadCurrentFrameDelegate>("ReadCurrentFrame");
+            return func(OLAObject, videoHandle);
         }
 
         /// <summary>
@@ -9432,7 +12149,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int SeekToFrame(long videoHandle, int frameIndex){
-            return OLAPlugDLLHelper.SeekToFrame(OLAObject, videoHandle, frameIndex);
+            var func = OLAPlugDLLHelper.GetFunction<SeekToFrameDelegate>("SeekToFrame");
+            return func(OLAObject, videoHandle, frameIndex);
         }
 
         /// <summary>
@@ -9445,7 +12163,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int SeekToTime(long videoHandle, double timestamp){
-            return OLAPlugDLLHelper.SeekToTime(OLAObject, videoHandle, timestamp);
+            var func = OLAPlugDLLHelper.GetFunction<SeekToTimeDelegate>("SeekToTime");
+            return func(OLAObject, videoHandle, timestamp);
         }
 
         /// <summary>
@@ -9457,7 +12176,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int SeekToBeginning(long videoHandle){
-            return OLAPlugDLLHelper.SeekToBeginning(OLAObject, videoHandle);
+            var func = OLAPlugDLLHelper.GetFunction<SeekToBeginningDelegate>("SeekToBeginning");
+            return func(OLAObject, videoHandle);
         }
 
         /// <summary>
@@ -9469,7 +12189,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int SeekToEnd(long videoHandle){
-            return OLAPlugDLLHelper.SeekToEnd(OLAObject, videoHandle);
+            var func = OLAPlugDLLHelper.GetFunction<SeekToEndDelegate>("SeekToEnd");
+            return func(OLAObject, videoHandle);
         }
 
         /// <summary>
@@ -9484,7 +12205,8 @@ namespace OLAPlug
         /// <param name="jpegQuality">JPEG质量（0-100）</param>
         /// <returns>返回提取的帧数，失败返回0</returns>
         public int ExtractFramesToFiles(long videoHandle, int startFrame, int endFrame, int step, string outputDir, string imageFormat, int jpegQuality){
-            return OLAPlugDLLHelper.ExtractFramesToFiles(OLAObject, videoHandle, startFrame, endFrame, step, outputDir, imageFormat, jpegQuality);
+            var func = OLAPlugDLLHelper.GetFunction<ExtractFramesToFilesDelegate>("ExtractFramesToFiles");
+            return func(OLAObject, videoHandle, startFrame, endFrame, step, outputDir, imageFormat, jpegQuality);
         }
 
         /// <summary>
@@ -9496,7 +12218,8 @@ namespace OLAPlug
         /// <param name="imageFormat">图像格式（"png"、"jpg"等）</param>
         /// <returns>返回提取的帧数，失败返回0</returns>
         public int ExtractFramesByInterval(long videoHandle, double intervalSeconds, string outputDir, string imageFormat){
-            return OLAPlugDLLHelper.ExtractFramesByInterval(OLAObject, videoHandle, intervalSeconds, outputDir, imageFormat);
+            var func = OLAPlugDLLHelper.GetFunction<ExtractFramesByIntervalDelegate>("ExtractFramesByInterval");
+            return func(OLAObject, videoHandle, intervalSeconds, outputDir, imageFormat);
         }
 
         /// <summary>
@@ -9509,7 +12232,8 @@ namespace OLAPlug
         /// <param name="imageFormat">图像格式（"png"、"jpg"等）</param>
         /// <returns>返回提取的关键帧数，失败返回0</returns>
         public int ExtractKeyFrames(long videoHandle, double threshold, int maxFrames, string outputDir, string imageFormat){
-            return OLAPlugDLLHelper.ExtractKeyFrames(OLAObject, videoHandle, threshold, maxFrames, outputDir, imageFormat);
+            var func = OLAPlugDLLHelper.GetFunction<ExtractKeyFramesDelegate>("ExtractKeyFrames");
+            return func(OLAObject, videoHandle, threshold, maxFrames, outputDir, imageFormat);
         }
 
         /// <summary>
@@ -9523,7 +12247,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int SaveCurrentFrame(long videoHandle, string outputPath, int quality){
-            return OLAPlugDLLHelper.SaveCurrentFrame(OLAObject, videoHandle, outputPath, quality);
+            var func = OLAPlugDLLHelper.GetFunction<SaveCurrentFrameDelegate>("SaveCurrentFrame");
+            return func(OLAObject, videoHandle, outputPath, quality);
         }
 
         /// <summary>
@@ -9538,7 +12263,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int SaveFrameAtIndex(long videoHandle, int frameIndex, string outputPath, int quality){
-            return OLAPlugDLLHelper.SaveFrameAtIndex(OLAObject, videoHandle, frameIndex, outputPath, quality);
+            var func = OLAPlugDLLHelper.GetFunction<SaveFrameAtIndexDelegate>("SaveFrameAtIndex");
+            return func(OLAObject, videoHandle, frameIndex, outputPath, quality);
         }
 
         /// <summary>
@@ -9548,7 +12274,8 @@ namespace OLAPlug
         /// <param name="format">图片格式（"png"、"jpg"等）</param>
         /// <returns>返回Base64编码的图片数据字符串指针，需调用FreeStringPtr释放；失败返回0</returns>
         public string FrameToBase64(long videoHandle, string format){
-            return PtrToStringUTF8(OLAPlugDLLHelper.FrameToBase64(OLAObject, videoHandle, format));
+            var func = OLAPlugDLLHelper.GetFunction<FrameToBase64Delegate>("FrameToBase64");
+            return PtrToStringUTF8(func(OLAObject, videoHandle, format));
         }
 
         /// <summary>
@@ -9558,7 +12285,8 @@ namespace OLAPlug
         /// <param name="frame2">第二帧图像句柄</param>
         /// <returns>相似度（0-1，1表示完全相同）</returns>
         public double CalculateFrameSimilarity(long frame1, long frame2){
-            return OLAPlugDLLHelper.CalculateFrameSimilarity(OLAObject, frame1, frame2);
+            var func = OLAPlugDLLHelper.GetFunction<CalculateFrameSimilarityDelegate>("CalculateFrameSimilarity");
+            return func(OLAObject, frame1, frame2);
         }
 
         /// <summary>
@@ -9567,7 +12295,8 @@ namespace OLAPlug
         /// <param name="videoPath">视频文件路径</param>
         /// <returns>返回包含视频信息的JSON字符串指针，需调用FreeStringPtr释放；失败返回0</returns>
         public string GetVideoInfoFromPath(string videoPath){
-            return PtrToStringUTF8(OLAPlugDLLHelper.GetVideoInfoFromPath(OLAObject, videoPath));
+            var func = OLAPlugDLLHelper.GetFunction<GetVideoInfoFromPathDelegate>("GetVideoInfoFromPath");
+            return PtrToStringUTF8(func(OLAObject, videoPath));
         }
 
         /// <summary>
@@ -9579,7 +12308,8 @@ namespace OLAPlug
         ///<br/>1: 有效
         /// </returns>
         public int IsValidVideoFile(string videoPath){
-            return OLAPlugDLLHelper.IsValidVideoFile(OLAObject, videoPath);
+            var func = OLAPlugDLLHelper.GetFunction<IsValidVideoFileDelegate>("IsValidVideoFile");
+            return func(OLAObject, videoPath);
         }
 
         /// <summary>
@@ -9592,7 +12322,8 @@ namespace OLAPlug
         /// <br/>1. 返回的图像句柄需调用FreeImagePtr释放
         /// </remarks>
         public long ExtractSingleFrame(string videoPath, int frameIndex){
-            return OLAPlugDLLHelper.ExtractSingleFrame(OLAObject, videoPath, frameIndex);
+            var func = OLAPlugDLLHelper.GetFunction<ExtractSingleFrameDelegate>("ExtractSingleFrame");
+            return func(OLAObject, videoPath, frameIndex);
         }
 
         /// <summary>
@@ -9604,7 +12335,8 @@ namespace OLAPlug
         /// <br/>1. 返回的图像句柄需调用FreeImagePtr释放
         /// </remarks>
         public long ExtractThumbnail(string videoPath){
-            return OLAPlugDLLHelper.ExtractThumbnail(OLAObject, videoPath);
+            var func = OLAPlugDLLHelper.GetFunction<ExtractThumbnailDelegate>("ExtractThumbnail");
+            return func(OLAObject, videoPath);
         }
 
         /// <summary>
@@ -9619,7 +12351,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int ConvertVideo(string inputPath, string outputPath, string codec, double fps){
-            return OLAPlugDLLHelper.ConvertVideo(OLAObject, inputPath, outputPath, codec, fps);
+            var func = OLAPlugDLLHelper.GetFunction<ConvertVideoDelegate>("ConvertVideo");
+            return func(OLAObject, inputPath, outputPath, codec, fps);
         }
 
         /// <summary>
@@ -9634,7 +12367,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int ResizeVideo(string inputPath, string outputPath, int width, int height){
-            return OLAPlugDLLHelper.ResizeVideo(OLAObject, inputPath, outputPath, width, height);
+            var func = OLAPlugDLLHelper.GetFunction<ResizeVideoDelegate>("ResizeVideo");
+            return func(OLAObject, inputPath, outputPath, width, height);
         }
 
         /// <summary>
@@ -9649,7 +12383,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int TrimVideo(string inputPath, string outputPath, double startTime, double endTime){
-            return OLAPlugDLLHelper.TrimVideo(OLAObject, inputPath, outputPath, startTime, endTime);
+            var func = OLAPlugDLLHelper.GetFunction<TrimVideoDelegate>("TrimVideo");
+            return func(OLAObject, inputPath, outputPath, startTime, endTime);
         }
 
         /// <summary>
@@ -9667,7 +12402,8 @@ namespace OLAPlug
         /// <br/>1. 图片文件名应按字母顺序排列
         /// </remarks>
         public int CreateVideoFromImages(string imageDir, string outputPath, double fps, string codec){
-            return OLAPlugDLLHelper.CreateVideoFromImages(OLAObject, imageDir, outputPath, fps, codec);
+            var func = OLAPlugDLLHelper.GetFunction<CreateVideoFromImagesDelegate>("CreateVideoFromImages");
+            return func(OLAObject, imageDir, outputPath, fps, codec);
         }
 
         /// <summary>
@@ -9680,7 +12416,8 @@ namespace OLAPlug
         /// <br/>1. JSON格式：[0, 123, 456, ...]
         /// </remarks>
         public string DetectSceneChanges(string videoPath, double threshold){
-            return PtrToStringUTF8(OLAPlugDLLHelper.DetectSceneChanges(OLAObject, videoPath, threshold));
+            var func = OLAPlugDLLHelper.GetFunction<DetectSceneChangesDelegate>("DetectSceneChanges");
+            return PtrToStringUTF8(func(OLAObject, videoPath, threshold));
         }
 
         /// <summary>
@@ -9689,7 +12426,8 @@ namespace OLAPlug
         /// <param name="videoPath">视频文件路径</param>
         /// <returns>平均亮度（0-255），失败返回-1</returns>
         public double CalculateAverageBrightness(string videoPath){
-            return OLAPlugDLLHelper.CalculateAverageBrightness(OLAObject, videoPath);
+            var func = OLAPlugDLLHelper.GetFunction<CalculateAverageBrightnessDelegate>("CalculateAverageBrightness");
+            return func(OLAObject, videoPath);
         }
 
         /// <summary>
@@ -9702,7 +12440,8 @@ namespace OLAPlug
         /// <br/>1. JSON格式：[10, 25, 67, ...]
         /// </remarks>
         public string DetectMotion(string videoPath, double threshold){
-            return PtrToStringUTF8(OLAPlugDLLHelper.DetectMotion(OLAObject, videoPath, threshold));
+            var func = OLAPlugDLLHelper.GetFunction<DetectMotionDelegate>("DetectMotion");
+            return PtrToStringUTF8(func(OLAObject, videoPath, threshold));
         }
 
         /// <summary>
@@ -9738,7 +12477,8 @@ namespace OLAPlug
         /// <br/>4. 部分状态设置可能会受到系统或应用程序的安全策略限制
         /// </remarks>
         public int SetWindowState(long hwnd, int state){
-            return OLAPlugDLLHelper.SetWindowState(OLAObject, hwnd, state);
+            var func = OLAPlugDLLHelper.GetFunction<SetWindowStateDelegate>("SetWindowState");
+            return func(OLAObject, hwnd, state);
         }
 
         /// <summary>
@@ -9748,7 +12488,8 @@ namespace OLAPlug
         /// <param name="title">窗口标题，支持模糊匹配。如果为空字符串，则匹配所有标题。</param>
         /// <returns>返回找到的窗口句柄，如果未找到匹配的窗口，返回0</returns>
         public long FindWindow(string class_name, string title){
-            return OLAPlugDLLHelper.FindWindow(OLAObject, class_name, title);
+            var func = OLAPlugDLLHelper.GetFunction<FindWindowDelegate>("FindWindow");
+            return func(OLAObject, class_name, title);
         }
 
         /// <summary>
@@ -9762,7 +12503,8 @@ namespace OLAPlug
         /// <br/>4. 如果剪贴板被其他程序占用，函数可能失败
         /// </remarks>
         public long GetClipboard(){
-            return OLAPlugDLLHelper.GetClipboard(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<GetClipboardDelegate>("GetClipboard");
+            return func(OLAObject);
         }
 
         /// <summary>
@@ -9780,7 +12522,8 @@ namespace OLAPlug
         /// <br/>4. 如果剪贴板被其他程序长时间占用，设置可能会失败
         /// </remarks>
         public int SetClipboard(string text){
-            return OLAPlugDLLHelper.SetClipboard(OLAObject, text);
+            var func = OLAPlugDLLHelper.GetFunction<SetClipboardDelegate>("SetClipboard");
+            return func(OLAObject, text);
         }
 
         /// <summary>
@@ -9798,7 +12541,8 @@ namespace OLAPlug
         /// <br/>4. 此操作是发送消息，不保证目标窗口一定会执行粘贴
         /// </remarks>
         public int SendPaste(long hwnd){
-            return OLAPlugDLLHelper.SendPaste(OLAObject, hwnd);
+            var func = OLAPlugDLLHelper.GetFunction<SendPasteDelegate>("SendPaste");
+            return func(OLAObject, hwnd);
         }
 
         /// <summary>
@@ -9817,7 +12561,8 @@ namespace OLAPlug
         /// </param>
         /// <returns>返回指定类型的窗口句柄</returns>
         public long GetWindow(long hwnd, int flag){
-            return OLAPlugDLLHelper.GetWindow(OLAObject, hwnd, flag);
+            var func = OLAPlugDLLHelper.GetFunction<GetWindowDelegate>("GetWindow");
+            return func(OLAObject, hwnd, flag);
         }
 
         /// <summary>
@@ -9832,7 +12577,8 @@ namespace OLAPlug
         /// <br/>4. 如果窗口句柄无效或不可访问，函数将失败
         /// </remarks>
         public string GetWindowTitle(long hwnd){
-            return PtrToStringUTF8(OLAPlugDLLHelper.GetWindowTitle(OLAObject, hwnd));
+            var func = OLAPlugDLLHelper.GetFunction<GetWindowTitleDelegate>("GetWindowTitle");
+            return PtrToStringUTF8(func(OLAObject, hwnd));
         }
 
         /// <summary>
@@ -9847,7 +12593,8 @@ namespace OLAPlug
         /// <br/>4. 类名对于窗口识别和自动化操作非常重要
         /// </remarks>
         public string GetWindowClass(long hwnd){
-            return PtrToStringUTF8(OLAPlugDLLHelper.GetWindowClass(OLAObject, hwnd));
+            var func = OLAPlugDLLHelper.GetFunction<GetWindowClassDelegate>("GetWindowClass");
+            return PtrToStringUTF8(func(OLAObject, hwnd));
         }
 
         /// <summary>
@@ -9870,7 +12617,8 @@ namespace OLAPlug
         /// <br/>5. 对于多显示器系统，坐标值可能为负数，这表示窗口位于主显示器左侧或上方的显示器上
         /// </remarks>
         public int GetWindowRect(long hwnd, out int x1, out int y1, out int x2, out int y2){
-            return OLAPlugDLLHelper.GetWindowRect(OLAObject, hwnd, out x1, out y1, out x2, out y2);
+            var func = OLAPlugDLLHelper.GetFunction<GetWindowRectDelegate>("GetWindowRect");
+            return func(OLAObject, hwnd, out x1, out y1, out x2, out y2);
         }
 
         /// <summary>
@@ -9885,7 +12633,8 @@ namespace OLAPlug
         /// <br/>4. 在某些权限受限或系统保护的进程中，获取路径可能会失败
         /// </remarks>
         public string GetWindowProcessPath(long hwnd){
-            return PtrToStringUTF8(OLAPlugDLLHelper.GetWindowProcessPath(OLAObject, hwnd));
+            var func = OLAPlugDLLHelper.GetFunction<GetWindowProcessPathDelegate>("GetWindowProcessPath");
+            return PtrToStringUTF8(func(OLAObject, hwnd));
         }
 
         /// <summary>
@@ -9913,7 +12662,8 @@ namespace OLAPlug
         /// <br/>4. 对于系统窗口或特权窗口，某些状态可能无法正确获取
         /// </remarks>
         public int GetWindowState(long hwnd, int flag){
-            return OLAPlugDLLHelper.GetWindowState(OLAObject, hwnd, flag);
+            var func = OLAPlugDLLHelper.GetFunction<GetWindowStateDelegate>("GetWindowState");
+            return func(OLAObject, hwnd, flag);
         }
 
         /// <summary>
@@ -9927,7 +12677,8 @@ namespace OLAPlug
         /// <br/>4. 在多显示器或特定系统设置下，前台窗口可能为空
         /// </remarks>
         public long GetForegroundWindow(){
-            return OLAPlugDLLHelper.GetForegroundWindow(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<GetForegroundWindowDelegate>("GetForegroundWindow");
+            return func(OLAObject);
         }
 
         /// <summary>
@@ -9942,7 +12693,8 @@ namespace OLAPlug
         /// <br/>4. 如果窗口属于系统进程或权限受限，获取PID可能会失败
         /// </remarks>
         public int GetWindowProcessId(long hwnd){
-            return OLAPlugDLLHelper.GetWindowProcessId(OLAObject, hwnd);
+            var func = OLAPlugDLLHelper.GetFunction<GetWindowProcessIdDelegate>("GetWindowProcessId");
+            return func(OLAObject, hwnd);
         }
 
         /// <summary>
@@ -9962,7 +12714,8 @@ namespace OLAPlug
         /// <br/>4. 此函数对于UI自动化和截图定位至关重要
         /// </remarks>
         public int GetClientSize(long hwnd, out int width, out int height){
-            return OLAPlugDLLHelper.GetClientSize(OLAObject, hwnd, out width, out height);
+            var func = OLAPlugDLLHelper.GetFunction<GetClientSizeDelegate>("GetClientSize");
+            return func(OLAObject, hwnd, out width, out height);
         }
 
         /// <summary>
@@ -9976,7 +12729,8 @@ namespace OLAPlug
         /// <br/>4. 在鼠标位于桌面或无窗口区域时，行为可能未定义
         /// </remarks>
         public long GetMousePointWindow(){
-            return OLAPlugDLLHelper.GetMousePointWindow(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<GetMousePointWindowDelegate>("GetMousePointWindow");
+            return func(OLAObject);
         }
 
         /// <summary>
@@ -9991,7 +12745,8 @@ namespace OLAPlug
         /// <br/>4. 不同系统版本下，特殊窗口的句柄和行为可能有所不同
         /// </remarks>
         public long GetSpecialWindow(int flag){
-            return OLAPlugDLLHelper.GetSpecialWindow(OLAObject, flag);
+            var func = OLAPlugDLLHelper.GetFunction<GetSpecialWindowDelegate>("GetSpecialWindow");
+            return func(OLAObject, flag);
         }
 
         /// <summary>
@@ -10014,7 +12769,8 @@ namespace OLAPlug
         /// <br/>5. 如果需要将客户区坐标转换为屏幕坐标，请使用 ClientToScreen 函数与 GetWindowRect
         /// </remarks>
         public int GetClientRect(long hwnd, out int x1, out int y1, out int x2, out int y2){
-            return OLAPlugDLLHelper.GetClientRect(OLAObject, hwnd, out x1, out y1, out x2, out y2);
+            var func = OLAPlugDLLHelper.GetFunction<GetClientRectDelegate>("GetClientRect");
+            return func(OLAObject, hwnd, out x1, out y1, out x2, out y2);
         }
 
         /// <summary>
@@ -10033,7 +12789,8 @@ namespace OLAPlug
         /// <br/>4. 修改标题可能会影响基于标题的窗口查找逻辑
         /// </remarks>
         public int SetWindowText(long hwnd, string title){
-            return OLAPlugDLLHelper.SetWindowText(OLAObject, hwnd, title);
+            var func = OLAPlugDLLHelper.GetFunction<SetWindowTextDelegate>("SetWindowText");
+            return func(OLAObject, hwnd, title);
         }
 
         /// <summary>
@@ -10053,7 +12810,8 @@ namespace OLAPlug
         /// <br/>4. 此操作相当于直接调用 Windows API 的 MoveWindow
         /// </remarks>
         public int SetWindowSize(long hwnd, int width, int height){
-            return OLAPlugDLLHelper.SetWindowSize(OLAObject, hwnd, width, height);
+            var func = OLAPlugDLLHelper.GetFunction<SetWindowSizeDelegate>("SetWindowSize");
+            return func(OLAObject, hwnd, width, height);
         }
 
         /// <summary>
@@ -10073,7 +12831,8 @@ namespace OLAPlug
         /// <br/>4. 设置后，窗口的总体尺寸会大于或等于指定的客户区尺寸
         /// </remarks>
         public int SetClientSize(long hwnd, int width, int height){
-            return OLAPlugDLLHelper.SetClientSize(OLAObject, hwnd, width, height);
+            var func = OLAPlugDLLHelper.GetFunction<SetClientSizeDelegate>("SetClientSize");
+            return func(OLAObject, hwnd, width, height);
         }
 
         /// <summary>
@@ -10092,7 +12851,8 @@ namespace OLAPlug
         /// <br/>4. 此功能常用于制作半透明界面或浮动工具窗口
         /// </remarks>
         public int SetWindowTransparent(long hwnd, int alpha){
-            return OLAPlugDLLHelper.SetWindowTransparent(OLAObject, hwnd, alpha);
+            var func = OLAPlugDLLHelper.GetFunction<SetWindowTransparentDelegate>("SetWindowTransparent");
+            return func(OLAObject, hwnd, alpha);
         }
 
         /// <summary>
@@ -10109,7 +12869,8 @@ namespace OLAPlug
         /// <br/>4. 是实现复杂UI自动化（如操作对话框中的按钮）的关键函数
         /// </remarks>
         public long FindWindowEx(long parent, string class_name, string title){
-            return OLAPlugDLLHelper.FindWindowEx(OLAObject, parent, class_name, title);
+            var func = OLAPlugDLLHelper.GetFunction<FindWindowExDelegate>("FindWindowEx");
+            return func(OLAObject, parent, class_name, title);
         }
 
         /// <summary>
@@ -10130,7 +12891,8 @@ namespace OLAPlug
         /// <br/>8. 可以结合 GetWindowState 验证找到的窗口
         /// </remarks>
         public long FindWindowByProcess(string process_name, string class_name, string title){
-            return OLAPlugDLLHelper.FindWindowByProcess(OLAObject, process_name, class_name, title);
+            var func = OLAPlugDLLHelper.GetFunction<FindWindowByProcessDelegate>("FindWindowByProcess");
+            return func(OLAObject, process_name, class_name, title);
         }
 
         /// <summary>
@@ -10150,7 +12912,8 @@ namespace OLAPlug
         /// <br/>4. 此函数是 SetWindowSize 的一个特例（只改变位置）
         /// </remarks>
         public int MoveWindow(long hwnd, int x, int y){
-            return OLAPlugDLLHelper.MoveWindow(OLAObject, hwnd, x, y);
+            var func = OLAPlugDLLHelper.GetFunction<MoveWindowDelegate>("MoveWindow");
+            return func(OLAObject, hwnd, x, y);
         }
 
         /// <summary>
@@ -10165,7 +12928,8 @@ namespace OLAPlug
         /// <br/>4. 避免在高DPI屏幕上出现界面模糊或定位不准的问题
         /// </remarks>
         public double GetScaleFromWindows(long hwnd){
-            return OLAPlugDLLHelper.GetScaleFromWindows(OLAObject, hwnd);
+            var func = OLAPlugDLLHelper.GetFunction<GetScaleFromWindowsDelegate>("GetScaleFromWindows");
+            return func(OLAObject, hwnd);
         }
 
         /// <summary>
@@ -10180,14 +12944,15 @@ namespace OLAPlug
         /// <br/>4. 对于需要高精度坐标的自动化操作，应使用此函数获取的比例
         /// </remarks>
         public double GetWindowDpiAwarenessScale(long hwnd){
-            return OLAPlugDLLHelper.GetWindowDpiAwarenessScale(OLAObject, hwnd);
+            var func = OLAPlugDLLHelper.GetFunction<GetWindowDpiAwarenessScaleDelegate>("GetWindowDpiAwarenessScale");
+            return func(OLAObject, hwnd);
         }
 
         /// <summary>
         /// 枚举系统中所有正在运行的进程
         /// </summary>
         /// <param name="name">进程名</param>
-        /// <returns>所有匹配的进程PID，按进程启动顺序排序，格式为"pid1,pid2,pid3"。如果没有找到匹配的进程，返回空字符串</returns>
+        /// <returns></returns>
         /// <remarks>注意事项: 
         /// <br/>1. DLL调用返回字符串指针地址，需要调用 FreeStringPtr 接口释放内存
         /// <br/>2. 进程ID列表中的进程按启动时间排序，越早启动的进程排在越前面
@@ -10196,7 +12961,8 @@ namespace OLAPlug
         /// <br/>5. 如果需要查找特定窗口的进程，可以使用 GetWindowProcessId 函数
         /// </remarks>
         public string EnumProcess(string name){
-            return PtrToStringUTF8(OLAPlugDLLHelper.EnumProcess(OLAObject, name));
+            var func = OLAPlugDLLHelper.GetFunction<EnumProcessDelegate>("EnumProcess");
+            return PtrToStringUTF8(func(OLAObject, name));
         }
 
         /// <summary>
@@ -10221,7 +12987,8 @@ namespace OLAPlug
         /// <br/>5. 如果需要查找特定进程的窗口，可以使用 EnumWindowByProcess 函数
         /// </remarks>
         public string EnumWindow(long parent, string title, string className, int filter){
-            return PtrToStringUTF8(OLAPlugDLLHelper.EnumWindow(OLAObject, parent, title, className, filter));
+            var func = OLAPlugDLLHelper.GetFunction<EnumWindowDelegate>("EnumWindow");
+            return PtrToStringUTF8(func(OLAObject, parent, title, className, filter));
         }
 
         /// <summary>
@@ -10242,7 +13009,8 @@ namespace OLAPlug
         /// <br/>1. DLL调用返回字符串指针地址，需要调用 FreeStringPtr 接口释放内存
         /// </remarks>
         public string EnumWindowByProcess(string process_name, string title, string class_name, int filter){
-            return PtrToStringUTF8(OLAPlugDLLHelper.EnumWindowByProcess(OLAObject, process_name, title, class_name, filter));
+            var func = OLAPlugDLLHelper.GetFunction<EnumWindowByProcessDelegate>("EnumWindowByProcess");
+            return PtrToStringUTF8(func(OLAObject, process_name, title, class_name, filter));
         }
 
         /// <summary>
@@ -10267,7 +13035,8 @@ namespace OLAPlug
         /// <br/>5. 如果需要查找特定进程的所有窗口，可以使用 EnumWindowByProcess 函数
         /// </remarks>
         public string EnumWindowByProcessId(long pid, string title, string class_name, int filter){
-            return PtrToStringUTF8(OLAPlugDLLHelper.EnumWindowByProcessId(OLAObject, pid, title, class_name, filter));
+            var func = OLAPlugDLLHelper.GetFunction<EnumWindowByProcessIdDelegate>("EnumWindowByProcessId");
+            return PtrToStringUTF8(func(OLAObject, pid, title, class_name, filter));
         }
 
         /// <summary>
@@ -10316,7 +13085,8 @@ namespace OLAPlug
         /// <br/>1. DLL调用返回字符串指针地址,需要调用 FreeStringPtr接口释放内存
         /// </remarks>
         public string EnumWindowSuper(string spec1, int flag1, int type1, string spec2, int flag2, int type2, int sort){
-            return PtrToStringUTF8(OLAPlugDLLHelper.EnumWindowSuper(OLAObject, spec1, flag1, type1, spec2, flag2, type2, sort));
+            var func = OLAPlugDLLHelper.GetFunction<EnumWindowSuperDelegate>("EnumWindowSuper");
+            return PtrToStringUTF8(func(OLAObject, spec1, flag1, type1, spec2, flag2, type2, sort));
         }
 
         /// <summary>
@@ -10332,19 +13102,21 @@ namespace OLAPlug
         /// <br/>4. 如果坐标点位于多个窗口重叠区域，返回最顶层的窗口
         /// </remarks>
         public long GetPointWindow(int x, int y){
-            return OLAPlugDLLHelper.GetPointWindow(OLAObject, x, y);
+            var func = OLAPlugDLLHelper.GetFunction<GetPointWindowDelegate>("GetPointWindow");
+            return func(OLAObject, x, y);
         }
 
         /// <summary>
         /// 获取指定进程的详细信息
         /// </summary>
         /// <param name="pid">进程ID</param>
-        /// <returns>返回格式为 "进程名|进程路径|CPU占用率|内存占用量"，CPU占用率以百分比表示，内存占用量以字节为单位</returns>
+        /// <returns>返回格式为"进程名|进程路径|CPU占用率|内存占用量"，CPU占用率以百分比表示，内存占用量以字节为单位</returns>
         /// <remarks>注意事项: 
         /// <br/>1. DLL调用返回字符串指针地址，需要调用 FreeStringPtr 接口释放内存
         /// </remarks>
         public string GetProcessInfo(long pid){
-            return PtrToStringUTF8(OLAPlugDLLHelper.GetProcessInfo(OLAObject, pid));
+            var func = OLAPlugDLLHelper.GetFunction<GetProcessInfoDelegate>("GetProcessInfo");
+            return PtrToStringUTF8(func(OLAObject, pid));
         }
 
         /// <summary>
@@ -10360,7 +13132,8 @@ namespace OLAPlug
         ///<br/>1: 成功
         /// </returns>
         public int ShowTaskBarIcon(long hwnd, int show){
-            return OLAPlugDLLHelper.ShowTaskBarIcon(OLAObject, hwnd, show);
+            var func = OLAPlugDLLHelper.GetFunction<ShowTaskBarIconDelegate>("ShowTaskBarIcon");
+            return func(OLAObject, hwnd, show);
         }
 
         /// <summary>
@@ -10381,7 +13154,8 @@ namespace OLAPlug
         /// <br/>8. 可以结合 GetWindowState 和 SetWindowState 进行窗口操作
         /// </remarks>
         public long FindWindowByProcessId(long process_id, string className, string title){
-            return OLAPlugDLLHelper.FindWindowByProcessId(OLAObject, process_id, className, title);
+            var func = OLAPlugDLLHelper.GetFunction<FindWindowByProcessIdDelegate>("FindWindowByProcessId");
+            return func(OLAObject, process_id, className, title);
         }
 
         /// <summary>
@@ -10396,7 +13170,8 @@ namespace OLAPlug
         /// <br/>4. 某些系统窗口的线程ID可能无法获取
         /// </remarks>
         public long GetWindowThreadId(long hwnd){
-            return OLAPlugDLLHelper.GetWindowThreadId(OLAObject, hwnd);
+            var func = OLAPlugDLLHelper.GetFunction<GetWindowThreadIdDelegate>("GetWindowThreadId");
+            return func(OLAObject, hwnd);
         }
 
         /// <summary>
@@ -10442,7 +13217,8 @@ namespace OLAPlug
         /// <br/>5. 如果需要查找多个符合条件的窗口，可以使用 EnumWindowSuper 函数
         /// </remarks>
         public long FindWindowSuper(string spec1, int flag1, int type1, string spec2, int flag2, int type2){
-            return OLAPlugDLLHelper.FindWindowSuper(OLAObject, spec1, flag1, type1, spec2, flag2, type2);
+            var func = OLAPlugDLLHelper.GetFunction<FindWindowSuperDelegate>("FindWindowSuper");
+            return func(OLAObject, spec1, flag1, type1, spec2, flag2, type2);
         }
 
         /// <summary>
@@ -10462,7 +13238,8 @@ namespace OLAPlug
         /// <br/>4. 是实现精确UI自动化的基础
         /// </remarks>
         public int ClientToScreen(long hwnd, out int x, out int y){
-            return OLAPlugDLLHelper.ClientToScreen(OLAObject, hwnd, out x, out y);
+            var func = OLAPlugDLLHelper.GetFunction<ClientToScreenDelegate>("ClientToScreen");
+            return func(OLAObject, hwnd, out x, out y);
         }
 
         /// <summary>
@@ -10482,7 +13259,8 @@ namespace OLAPlug
         /// <br/>4. 对于坐标计算和事件处理非常有用
         /// </remarks>
         public int ScreenToClient(long hwnd, out int x, out int y){
-            return OLAPlugDLLHelper.ScreenToClient(OLAObject, hwnd, out x, out y);
+            var func = OLAPlugDLLHelper.GetFunction<ScreenToClientDelegate>("ScreenToClient");
+            return func(OLAObject, hwnd, out x, out y);
         }
 
         /// <summary>
@@ -10496,7 +13274,8 @@ namespace OLAPlug
         /// <br/>4. 如果前台窗口没有焦点控件或为桌面，返回值可能为 0
         /// </remarks>
         public long GetForegroundFocus(){
-            return OLAPlugDLLHelper.GetForegroundFocus(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<GetForegroundFocusDelegate>("GetForegroundFocus");
+            return func(OLAObject);
         }
 
         /// <summary>
@@ -10515,7 +13294,8 @@ namespace OLAPlug
         /// <br/>4. 操作不会改变窗口的最小化或最大化状态
         /// </remarks>
         public int SetWindowDisplay(long hwnd, int affinity){
-            return OLAPlugDLLHelper.SetWindowDisplay(OLAObject, hwnd, affinity);
+            var func = OLAPlugDLLHelper.GetFunction<SetWindowDisplayDelegate>("SetWindowDisplay");
+            return func(OLAObject, hwnd, affinity);
         }
 
         /// <summary>
@@ -10531,7 +13311,8 @@ namespace OLAPlug
         ///<br/>1: 卡屏
         /// </returns>
         public int IsDisplayDead(int x1, int y1, int x2, int y2, int time){
-            return OLAPlugDLLHelper.IsDisplayDead(OLAObject, x1, y1, x2, y2, time);
+            var func = OLAPlugDLLHelper.GetFunction<IsDisplayDeadDelegate>("IsDisplayDead");
+            return func(OLAObject, x1, y1, x2, y2, time);
         }
 
         /// <summary>
@@ -10543,7 +13324,8 @@ namespace OLAPlug
         /// <param name="y2">查找区域的右下角Y坐标</param>
         /// <returns>窗口的近似帧率，如 60, 30, 0（静态）等</returns>
         public int GetWindowsFps(int x1, int y1, int x2, int y2){
-            return OLAPlugDLLHelper.GetWindowsFps(OLAObject, x1, y1, x2, y2);
+            var func = OLAPlugDLLHelper.GetFunction<GetWindowsFpsDelegate>("GetWindowsFps");
+            return func(OLAObject, x1, y1, x2, y2);
         }
 
         /// <summary>
@@ -10561,7 +13343,8 @@ namespace OLAPlug
         /// <br/>4. 需要足够的权限才能终止某些系统或受保护的进程
         /// </remarks>
         public int TerminateProcess(long pid){
-            return OLAPlugDLLHelper.TerminateProcess(OLAObject, pid);
+            var func = OLAPlugDLLHelper.GetFunction<TerminateProcessDelegate>("TerminateProcess");
+            return func(OLAObject, pid);
         }
 
         /// <summary>
@@ -10579,7 +13362,8 @@ namespace OLAPlug
         /// <br/>4. 需要谨慎使用，避免误杀重要系统进程
         /// </remarks>
         public int TerminateProcessTree(long pid){
-            return OLAPlugDLLHelper.TerminateProcessTree(OLAObject, pid);
+            var func = OLAPlugDLLHelper.GetFunction<TerminateProcessTreeDelegate>("TerminateProcessTree");
+            return func(OLAObject, pid);
         }
 
         /// <summary>
@@ -10594,7 +13378,8 @@ namespace OLAPlug
         /// <br/>4. 对于分析程序启动配置或调试非常有用
         /// </remarks>
         public string GetCommandLine(long hwnd){
-            return PtrToStringUTF8(OLAPlugDLLHelper.GetCommandLine(OLAObject, hwnd));
+            var func = OLAPlugDLLHelper.GetFunction<GetCommandLineDelegate>("GetCommandLine");
+            return PtrToStringUTF8(func(OLAObject, hwnd));
         }
 
         /// <summary>
@@ -10611,7 +13396,8 @@ namespace OLAPlug
         /// <br/>4. 在某些低分辨率或远程桌面场景下，此功能可能被关闭
         /// </remarks>
         public int CheckFontSmooth(){
-            return OLAPlugDLLHelper.CheckFontSmooth(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<CheckFontSmoothDelegate>("CheckFontSmooth");
+            return func(OLAObject);
         }
 
         /// <summary>
@@ -10629,7 +13415,8 @@ namespace OLAPlug
         /// <br/>4. 滥用此功能可能影响用户体验，应谨慎使用
         /// </remarks>
         public int SetFontSmooth(int enable){
-            return OLAPlugDLLHelper.SetFontSmooth(OLAObject, enable);
+            var func = OLAPlugDLLHelper.GetFunction<SetFontSmoothDelegate>("SetFontSmooth");
+            return func(OLAObject, enable);
         }
 
         /// <summary>
@@ -10646,7 +13433,8 @@ namespace OLAPlug
         /// <br/>4. 在进程启动后尽早调用此函数以确保后续操作的权限
         /// </remarks>
         public int EnableDebugPrivilege(){
-            return OLAPlugDLLHelper.EnableDebugPrivilege(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<EnableDebugPrivilegeDelegate>("EnableDebugPrivilege");
+            return func(OLAObject);
         }
 
         /// <summary>
@@ -10662,7 +13450,8 @@ namespace OLAPlug
         /// <br/>4. 常用于系统维护脚本或远程管理工具
         /// </remarks>
         public int SystemStart(string applicationName, string commandLine){
-            return OLAPlugDLLHelper.SystemStart(OLAObject, applicationName, commandLine);
+            var func = OLAPlugDLLHelper.GetFunction<SystemStartDelegate>("SystemStart");
+            return func(OLAObject, applicationName, commandLine);
         }
 
         /// <summary>
@@ -10688,7 +13477,1059 @@ namespace OLAPlug
         /// <br/>4. 成功时，新进程的ID通过 processId 参数返回
         /// </remarks>
         public int CreateChildProcess(string applicationName, string commandLine, string currentDirectory, int showType, int parentProcessId){
-            return OLAPlugDLLHelper.CreateChildProcess(OLAObject, applicationName, commandLine, currentDirectory, showType, parentProcessId);
+            var func = OLAPlugDLLHelper.GetFunction<CreateChildProcessDelegate>("CreateChildProcess");
+            return func(OLAObject, applicationName, commandLine, currentDirectory, showType, parentProcessId);
+        }
+
+        /// <summary>
+        /// 获取进程图标
+        /// </summary>
+        /// <param name="pid">进程ID</param>
+        /// <param name="targetWidth">目标宽度</param>
+        /// <param name="targetHeight">目标高度</param>
+        /// <returns>进程图标</returns>
+        public long GetProcessIconImage(long pid, int targetWidth, int targetHeight){
+            var func = OLAPlugDLLHelper.GetFunction<GetProcessIconImageDelegate>("GetProcessIconImage");
+            return func(OLAObject, pid, targetWidth, targetHeight);
+        }
+
+        /// <summary>
+        /// 创建空的XML文档
+        /// </summary>
+        /// <returns>返回新创建的XML文档句柄，失败时返回0</returns>
+        public long XmlCreateDocument(){
+            var func = OLAPlugDLLHelper.GetFunction<XmlCreateDocumentDelegate>("XmlCreateDocument");
+            return func();
+        }
+
+        /// <summary>
+        /// 解析XML字符串
+        /// </summary>
+        /// <param name="str">要解析的XML字符串</param>
+        /// <param name="err">错误码输出参数，可为0
+        ///<br/> 0: 操作成功
+        ///<br/> 1: 无效的句柄
+        ///<br/> 2: XML解析失败
+        ///<br/> 3: 类型不匹配
+        ///<br/> 4: 元素不存在
+        ///<br/> 5: 属性不存在
+        ///<br/> 6: 未知错误
+        /// </param>
+        /// <returns>返回解析后的XML文档句柄，失败时返回0</returns>
+        public long XmlParse(string str, out int err){
+            var func = OLAPlugDLLHelper.GetFunction<XmlParseDelegate>("XmlParse");
+            return func(str, out err);
+        }
+
+        /// <summary>
+        /// 从文件加载并解析XML
+        /// </summary>
+        /// <param name="filepath">XML文件路径</param>
+        /// <param name="err">错误码输出参数，可为0
+        ///<br/> 0: 操作成功
+        ///<br/> 1: 无效的句柄
+        ///<br/> 2: XML解析失败
+        ///<br/> 3: 类型不匹配
+        ///<br/> 4: 元素不存在
+        ///<br/> 5: 属性不存在
+        ///<br/> 6: 未知错误
+        /// </param>
+        /// <returns>返回解析后的XML文档句柄，失败时返回0</returns>
+        public long XmlParseFile(string filepath, out int err){
+            var func = OLAPlugDLLHelper.GetFunction<XmlParseFileDelegate>("XmlParseFile");
+            return func(filepath, out err);
+        }
+
+        /// <summary>
+        /// 将XML文档序列化为字符串
+        /// </summary>
+        /// <param name="doc">XML文档句柄</param>
+        /// <param name="compact">是否紧凑输出，0表示格式化，1表示紧凑</param>
+        /// <param name="err">错误码输出参数，可为0
+        ///<br/> 0: 操作成功
+        ///<br/> 1: 无效的句柄
+        ///<br/> 2: XML解析失败
+        ///<br/> 3: 类型不匹配
+        ///<br/> 4: 元素不存在
+        ///<br/> 5: 属性不存在
+        ///<br/> 6: 未知错误
+        /// </param>
+        /// <returns>返回XML字符串，需调用FreeStringPtr释放，失败时返回0</returns>
+        public string XmlToString(long doc, int compact, out int err){
+            var func = OLAPlugDLLHelper.GetFunction<XmlToStringDelegate>("XmlToString");
+            return PtrToStringUTF8(func(doc, compact, out err));
+        }
+
+        /// <summary>
+        /// 将XML文档保存到文件
+        /// </summary>
+        /// <param name="doc">XML文档句柄</param>
+        /// <param name="filepath">保存的文件路径</param>
+        /// <param name="compact">是否紧凑输出，0表示格式化，1表示紧凑</param>
+        /// <param name="err">错误码输出参数，可为0
+        ///<br/> 0: 操作成功
+        ///<br/> 1: 无效的句柄
+        ///<br/> 2: XML解析失败
+        ///<br/> 3: 类型不匹配
+        ///<br/> 4: 元素不存在
+        ///<br/> 5: 属性不存在
+        ///<br/> 6: 未知错误
+        /// </param>
+        /// <returns>返回操作结果，1表示成功，0表示失败</returns>
+        public int XmlSaveToFile(long doc, string filepath, int compact, out int err){
+            var func = OLAPlugDLLHelper.GetFunction<XmlSaveToFileDelegate>("XmlSaveToFile");
+            return func(doc, filepath, compact, out err);
+        }
+
+        /// <summary>
+        /// 释放XML文档
+        /// </summary>
+        /// <param name="doc">要释放的XML文档句柄</param>
+        /// <returns>操作结果
+        ///<br/>0: 失败
+        ///<br/>1: 成功
+        /// </returns>
+        public int XmlFree(long doc){
+            var func = OLAPlugDLLHelper.GetFunction<XmlFreeDelegate>("XmlFree");
+            return func(doc);
+        }
+
+        /// <summary>
+        /// 获取XML文档的根元素
+        /// </summary>
+        /// <param name="doc">XML文档句柄</param>
+        /// <param name="err">错误码输出参数，可为0
+        ///<br/> 0: 操作成功
+        ///<br/> 1: 无效的句柄
+        ///<br/> 2: XML解析失败
+        ///<br/> 3: 类型不匹配
+        ///<br/> 4: 元素不存在
+        ///<br/> 5: 属性不存在
+        ///<br/> 6: 未知错误
+        /// </param>
+        /// <returns>返回根元素句柄，失败时返回0</returns>
+        public long XmlGetRootElement(long doc, out int err){
+            var func = OLAPlugDLLHelper.GetFunction<XmlGetRootElementDelegate>("XmlGetRootElement");
+            return func(doc, out err);
+        }
+
+        /// <summary>
+        /// 创建新的XML元素
+        /// </summary>
+        /// <param name="doc">XML文档句柄</param>
+        /// <param name="name">元素名称</param>
+        /// <param name="err">错误码输出参数，可为0
+        ///<br/> 0: 操作成功
+        ///<br/> 1: 无效的句柄
+        ///<br/> 2: XML解析失败
+        ///<br/> 3: 类型不匹配
+        ///<br/> 4: 元素不存在
+        ///<br/> 5: 属性不存在
+        ///<br/> 6: 未知错误
+        /// </param>
+        /// <returns>返回元素句柄，失败时返回0</returns>
+        public long XmlCreateElement(long doc, string name, out int err){
+            var func = OLAPlugDLLHelper.GetFunction<XmlCreateElementDelegate>("XmlCreateElement");
+            return func(doc, name, out err);
+        }
+
+        /// <summary>
+        /// 设置文档的根元素
+        /// </summary>
+        /// <param name="doc">XML文档句柄</param>
+        /// <param name="element">要设置为根元素的元素句柄</param>
+        /// <param name="err">错误码输出参数，可为0
+        ///<br/> 0: 操作成功
+        ///<br/> 1: 无效的句柄
+        ///<br/> 2: XML解析失败
+        ///<br/> 3: 类型不匹配
+        ///<br/> 4: 元素不存在
+        ///<br/> 5: 属性不存在
+        ///<br/> 6: 未知错误
+        /// </param>
+        /// <returns>返回操作结果错误码</returns>
+        public int XmlInsertRootElement(long doc, long element, out int err){
+            var func = OLAPlugDLLHelper.GetFunction<XmlInsertRootElementDelegate>("XmlInsertRootElement");
+            return func(doc, element, out err);
+        }
+
+        /// <summary>
+        /// 向元素添加子元素
+        /// </summary>
+        /// <param name="parent">父元素句柄</param>
+        /// <param name="child">子元素句柄</param>
+        /// <param name="err">错误码输出参数，可为0
+        ///<br/> 0: 操作成功
+        ///<br/> 1: 无效的句柄
+        ///<br/> 2: XML解析失败
+        ///<br/> 3: 类型不匹配
+        ///<br/> 4: 元素不存在
+        ///<br/> 5: 属性不存在
+        ///<br/> 6: 未知错误
+        /// </param>
+        /// <returns>返回操作结果错误码</returns>
+        public int XmlAppendChild(long parent, long child, out int err){
+            var func = OLAPlugDLLHelper.GetFunction<XmlAppendChildDelegate>("XmlAppendChild");
+            return func(parent, child, out err);
+        }
+
+        /// <summary>
+        /// 获取元素的第一个子元素
+        /// </summary>
+        /// <param name="element">父元素句柄</param>
+        /// <param name="err">错误码输出参数，可为0
+        ///<br/> 0: 操作成功
+        ///<br/> 1: 无效的句柄
+        ///<br/> 2: XML解析失败
+        ///<br/> 3: 类型不匹配
+        ///<br/> 4: 元素不存在
+        ///<br/> 5: 属性不存在
+        ///<br/> 6: 未知错误
+        /// </param>
+        /// <returns>返回子元素句柄，失败时返回0</returns>
+        public long XmlGetFirstChild(long element, out int err){
+            var func = OLAPlugDLLHelper.GetFunction<XmlGetFirstChildDelegate>("XmlGetFirstChild");
+            return func(element, out err);
+        }
+
+        /// <summary>
+        /// 获取元素的下一个兄弟元素
+        /// </summary>
+        /// <param name="element">当前元素句柄</param>
+        /// <param name="err">错误码输出参数，可为0
+        ///<br/> 0: 操作成功
+        ///<br/> 1: 无效的句柄
+        ///<br/> 2: XML解析失败
+        ///<br/> 3: 类型不匹配
+        ///<br/> 4: 元素不存在
+        ///<br/> 5: 属性不存在
+        ///<br/> 6: 未知错误
+        /// </param>
+        /// <returns>返回兄弟元素句柄，失败时返回0</returns>
+        public long XmlGetNextSibling(long element, out int err){
+            var func = OLAPlugDLLHelper.GetFunction<XmlGetNextSiblingDelegate>("XmlGetNextSibling");
+            return func(element, out err);
+        }
+
+        /// <summary>
+        /// 根据名称查找子元素
+        /// </summary>
+        /// <param name="parent">父元素句柄</param>
+        /// <param name="name">要查找的元素名称</param>
+        /// <param name="err">错误码输出参数，可为0
+        ///<br/> 0: 操作成功
+        ///<br/> 1: 无效的句柄
+        ///<br/> 2: XML解析失败
+        ///<br/> 3: 类型不匹配
+        ///<br/> 4: 元素不存在
+        ///<br/> 5: 属性不存在
+        ///<br/> 6: 未知错误
+        /// </param>
+        /// <returns>返回找到的元素句柄，失败时返回0</returns>
+        public long XmlFindElement(long parent, string name, out int err){
+            var func = OLAPlugDLLHelper.GetFunction<XmlFindElementDelegate>("XmlFindElement");
+            return func(parent, name, out err);
+        }
+
+        /// <summary>
+        /// 获取元素的名称
+        /// </summary>
+        /// <param name="element">元素句柄</param>
+        /// <param name="err">错误码输出参数，可为0
+        ///<br/> 0: 操作成功
+        ///<br/> 1: 无效的句柄
+        ///<br/> 2: XML解析失败
+        ///<br/> 3: 类型不匹配
+        ///<br/> 4: 元素不存在
+        ///<br/> 5: 属性不存在
+        ///<br/> 6: 未知错误
+        /// </param>
+        /// <returns>返回元素名称字符串，需调用FreeStringPtr释放，失败时返回0</returns>
+        public string XmlGetElementName(long element, out int err){
+            var func = OLAPlugDLLHelper.GetFunction<XmlGetElementNameDelegate>("XmlGetElementName");
+            return PtrToStringUTF8(func(element, out err));
+        }
+
+        /// <summary>
+        /// 获取元素的文本内容
+        /// </summary>
+        /// <param name="element">元素句柄</param>
+        /// <param name="err">错误码输出参数，可为0
+        ///<br/> 0: 操作成功
+        ///<br/> 1: 无效的句柄
+        ///<br/> 2: XML解析失败
+        ///<br/> 3: 类型不匹配
+        ///<br/> 4: 元素不存在
+        ///<br/> 5: 属性不存在
+        ///<br/> 6: 未知错误
+        /// </param>
+        /// <returns>返回文本内容字符串，需调用FreeStringPtr释放，失败时返回0</returns>
+        public string XmlGetElementText(long element, out int err){
+            var func = OLAPlugDLLHelper.GetFunction<XmlGetElementTextDelegate>("XmlGetElementText");
+            return PtrToStringUTF8(func(element, out err));
+        }
+
+        /// <summary>
+        /// 设置元素的文本内容
+        /// </summary>
+        /// <param name="element">元素句柄</param>
+        /// <param name="text">要设置的文本内容</param>
+        /// <param name="err">错误码输出参数，可为0
+        ///<br/> 0: 操作成功
+        ///<br/> 1: 无效的句柄
+        ///<br/> 2: XML解析失败
+        ///<br/> 3: 类型不匹配
+        ///<br/> 4: 元素不存在
+        ///<br/> 5: 属性不存在
+        ///<br/> 6: 未知错误
+        /// </param>
+        /// <returns>返回操作结果错误码</returns>
+        public int XmlSetElementText(long element, string text, out int err){
+            var func = OLAPlugDLLHelper.GetFunction<XmlSetElementTextDelegate>("XmlSetElementText");
+            return func(element, text, out err);
+        }
+
+        /// <summary>
+        /// 删除子元素
+        /// </summary>
+        /// <param name="parent">父元素句柄</param>
+        /// <param name="child">要删除的子元素句柄</param>
+        /// <param name="err">错误码输出参数，可为0
+        ///<br/> 0: 操作成功
+        ///<br/> 1: 无效的句柄
+        ///<br/> 2: XML解析失败
+        ///<br/> 3: 类型不匹配
+        ///<br/> 4: 元素不存在
+        ///<br/> 5: 属性不存在
+        ///<br/> 6: 未知错误
+        /// </param>
+        /// <returns>返回操作结果错误码</returns>
+        public int XmlRemoveChild(long parent, long child, out int err){
+            var func = OLAPlugDLLHelper.GetFunction<XmlRemoveChildDelegate>("XmlRemoveChild");
+            return func(parent, child, out err);
+        }
+
+        /// <summary>
+        /// 在指定子元素之前插入新元素
+        /// </summary>
+        /// <param name="parent">父元素句柄</param>
+        /// <param name="newChild">要插入的新元素句柄</param>
+        /// <param name="refChild">参考子元素句柄，新元素将插入到它之前</param>
+        /// <param name="err">错误码输出参数，可为0
+        ///<br/> 0: 操作成功
+        ///<br/> 1: 无效的句柄
+        ///<br/> 2: XML解析失败
+        ///<br/> 3: 类型不匹配
+        ///<br/> 4: 元素不存在
+        ///<br/> 5: 属性不存在
+        ///<br/> 6: 未知错误
+        /// </param>
+        /// <returns>返回操作结果错误码</returns>
+        public int XmlInsertBefore(long parent, long newChild, long refChild, out int err){
+            var func = OLAPlugDLLHelper.GetFunction<XmlInsertBeforeDelegate>("XmlInsertBefore");
+            return func(parent, newChild, refChild, out err);
+        }
+
+        /// <summary>
+        /// 在指定子元素之后插入新元素
+        /// </summary>
+        /// <param name="parent">父元素句柄</param>
+        /// <param name="newChild">要插入的新元素句柄</param>
+        /// <param name="refChild">参考子元素句柄，新元素将插入到它之后</param>
+        /// <param name="err">错误码输出参数，可为0
+        ///<br/> 0: 操作成功
+        ///<br/> 1: 无效的句柄
+        ///<br/> 2: XML解析失败
+        ///<br/> 3: 类型不匹配
+        ///<br/> 4: 元素不存在
+        ///<br/> 5: 属性不存在
+        ///<br/> 6: 未知错误
+        /// </param>
+        /// <returns>返回操作结果错误码</returns>
+        public int XmlInsertAfter(long parent, long newChild, long refChild, out int err){
+            var func = OLAPlugDLLHelper.GetFunction<XmlInsertAfterDelegate>("XmlInsertAfter");
+            return func(parent, newChild, refChild, out err);
+        }
+
+        /// <summary>
+        /// 获取元素的父元素
+        /// </summary>
+        /// <param name="element">元素句柄</param>
+        /// <param name="err">错误码输出参数，可为0
+        ///<br/> 0: 操作成功
+        ///<br/> 1: 无效的句柄
+        ///<br/> 2: XML解析失败
+        ///<br/> 3: 类型不匹配
+        ///<br/> 4: 元素不存在
+        ///<br/> 5: 属性不存在
+        ///<br/> 6: 未知错误
+        /// </param>
+        /// <returns>返回父元素句柄，失败时返回0</returns>
+        public long XmlGetParent(long element, out int err){
+            var func = OLAPlugDLLHelper.GetFunction<XmlGetParentDelegate>("XmlGetParent");
+            return func(element, out err);
+        }
+
+        /// <summary>
+        /// 获取元素的前一个兄弟元素
+        /// </summary>
+        /// <param name="element">当前元素句柄</param>
+        /// <param name="err">错误码输出参数，可为0
+        ///<br/> 0: 操作成功
+        ///<br/> 1: 无效的句柄
+        ///<br/> 2: XML解析失败
+        ///<br/> 3: 类型不匹配
+        ///<br/> 4: 元素不存在
+        ///<br/> 5: 属性不存在
+        ///<br/> 6: 未知错误
+        /// </param>
+        /// <returns>返回前一个兄弟元素句柄，失败时返回0</returns>
+        public long XmlGetPreviousSibling(long element, out int err){
+            var func = OLAPlugDLLHelper.GetFunction<XmlGetPreviousSiblingDelegate>("XmlGetPreviousSibling");
+            return func(element, out err);
+        }
+
+        /// <summary>
+        /// 获取元素的最后一个子元素
+        /// </summary>
+        /// <param name="element">父元素句柄</param>
+        /// <param name="err">错误码输出参数，可为0
+        ///<br/> 0: 操作成功
+        ///<br/> 1: 无效的句柄
+        ///<br/> 2: XML解析失败
+        ///<br/> 3: 类型不匹配
+        ///<br/> 4: 元素不存在
+        ///<br/> 5: 属性不存在
+        ///<br/> 6: 未知错误
+        /// </param>
+        /// <returns>返回最后一个子元素句柄，失败时返回0</returns>
+        public long XmlGetLastChild(long element, out int err){
+            var func = OLAPlugDLLHelper.GetFunction<XmlGetLastChildDelegate>("XmlGetLastChild");
+            return func(element, out err);
+        }
+
+        /// <summary>
+        /// 深度克隆元素（包括所有子元素和属性）
+        /// </summary>
+        /// <param name="doc">XML文档句柄</param>
+        /// <param name="element">要克隆的元素句柄</param>
+        /// <param name="err">错误码输出参数，可为0
+        ///<br/> 0: 操作成功
+        ///<br/> 1: 无效的句柄
+        ///<br/> 2: XML解析失败
+        ///<br/> 3: 类型不匹配
+        ///<br/> 4: 元素不存在
+        ///<br/> 5: 属性不存在
+        ///<br/> 6: 未知错误
+        /// </param>
+        /// <returns>返回克隆的元素句柄，失败时返回0</returns>
+        public long XmlCloneElement(long doc, long element, out int err){
+            var func = OLAPlugDLLHelper.GetFunction<XmlCloneElementDelegate>("XmlCloneElement");
+            return func(doc, element, out err);
+        }
+
+        /// <summary>
+        /// 检查元素是否有子元素
+        /// </summary>
+        /// <param name="element">元素句柄</param>
+        /// <param name="err">错误码输出参数，可为0
+        ///<br/> 0: 操作成功
+        ///<br/> 1: 无效的句柄
+        ///<br/> 2: XML解析失败
+        ///<br/> 3: 类型不匹配
+        ///<br/> 4: 元素不存在
+        ///<br/> 5: 属性不存在
+        ///<br/> 6: 未知错误
+        /// </param>
+        /// <returns>返回1表示有子元素，0表示没有</returns>
+        public int XmlHasChildren(long element, out int err){
+            var func = OLAPlugDLLHelper.GetFunction<XmlHasChildrenDelegate>("XmlHasChildren");
+            return func(element, out err);
+        }
+
+        /// <summary>
+        /// 获取元素的属性值
+        /// </summary>
+        /// <param name="element">元素句柄</param>
+        /// <param name="name">属性名称</param>
+        /// <param name="err">错误码输出参数，可为0
+        ///<br/> 0: 操作成功
+        ///<br/> 1: 无效的句柄
+        ///<br/> 2: XML解析失败
+        ///<br/> 3: 类型不匹配
+        ///<br/> 4: 元素不存在
+        ///<br/> 5: 属性不存在
+        ///<br/> 6: 未知错误
+        /// </param>
+        /// <returns>返回属性值字符串，需调用FreeStringPtr释放，失败时返回0</returns>
+        public string XmlGetAttribute(long element, string name, out int err){
+            var func = OLAPlugDLLHelper.GetFunction<XmlGetAttributeDelegate>("XmlGetAttribute");
+            return PtrToStringUTF8(func(element, name, out err));
+        }
+
+        /// <summary>
+        /// 设置元素的属性
+        /// </summary>
+        /// <param name="element">元素句柄</param>
+        /// <param name="name">属性名称</param>
+        /// <param name="value">属性值</param>
+        /// <param name="err">错误码输出参数，可为0
+        ///<br/> 0: 操作成功
+        ///<br/> 1: 无效的句柄
+        ///<br/> 2: XML解析失败
+        ///<br/> 3: 类型不匹配
+        ///<br/> 4: 元素不存在
+        ///<br/> 5: 属性不存在
+        ///<br/> 6: 未知错误
+        /// </param>
+        /// <returns>返回操作结果错误码</returns>
+        public int XmlSetAttribute(long element, string name, string value, out int err){
+            var func = OLAPlugDLLHelper.GetFunction<XmlSetAttributeDelegate>("XmlSetAttribute");
+            return func(element, name, value, out err);
+        }
+
+        /// <summary>
+        /// 获取元素的整数类型属性值
+        /// </summary>
+        /// <param name="element">元素句柄</param>
+        /// <param name="name">属性名称</param>
+        /// <param name="err">错误码输出参数，可为0
+        ///<br/> 0: 操作成功
+        ///<br/> 1: 无效的句柄
+        ///<br/> 2: XML解析失败
+        ///<br/> 3: 类型不匹配
+        ///<br/> 4: 元素不存在
+        ///<br/> 5: 属性不存在
+        ///<br/> 6: 未知错误
+        /// </param>
+        /// <returns>返回整数值，失败时返回0</returns>
+        public int XmlGetAttributeInt(long element, string name, out int err){
+            var func = OLAPlugDLLHelper.GetFunction<XmlGetAttributeIntDelegate>("XmlGetAttributeInt");
+            return func(element, name, out err);
+        }
+
+        /// <summary>
+        /// 设置元素的整数类型属性
+        /// </summary>
+        /// <param name="element">元素句柄</param>
+        /// <param name="name">属性名称</param>
+        /// <param name="value">整数值</param>
+        /// <param name="err">错误码输出参数，可为0
+        ///<br/> 0: 操作成功
+        ///<br/> 1: 无效的句柄
+        ///<br/> 2: XML解析失败
+        ///<br/> 3: 类型不匹配
+        ///<br/> 4: 元素不存在
+        ///<br/> 5: 属性不存在
+        ///<br/> 6: 未知错误
+        /// </param>
+        /// <returns>返回操作结果错误码</returns>
+        public int XmlSetAttributeInt(long element, string name, int value, out int err){
+            var func = OLAPlugDLLHelper.GetFunction<XmlSetAttributeIntDelegate>("XmlSetAttributeInt");
+            return func(element, name, value, out err);
+        }
+
+        /// <summary>
+        /// 获取元素的浮点数类型属性值
+        /// </summary>
+        /// <param name="element">元素句柄</param>
+        /// <param name="name">属性名称</param>
+        /// <param name="err">错误码输出参数，可为0
+        ///<br/> 0: 操作成功
+        ///<br/> 1: 无效的句柄
+        ///<br/> 2: XML解析失败
+        ///<br/> 3: 类型不匹配
+        ///<br/> 4: 元素不存在
+        ///<br/> 5: 属性不存在
+        ///<br/> 6: 未知错误
+        /// </param>
+        /// <returns>返回浮点数值，失败时返回0.0</returns>
+        public double XmlGetAttributeDouble(long element, string name, out int err){
+            var func = OLAPlugDLLHelper.GetFunction<XmlGetAttributeDoubleDelegate>("XmlGetAttributeDouble");
+            return func(element, name, out err);
+        }
+
+        /// <summary>
+        /// 设置元素的浮点数类型属性
+        /// </summary>
+        /// <param name="element">元素句柄</param>
+        /// <param name="name">属性名称</param>
+        /// <param name="value">浮点数值</param>
+        /// <param name="err">错误码输出参数，可为0
+        ///<br/> 0: 操作成功
+        ///<br/> 1: 无效的句柄
+        ///<br/> 2: XML解析失败
+        ///<br/> 3: 类型不匹配
+        ///<br/> 4: 元素不存在
+        ///<br/> 5: 属性不存在
+        ///<br/> 6: 未知错误
+        /// </param>
+        /// <returns>返回操作结果错误码</returns>
+        public int XmlSetAttributeDouble(long element, string name, double value, out int err){
+            var func = OLAPlugDLLHelper.GetFunction<XmlSetAttributeDoubleDelegate>("XmlSetAttributeDouble");
+            return func(element, name, value, out err);
+        }
+
+        /// <summary>
+        /// 获取元素的布尔类型属性值
+        /// </summary>
+        /// <param name="element">元素句柄</param>
+        /// <param name="name">属性名称</param>
+        /// <param name="err">错误码输出参数，可为0
+        ///<br/> 0: 操作成功
+        ///<br/> 1: 无效的句柄
+        ///<br/> 2: XML解析失败
+        ///<br/> 3: 类型不匹配
+        ///<br/> 4: 元素不存在
+        ///<br/> 5: 属性不存在
+        ///<br/> 6: 未知错误
+        /// </param>
+        /// <returns>返回布尔值，失败时返回0</returns>
+        public int XmlGetAttributeBool(long element, string name, out int err){
+            var func = OLAPlugDLLHelper.GetFunction<XmlGetAttributeBoolDelegate>("XmlGetAttributeBool");
+            return func(element, name, out err);
+        }
+
+        /// <summary>
+        /// 设置元素的布尔类型属性
+        /// </summary>
+        /// <param name="element">元素句柄</param>
+        /// <param name="name">属性名称</param>
+        /// <param name="value">布尔值（0表示false，非0表示true）</param>
+        /// <param name="err">错误码输出参数，可为0
+        ///<br/> 0: 操作成功
+        ///<br/> 1: 无效的句柄
+        ///<br/> 2: XML解析失败
+        ///<br/> 3: 类型不匹配
+        ///<br/> 4: 元素不存在
+        ///<br/> 5: 属性不存在
+        ///<br/> 6: 未知错误
+        /// </param>
+        /// <returns>返回操作结果错误码</returns>
+        public int XmlSetAttributeBool(long element, string name, int value, out int err){
+            var func = OLAPlugDLLHelper.GetFunction<XmlSetAttributeBoolDelegate>("XmlSetAttributeBool");
+            return func(element, name, value, out err);
+        }
+
+        /// <summary>
+        /// 获取元素的64位整数类型属性值
+        /// </summary>
+        /// <param name="element">元素句柄</param>
+        /// <param name="name">属性名称</param>
+        /// <param name="err">错误码输出参数，可为0
+        ///<br/> 0: 操作成功
+        ///<br/> 1: 无效的句柄
+        ///<br/> 2: XML解析失败
+        ///<br/> 3: 类型不匹配
+        ///<br/> 4: 元素不存在
+        ///<br/> 5: 属性不存在
+        ///<br/> 6: 未知错误
+        /// </param>
+        /// <returns>返回64位整数值，失败时返回0</returns>
+        public long XmlGetAttributeInt64(long element, string name, out int err){
+            var func = OLAPlugDLLHelper.GetFunction<XmlGetAttributeInt64Delegate>("XmlGetAttributeInt64");
+            return func(element, name, out err);
+        }
+
+        /// <summary>
+        /// 设置元素的64位整数类型属性
+        /// </summary>
+        /// <param name="element">元素句柄</param>
+        /// <param name="name">属性名称</param>
+        /// <param name="value">64位整数值</param>
+        /// <param name="err">错误码输出参数，可为0
+        ///<br/> 0: 操作成功
+        ///<br/> 1: 无效的句柄
+        ///<br/> 2: XML解析失败
+        ///<br/> 3: 类型不匹配
+        ///<br/> 4: 元素不存在
+        ///<br/> 5: 属性不存在
+        ///<br/> 6: 未知错误
+        /// </param>
+        /// <returns>返回操作结果错误码</returns>
+        public int XmlSetAttributeInt64(long element, string name, long value, out int err){
+            var func = OLAPlugDLLHelper.GetFunction<XmlSetAttributeInt64Delegate>("XmlSetAttributeInt64");
+            return func(element, name, value, out err);
+        }
+
+        /// <summary>
+        /// 检查元素是否有指定属性
+        /// </summary>
+        /// <param name="element">元素句柄</param>
+        /// <param name="name">属性名称</param>
+        /// <param name="err">错误码输出参数，可为0
+        ///<br/> 0: 操作成功
+        ///<br/> 1: 无效的句柄
+        ///<br/> 2: XML解析失败
+        ///<br/> 3: 类型不匹配
+        ///<br/> 4: 元素不存在
+        ///<br/> 5: 属性不存在
+        ///<br/> 6: 未知错误
+        /// </param>
+        /// <returns>返回1表示存在，0表示不存在</returns>
+        public int XmlHasAttribute(long element, string name, out int err){
+            var func = OLAPlugDLLHelper.GetFunction<XmlHasAttributeDelegate>("XmlHasAttribute");
+            return func(element, name, out err);
+        }
+
+        /// <summary>
+        /// 删除元素的属性
+        /// </summary>
+        /// <param name="element">元素句柄</param>
+        /// <param name="name">属性名称</param>
+        /// <param name="err">错误码输出参数，可为0
+        ///<br/> 0: 操作成功
+        ///<br/> 1: 无效的句柄
+        ///<br/> 2: XML解析失败
+        ///<br/> 3: 类型不匹配
+        ///<br/> 4: 元素不存在
+        ///<br/> 5: 属性不存在
+        ///<br/> 6: 未知错误
+        /// </param>
+        /// <returns>返回操作结果错误码</returns>
+        public int XmlDeleteAttribute(long element, string name, out int err){
+            var func = OLAPlugDLLHelper.GetFunction<XmlDeleteAttributeDelegate>("XmlDeleteAttribute");
+            return func(element, name, out err);
+        }
+
+        /// <summary>
+        /// 获取元素的所有属性名称
+        /// </summary>
+        /// <param name="element">元素句柄</param>
+        /// <param name="err">错误码输出参数，可为0
+        ///<br/> 0: 操作成功
+        ///<br/> 1: 无效的句柄
+        ///<br/> 2: XML解析失败
+        ///<br/> 3: 类型不匹配
+        ///<br/> 4: 元素不存在
+        ///<br/> 5: 属性不存在
+        ///<br/> 6: 未知错误
+        /// </param>
+        /// <returns>返回属性名称数组（以|分隔），需调用FreeStringPtr释放，失败时返回0</returns>
+        public string XmlGetAttributeNames(long element, out int err){
+            var func = OLAPlugDLLHelper.GetFunction<XmlGetAttributeNamesDelegate>("XmlGetAttributeNames");
+            return PtrToStringUTF8(func(element, out err));
+        }
+
+        /// <summary>
+        /// 获取元素的属性数量
+        /// </summary>
+        /// <param name="element">元素句柄</param>
+        /// <param name="err">错误码输出参数，可为0
+        ///<br/> 0: 操作成功
+        ///<br/> 1: 无效的句柄
+        ///<br/> 2: XML解析失败
+        ///<br/> 3: 类型不匹配
+        ///<br/> 4: 元素不存在
+        ///<br/> 5: 属性不存在
+        ///<br/> 6: 未知错误
+        /// </param>
+        /// <returns>返回属性数量，失败时返回0</returns>
+        public int XmlGetAttributeCount(long element, out int err){
+            var func = OLAPlugDLLHelper.GetFunction<XmlGetAttributeCountDelegate>("XmlGetAttributeCount");
+            return func(element, out err);
+        }
+
+        /// <summary>
+        /// 创建CDATA节点并添加到元素
+        /// </summary>
+        /// <param name="doc">XML文档句柄</param>
+        /// <param name="element">元素句柄</param>
+        /// <param name="content">CDATA内容</param>
+        /// <param name="err">错误码输出参数，可为0
+        ///<br/> 0: 操作成功
+        ///<br/> 1: 无效的句柄
+        ///<br/> 2: XML解析失败
+        ///<br/> 3: 类型不匹配
+        ///<br/> 4: 元素不存在
+        ///<br/> 5: 属性不存在
+        ///<br/> 6: 未知错误
+        /// </param>
+        /// <returns>返回操作结果错误码</returns>
+        public int XmlSetCDATA(long doc, long element, string content, out int err){
+            var func = OLAPlugDLLHelper.GetFunction<XmlSetCDATADelegate>("XmlSetCDATA");
+            return func(doc, element, content, out err);
+        }
+
+        /// <summary>
+        /// 创建注释节点并添加到元素
+        /// </summary>
+        /// <param name="doc">XML文档句柄</param>
+        /// <param name="element">元素句柄</param>
+        /// <param name="comment">注释内容</param>
+        /// <param name="err">错误码输出参数，可为0
+        ///<br/> 0: 操作成功
+        ///<br/> 1: 无效的句柄
+        ///<br/> 2: XML解析失败
+        ///<br/> 3: 类型不匹配
+        ///<br/> 4: 元素不存在
+        ///<br/> 5: 属性不存在
+        ///<br/> 6: 未知错误
+        /// </param>
+        /// <returns>返回操作结果错误码</returns>
+        public int XmlAddComment(long doc, long element, string comment, out int err){
+            var func = OLAPlugDLLHelper.GetFunction<XmlAddCommentDelegate>("XmlAddComment");
+            return func(doc, element, comment, out err);
+        }
+
+        /// <summary>
+        /// 创建XML声明
+        /// </summary>
+        /// <param name="doc">XML文档句柄</param>
+        /// <param name="version">XML版本（如"1.0"）</param>
+        /// <param name="encoding">编码（如"UTF-8"）</param>
+        /// <param name="standalone">是否独立（0或1）</param>
+        /// <param name="err">错误码输出参数，可为0
+        ///<br/> 0: 操作成功
+        ///<br/> 1: 无效的句柄
+        ///<br/> 2: XML解析失败
+        ///<br/> 3: 类型不匹配
+        ///<br/> 4: 元素不存在
+        ///<br/> 5: 属性不存在
+        ///<br/> 6: 未知错误
+        /// </param>
+        /// <returns>返回操作结果错误码</returns>
+        public int XmlSetDeclaration(long doc, string version, string encoding, int standalone, out int err){
+            var func = OLAPlugDLLHelper.GetFunction<XmlSetDeclarationDelegate>("XmlSetDeclaration");
+            return func(doc, version, encoding, standalone, out err);
+        }
+
+        /// <summary>
+        /// 使用路径查询元素
+        /// </summary>
+        /// <param name="doc">XML文档句柄</param>
+        /// <param name="path">查询路径（如 "root/child/item"）</param>
+        /// <param name="err">错误码输出参数，可为0
+        ///<br/> 0: 操作成功
+        ///<br/> 1: 无效的句柄
+        ///<br/> 2: XML解析失败
+        ///<br/> 3: 类型不匹配
+        ///<br/> 4: 元素不存在
+        ///<br/> 5: 属性不存在
+        ///<br/> 6: 未知错误
+        /// </param>
+        /// <returns>返回找到的元素句柄，失败时返回0</returns>
+        public long XmlQueryElement(long doc, string path, out int err){
+            var func = OLAPlugDLLHelper.GetFunction<XmlQueryElementDelegate>("XmlQueryElement");
+            return func(doc, path, out err);
+        }
+
+        /// <summary>
+        /// 获取元素的子元素数量
+        /// </summary>
+        /// <param name="element">元素句柄</param>
+        /// <param name="err">错误码输出参数，可为0
+        ///<br/> 0: 操作成功
+        ///<br/> 1: 无效的句柄
+        ///<br/> 2: XML解析失败
+        ///<br/> 3: 类型不匹配
+        ///<br/> 4: 元素不存在
+        ///<br/> 5: 属性不存在
+        ///<br/> 6: 未知错误
+        /// </param>
+        /// <returns>返回子元素数量，失败时返回0</returns>
+        public int XmlGetChildCount(long element, out int err){
+            var func = OLAPlugDLLHelper.GetFunction<XmlGetChildCountDelegate>("XmlGetChildCount");
+            return func(element, out err);
+        }
+
+        /// <summary>
+        /// 根据名称获取所有匹配的子元素数量
+        /// </summary>
+        /// <param name="parent">父元素句柄</param>
+        /// <param name="name">元素名称</param>
+        /// <param name="err">错误码输出参数，可为0
+        ///<br/> 0: 操作成功
+        ///<br/> 1: 无效的句柄
+        ///<br/> 2: XML解析失败
+        ///<br/> 3: 类型不匹配
+        ///<br/> 4: 元素不存在
+        ///<br/> 5: 属性不存在
+        ///<br/> 6: 未知错误
+        /// </param>
+        /// <returns>返回匹配的子元素数量，失败时返回0</returns>
+        public int XmlGetChildCountByName(long parent, string name, out int err){
+            var func = OLAPlugDLLHelper.GetFunction<XmlGetChildCountByNameDelegate>("XmlGetChildCountByName");
+            return func(parent, name, out err);
+        }
+
+        /// <summary>
+        /// 根据索引获取子元素
+        /// </summary>
+        /// <param name="parent">父元素句柄</param>
+        /// <param name="index">子元素索引（从0开始）</param>
+        /// <param name="err">错误码输出参数，可为0
+        ///<br/> 0: 操作成功
+        ///<br/> 1: 无效的句柄
+        ///<br/> 2: XML解析失败
+        ///<br/> 3: 类型不匹配
+        ///<br/> 4: 元素不存在
+        ///<br/> 5: 属性不存在
+        ///<br/> 6: 未知错误
+        /// </param>
+        /// <returns>返回子元素句柄，失败时返回0</returns>
+        public long XmlGetChildByIndex(long parent, int index, out int err){
+            var func = OLAPlugDLLHelper.GetFunction<XmlGetChildByIndexDelegate>("XmlGetChildByIndex");
+            return func(parent, index, out err);
+        }
+
+        /// <summary>
+        /// 根据名称和索引获取子元素
+        /// </summary>
+        /// <param name="parent">父元素句柄</param>
+        /// <param name="name">元素名称</param>
+        /// <param name="index">在同名元素中的索引（从0开始）</param>
+        /// <param name="err">错误码输出参数，可为0
+        ///<br/> 0: 操作成功
+        ///<br/> 1: 无效的句柄
+        ///<br/> 2: XML解析失败
+        ///<br/> 3: 类型不匹配
+        ///<br/> 4: 元素不存在
+        ///<br/> 5: 属性不存在
+        ///<br/> 6: 未知错误
+        /// </param>
+        /// <returns>返回子元素句柄，失败时返回0</returns>
+        public long XmlGetChildByNameAndIndex(long parent, string name, int index, out int err){
+            var func = OLAPlugDLLHelper.GetFunction<XmlGetChildByNameAndIndexDelegate>("XmlGetChildByNameAndIndex");
+            return func(parent, name, index, out err);
+        }
+
+        /// <summary>
+        /// 查找具有指定属性值的子元素
+        /// </summary>
+        /// <param name="parent">父元素句柄</param>
+        /// <param name="elementName">元素名称（可为NULL表示任意元素）</param>
+        /// <param name="attrName">属性名称</param>
+        /// <param name="attrValue">属性值</param>
+        /// <param name="err">错误码输出参数，可为0
+        ///<br/> 0: 操作成功
+        ///<br/> 1: 无效的句柄
+        ///<br/> 2: XML解析失败
+        ///<br/> 3: 类型不匹配
+        ///<br/> 4: 元素不存在
+        ///<br/> 5: 属性不存在
+        ///<br/> 6: 未知错误
+        /// </param>
+        /// <returns>返回找到的元素句柄，失败时返回0</returns>
+        public long XmlFindElementByAttribute(long parent, string elementName, string attrName, string attrValue, out int err){
+            var func = OLAPlugDLLHelper.GetFunction<XmlFindElementByAttributeDelegate>("XmlFindElementByAttribute");
+            return func(parent, elementName, attrName, attrValue, out err);
+        }
+
+        /// <summary>
+        /// 获取元素的深度（从根元素开始计数）
+        /// </summary>
+        /// <param name="element">元素句柄</param>
+        /// <param name="err">错误码输出参数，可为0
+        ///<br/> 0: 操作成功
+        ///<br/> 1: 无效的句柄
+        ///<br/> 2: XML解析失败
+        ///<br/> 3: 类型不匹配
+        ///<br/> 4: 元素不存在
+        ///<br/> 5: 属性不存在
+        ///<br/> 6: 未知错误
+        /// </param>
+        /// <returns>返回元素深度，根元素为0，失败时返回-1</returns>
+        public int XmlGetElementDepth(long element, out int err){
+            var func = OLAPlugDLLHelper.GetFunction<XmlGetElementDepthDelegate>("XmlGetElementDepth");
+            return func(element, out err);
+        }
+
+        /// <summary>
+        /// 获取元素的完整路径
+        /// </summary>
+        /// <param name="element">元素句柄</param>
+        /// <param name="err">错误码输出参数，可为0
+        ///<br/> 0: 操作成功
+        ///<br/> 1: 无效的句柄
+        ///<br/> 2: XML解析失败
+        ///<br/> 3: 类型不匹配
+        ///<br/> 4: 元素不存在
+        ///<br/> 5: 属性不存在
+        ///<br/> 6: 未知错误
+        /// </param>
+        /// <returns>返回路径字符串（如"/root/child/item"），需调用FreeStringPtr释放，失败时返回0</returns>
+        public string XmlGetElementPath(long element, out int err){
+            var func = OLAPlugDLLHelper.GetFunction<XmlGetElementPathDelegate>("XmlGetElementPath");
+            return PtrToStringUTF8(func(element, out err));
+        }
+
+        /// <summary>
+        /// 比较两个元素是否相同（比较名称、属性和文本内容）
+        /// </summary>
+        /// <param name="element1">第一个元素句柄</param>
+        /// <param name="element2">第二个元素句柄</param>
+        /// <param name="deep">是否深度比较（包括所有子元素）</param>
+        /// <param name="err">错误码输出参数，可为0
+        ///<br/> 0: 操作成功
+        ///<br/> 1: 无效的句柄
+        ///<br/> 2: XML解析失败
+        ///<br/> 3: 类型不匹配
+        ///<br/> 4: 元素不存在
+        ///<br/> 5: 属性不存在
+        ///<br/> 6: 未知错误
+        /// </param>
+        /// <returns>返回1表示相同，0表示不同</returns>
+        public int XmlCompareElements(long element1, long element2, int deep, out int err){
+            var func = OLAPlugDLLHelper.GetFunction<XmlCompareElementsDelegate>("XmlCompareElements");
+            return func(element1, element2, deep, out err);
+        }
+
+        /// <summary>
+        /// 合并两个XML文档
+        /// </summary>
+        /// <param name="targetDoc">目标文档句柄</param>
+        /// <param name="sourceDoc">源文档句柄</param>
+        /// <param name="err">错误码输出参数，可为0
+        ///<br/> 0: 操作成功
+        ///<br/> 1: 无效的句柄
+        ///<br/> 2: XML解析失败
+        ///<br/> 3: 类型不匹配
+        ///<br/> 4: 元素不存在
+        ///<br/> 5: 属性不存在
+        ///<br/> 6: 未知错误
+        /// </param>
+        /// <returns>返回操作结果错误码</returns>
+        public int XmlMergeDocuments(long targetDoc, long sourceDoc, out int err){
+            var func = OLAPlugDLLHelper.GetFunction<XmlMergeDocumentsDelegate>("XmlMergeDocuments");
+            return func(targetDoc, sourceDoc, out err);
+        }
+
+        /// <summary>
+        /// 验证XML文档格式是否正确
+        /// </summary>
+        /// <param name="doc">XML文档句柄</param>
+        /// <param name="err">错误码输出参数，可为0
+        ///<br/> 0: 操作成功
+        ///<br/> 1: 无效的句柄
+        ///<br/> 2: XML解析失败
+        ///<br/> 3: 类型不匹配
+        ///<br/> 4: 元素不存在
+        ///<br/> 5: 属性不存在
+        ///<br/> 6: 未知错误
+        /// </param>
+        /// <returns>返回1表示有效，0表示无效</returns>
+        public int XmlValidate(long doc, out int err){
+            var func = OLAPlugDLLHelper.GetFunction<XmlValidateDelegate>("XmlValidate");
+            return func(doc, out err);
+        }
+
+        /// <summary>
+        /// 获取当前管理的XML对象数量（调试用）
+        /// </summary>
+        /// <returns>返回当前管理的XML对象数量</returns>
+        public int XmlGetObjectCount(){
+            var func = OLAPlugDLLHelper.GetFunction<XmlGetObjectCountDelegate>("XmlGetObjectCount");
+            return func();
+        }
+
+        /// <summary>
+        /// 清理所有XML对象（调试用）
+        /// </summary>
+        /// <returns></returns>
+        public int XmlCleanupAll(){
+            var func = OLAPlugDLLHelper.GetFunction<XmlCleanupAllDelegate>("XmlCleanupAll");
+            return func();
         }
 
         /// <summary>
@@ -10703,7 +14544,8 @@ namespace OLAPlug
         /// <param name="inferenceDevice">推理设备0.GPU0 1.GPU1 2.GPU2 3.GPU3 以此类推，默认使用GPU0若无GPU设备，则无法使用，CPU版本后续推出</param>
         /// <returns>模型句柄（失败返回0）</returns>
         public long YoloLoadModel(string modelPath, string outputPath, string names_label, string password, int modelType, int inferenceType, int inferenceDevice){
-            return OLAPlugDLLHelper.YoloLoadModel(OLAObject, modelPath, outputPath, names_label, password, modelType, inferenceType, inferenceDevice);
+            var func = OLAPlugDLLHelper.GetFunction<YoloLoadModelDelegate>("YoloLoadModel");
+            return func(OLAObject, modelPath, outputPath, names_label, password, modelType, inferenceType, inferenceDevice);
         }
 
         /// <summary>
@@ -10715,7 +14557,8 @@ namespace OLAPlug
         /// <br/>1. 0 失败, 1 成功
         /// </remarks>
         public int YoloReleaseModel(long modelHandle){
-            return OLAPlugDLLHelper.YoloReleaseModel(OLAObject, modelHandle);
+            var func = OLAPlugDLLHelper.GetFunction<YoloReleaseModelDelegate>("YoloReleaseModel");
+            return func(OLAObject, modelHandle);
         }
 
         /// <summary>
@@ -10728,7 +14571,8 @@ namespace OLAPlug
         /// <param name="inferenceDevice">推理设备0.GPU0 1.GPU1 2.GPU2 3.GPU3 以此类推，默认使用GPU0若无GPU设备，则无法使用，CPU版本后续推出</param>
         /// <returns>模型句柄（失败返回0）</returns>
         public long YoloLoadModelMemory(long memoryAddr, int size, int modelType, int inferenceType, int inferenceDevice){
-            return OLAPlugDLLHelper.YoloLoadModelMemory(OLAObject, memoryAddr, size, modelType, inferenceType, inferenceDevice);
+            var func = OLAPlugDLLHelper.GetFunction<YoloLoadModelMemoryDelegate>("YoloLoadModelMemory");
+            return func(OLAObject, memoryAddr, size, modelType, inferenceType, inferenceDevice);
         }
 
         /// <summary>
@@ -10741,7 +14585,8 @@ namespace OLAPlug
         /// <br/>1. DLL调用返回字符串指针地址,需要调用 FreeStringPtr接口释放内存
         /// </remarks>
         public string YoloInfer(long handle, long imagePtr){
-            return PtrToStringUTF8(OLAPlugDLLHelper.YoloInfer(OLAObject, handle, imagePtr));
+            var func = OLAPlugDLLHelper.GetFunction<YoloInferDelegate>("YoloInfer");
+            return PtrToStringUTF8(func(OLAObject, handle, imagePtr));
         }
 
         /// <summary>
@@ -10750,7 +14595,8 @@ namespace OLAPlug
         /// <param name="modelHandle">模型句柄</param>
         /// <returns>1 有效, 0 无效</returns>
         public int YoloIsModelValid(long modelHandle){
-            return OLAPlugDLLHelper.YoloIsModelValid(OLAObject, modelHandle);
+            var func = OLAPlugDLLHelper.GetFunction<YoloIsModelValidDelegate>("YoloIsModelValid");
+            return func(OLAObject, modelHandle);
         }
 
         /// <summary>
@@ -10762,7 +14608,8 @@ namespace OLAPlug
         /// <br/>2. DLL调用返回字符串指针地址,需要调用 FreeStringPtr接口释放内存
         /// </remarks>
         public string YoloListModels(){
-            return PtrToStringUTF8(OLAPlugDLLHelper.YoloListModels(OLAObject));
+            var func = OLAPlugDLLHelper.GetFunction<YoloListModelsDelegate>("YoloListModels");
+            return PtrToStringUTF8(func(OLAObject));
         }
 
         /// <summary>
@@ -10775,7 +14622,8 @@ namespace OLAPlug
         /// <br/>2. DLL调用返回字符串指针地址,需要调用 FreeStringPtr接口释放内存
         /// </remarks>
         public string YoloGetModelInfo(long modelHandle){
-            return PtrToStringUTF8(OLAPlugDLLHelper.YoloGetModelInfo(OLAObject, modelHandle));
+            var func = OLAPlugDLLHelper.GetFunction<YoloGetModelInfoDelegate>("YoloGetModelInfo");
+            return PtrToStringUTF8(func(OLAObject, modelHandle));
         }
 
         /// <summary>
@@ -10788,7 +14636,8 @@ namespace OLAPlug
         /// <br/>1. 配置格式: {"confidence": 0.5, "iou": 0.45, "maxDetections": 100, "classes": ["person","car"], "inputSize": [640, 640]}
         /// </remarks>
         public int YoloSetModelConfig(long modelHandle, string configJson){
-            return OLAPlugDLLHelper.YoloSetModelConfig(OLAObject, modelHandle, configJson);
+            var func = OLAPlugDLLHelper.GetFunction<YoloSetModelConfigDelegate>("YoloSetModelConfig");
+            return func(OLAObject, modelHandle, configJson);
         }
 
         /// <summary>
@@ -10800,7 +14649,8 @@ namespace OLAPlug
         /// <br/>1. DLL调用返回字符串指针地址,需要调用 FreeStringPtr接口释放内存
         /// </remarks>
         public string YoloGetModelConfig(long modelHandle){
-            return PtrToStringUTF8(OLAPlugDLLHelper.YoloGetModelConfig(OLAObject, modelHandle));
+            var func = OLAPlugDLLHelper.GetFunction<YoloGetModelConfigDelegate>("YoloGetModelConfig");
+            return PtrToStringUTF8(func(OLAObject, modelHandle));
         }
 
         /// <summary>
@@ -10810,7 +14660,8 @@ namespace OLAPlug
         /// <param name="iterations">预热迭代次数</param>
         /// <returns>1 成功, 0 失败</returns>
         public int YoloWarmup(long modelHandle, int iterations){
-            return OLAPlugDLLHelper.YoloWarmup(OLAObject, modelHandle, iterations);
+            var func = OLAPlugDLLHelper.GetFunction<YoloWarmupDelegate>("YoloWarmup");
+            return func(OLAObject, modelHandle, iterations);
         }
 
         /// <summary>
@@ -10831,7 +14682,8 @@ namespace OLAPlug
         /// <br/>2. DLL调用返回字符串指针地址,需要调用 FreeStringPtr接口释放内存
         /// </remarks>
         public string YoloDetect(long modelHandle, int x1, int y1, int x2, int y2, string classes, double confidence, double iou, int maxDetections){
-            return PtrToStringUTF8(OLAPlugDLLHelper.YoloDetect(OLAObject, modelHandle, x1, y1, x2, y2, classes, confidence, iou, maxDetections));
+            var func = OLAPlugDLLHelper.GetFunction<YoloDetectDelegate>("YoloDetect");
+            return PtrToStringUTF8(func(OLAObject, modelHandle, x1, y1, x2, y2, classes, confidence, iou, maxDetections));
         }
 
         /// <summary>
@@ -10848,7 +14700,8 @@ namespace OLAPlug
         /// <br/>2. DLL调用返回字符串指针地址,需要调用 FreeStringPtr接口释放内存
         /// </remarks>
         public string YoloDetectSimple(long modelHandle, int x1, int y1, int x2, int y2){
-            return PtrToStringUTF8(OLAPlugDLLHelper.YoloDetectSimple(OLAObject, modelHandle, x1, y1, x2, y2));
+            var func = OLAPlugDLLHelper.GetFunction<YoloDetectSimpleDelegate>("YoloDetectSimple");
+            return PtrToStringUTF8(func(OLAObject, modelHandle, x1, y1, x2, y2));
         }
 
         /// <summary>
@@ -10865,7 +14718,8 @@ namespace OLAPlug
         /// <br/>1. DLL调用返回字符串指针地址,需要调用 FreeStringPtr接口释放内存
         /// </remarks>
         public string YoloDetectFromPtr(long modelHandle, long imagePtr, string classes, double confidence, double iou, int maxDetections){
-            return PtrToStringUTF8(OLAPlugDLLHelper.YoloDetectFromPtr(OLAObject, modelHandle, imagePtr, classes, confidence, iou, maxDetections));
+            var func = OLAPlugDLLHelper.GetFunction<YoloDetectFromPtrDelegate>("YoloDetectFromPtr");
+            return PtrToStringUTF8(func(OLAObject, modelHandle, imagePtr, classes, confidence, iou, maxDetections));
         }
 
         /// <summary>
@@ -10882,7 +14736,8 @@ namespace OLAPlug
         /// <br/>1. DLL调用返回字符串指针地址,需要调用 FreeStringPtr接口释放内存
         /// </remarks>
         public string YoloDetectFromFile(long modelHandle, string imagePath, string classes, double confidence, double iou, int maxDetections){
-            return PtrToStringUTF8(OLAPlugDLLHelper.YoloDetectFromFile(OLAObject, modelHandle, imagePath, classes, confidence, iou, maxDetections));
+            var func = OLAPlugDLLHelper.GetFunction<YoloDetectFromFileDelegate>("YoloDetectFromFile");
+            return PtrToStringUTF8(func(OLAObject, modelHandle, imagePath, classes, confidence, iou, maxDetections));
         }
 
         /// <summary>
@@ -10899,7 +14754,8 @@ namespace OLAPlug
         /// <br/>1. DLL调用返回字符串指针地址,需要调用 FreeStringPtr接口释放内存
         /// </remarks>
         public string YoloDetectFromBase64(long modelHandle, string base64Data, string classes, double confidence, double iou, int maxDetections){
-            return PtrToStringUTF8(OLAPlugDLLHelper.YoloDetectFromBase64(OLAObject, modelHandle, base64Data, classes, confidence, iou, maxDetections));
+            var func = OLAPlugDLLHelper.GetFunction<YoloDetectFromBase64Delegate>("YoloDetectFromBase64");
+            return PtrToStringUTF8(func(OLAObject, modelHandle, base64Data, classes, confidence, iou, maxDetections));
         }
 
         /// <summary>
@@ -10918,7 +14774,8 @@ namespace OLAPlug
         /// <br/>3. DLL调用返回字符串指针地址,需要调用 FreeStringPtr接口释放内存
         /// </remarks>
         public string YoloDetectBatch(long modelHandle, string imagesJson, string classes, double confidence, double iou, int maxDetections){
-            return PtrToStringUTF8(OLAPlugDLLHelper.YoloDetectBatch(OLAObject, modelHandle, imagesJson, classes, confidence, iou, maxDetections));
+            var func = OLAPlugDLLHelper.GetFunction<YoloDetectBatchDelegate>("YoloDetectBatch");
+            return PtrToStringUTF8(func(OLAObject, modelHandle, imagesJson, classes, confidence, iou, maxDetections));
         }
 
         /// <summary>
@@ -10936,7 +14793,8 @@ namespace OLAPlug
         /// <br/>2. DLL调用返回字符串指针地址,需要调用 FreeStringPtr接口释放内存
         /// </remarks>
         public string YoloClassify(long modelHandle, int x1, int y1, int x2, int y2, int topK){
-            return PtrToStringUTF8(OLAPlugDLLHelper.YoloClassify(OLAObject, modelHandle, x1, y1, x2, y2, topK));
+            var func = OLAPlugDLLHelper.GetFunction<YoloClassifyDelegate>("YoloClassify");
+            return PtrToStringUTF8(func(OLAObject, modelHandle, x1, y1, x2, y2, topK));
         }
 
         /// <summary>
@@ -10950,7 +14808,8 @@ namespace OLAPlug
         /// <br/>1. DLL调用返回字符串指针地址,需要调用 FreeStringPtr接口释放内存
         /// </remarks>
         public string YoloClassifyFromPtr(long modelHandle, long imagePtr, int topK){
-            return PtrToStringUTF8(OLAPlugDLLHelper.YoloClassifyFromPtr(OLAObject, modelHandle, imagePtr, topK));
+            var func = OLAPlugDLLHelper.GetFunction<YoloClassifyFromPtrDelegate>("YoloClassifyFromPtr");
+            return PtrToStringUTF8(func(OLAObject, modelHandle, imagePtr, topK));
         }
 
         /// <summary>
@@ -10964,7 +14823,8 @@ namespace OLAPlug
         /// <br/>1. DLL调用返回字符串指针地址,需要调用 FreeStringPtr接口释放内存
         /// </remarks>
         public string YoloClassifyFromFile(long modelHandle, string imagePath, int topK){
-            return PtrToStringUTF8(OLAPlugDLLHelper.YoloClassifyFromFile(OLAObject, modelHandle, imagePath, topK));
+            var func = OLAPlugDLLHelper.GetFunction<YoloClassifyFromFileDelegate>("YoloClassifyFromFile");
+            return PtrToStringUTF8(func(OLAObject, modelHandle, imagePath, topK));
         }
 
         /// <summary>
@@ -10983,7 +14843,8 @@ namespace OLAPlug
         /// <br/>2. DLL调用返回字符串指针地址,需要调用 FreeStringPtr接口释放内存
         /// </remarks>
         public string YoloSegment(long modelHandle, int x1, int y1, int x2, int y2, double confidence, double iou){
-            return PtrToStringUTF8(OLAPlugDLLHelper.YoloSegment(OLAObject, modelHandle, x1, y1, x2, y2, confidence, iou));
+            var func = OLAPlugDLLHelper.GetFunction<YoloSegmentDelegate>("YoloSegment");
+            return PtrToStringUTF8(func(OLAObject, modelHandle, x1, y1, x2, y2, confidence, iou));
         }
 
         /// <summary>
@@ -10998,7 +14859,8 @@ namespace OLAPlug
         /// <br/>1. DLL调用返回字符串指针地址,需要调用 FreeStringPtr接口释放内存
         /// </remarks>
         public string YoloSegmentFromPtr(long modelHandle, long imagePtr, double confidence, double iou){
-            return PtrToStringUTF8(OLAPlugDLLHelper.YoloSegmentFromPtr(OLAObject, modelHandle, imagePtr, confidence, iou));
+            var func = OLAPlugDLLHelper.GetFunction<YoloSegmentFromPtrDelegate>("YoloSegmentFromPtr");
+            return PtrToStringUTF8(func(OLAObject, modelHandle, imagePtr, confidence, iou));
         }
 
         /// <summary>
@@ -11017,7 +14879,8 @@ namespace OLAPlug
         /// <br/>2. DLL调用返回字符串指针地址,需要调用 FreeStringPtr接口释放内存
         /// </remarks>
         public string YoloPose(long modelHandle, int x1, int y1, int x2, int y2, double confidence, double iou){
-            return PtrToStringUTF8(OLAPlugDLLHelper.YoloPose(OLAObject, modelHandle, x1, y1, x2, y2, confidence, iou));
+            var func = OLAPlugDLLHelper.GetFunction<YoloPoseDelegate>("YoloPose");
+            return PtrToStringUTF8(func(OLAObject, modelHandle, x1, y1, x2, y2, confidence, iou));
         }
 
         /// <summary>
@@ -11032,7 +14895,8 @@ namespace OLAPlug
         /// <br/>1. DLL调用返回字符串指针地址,需要调用 FreeStringPtr接口释放内存
         /// </remarks>
         public string YoloPoseFromPtr(long modelHandle, long imagePtr, double confidence, double iou){
-            return PtrToStringUTF8(OLAPlugDLLHelper.YoloPoseFromPtr(OLAObject, modelHandle, imagePtr, confidence, iou));
+            var func = OLAPlugDLLHelper.GetFunction<YoloPoseFromPtrDelegate>("YoloPoseFromPtr");
+            return PtrToStringUTF8(func(OLAObject, modelHandle, imagePtr, confidence, iou));
         }
 
         /// <summary>
@@ -11051,7 +14915,8 @@ namespace OLAPlug
         /// <br/>2. DLL调用返回字符串指针地址,需要调用 FreeStringPtr接口释放内存
         /// </remarks>
         public string YoloObb(long modelHandle, int x1, int y1, int x2, int y2, double confidence, double iou){
-            return PtrToStringUTF8(OLAPlugDLLHelper.YoloObb(OLAObject, modelHandle, x1, y1, x2, y2, confidence, iou));
+            var func = OLAPlugDLLHelper.GetFunction<YoloObbDelegate>("YoloObb");
+            return PtrToStringUTF8(func(OLAObject, modelHandle, x1, y1, x2, y2, confidence, iou));
         }
 
         /// <summary>
@@ -11066,7 +14931,8 @@ namespace OLAPlug
         /// <br/>1. DLL调用返回字符串指针地址,需要调用 FreeStringPtr接口释放内存
         /// </remarks>
         public string YoloObbFromPtr(long modelHandle, long imagePtr, double confidence, double iou){
-            return PtrToStringUTF8(OLAPlugDLLHelper.YoloObbFromPtr(OLAObject, modelHandle, imagePtr, confidence, iou));
+            var func = OLAPlugDLLHelper.GetFunction<YoloObbFromPtrDelegate>("YoloObbFromPtr");
+            return PtrToStringUTF8(func(OLAObject, modelHandle, imagePtr, confidence, iou));
         }
 
         /// <summary>
@@ -11085,7 +14951,8 @@ namespace OLAPlug
         /// <br/>2. DLL调用返回字符串指针地址,需要调用 FreeStringPtr接口释放内存
         /// </remarks>
         public string YoloKeyPoint(long modelHandle, int x1, int y1, int x2, int y2, double confidence, double iou){
-            return PtrToStringUTF8(OLAPlugDLLHelper.YoloKeyPoint(OLAObject, modelHandle, x1, y1, x2, y2, confidence, iou));
+            var func = OLAPlugDLLHelper.GetFunction<YoloKeyPointDelegate>("YoloKeyPoint");
+            return PtrToStringUTF8(func(OLAObject, modelHandle, x1, y1, x2, y2, confidence, iou));
         }
 
         /// <summary>
@@ -11100,7 +14967,8 @@ namespace OLAPlug
         /// <br/>1. DLL调用返回字符串指针地址,需要调用 FreeStringPtr接口释放内存
         /// </remarks>
         public string YoloKeyPointFromPtr(long modelHandle, long imagePtr, double confidence, double iou){
-            return PtrToStringUTF8(OLAPlugDLLHelper.YoloKeyPointFromPtr(OLAObject, modelHandle, imagePtr, confidence, iou));
+            var func = OLAPlugDLLHelper.GetFunction<YoloKeyPointFromPtrDelegate>("YoloKeyPointFromPtr");
+            return PtrToStringUTF8(func(OLAObject, modelHandle, imagePtr, confidence, iou));
         }
 
         /// <summary>
@@ -11113,7 +14981,8 @@ namespace OLAPlug
         /// <br/>2. DLL调用返回字符串指针地址,需要调用 FreeStringPtr接口释放内存
         /// </remarks>
         public string YoloGetInferenceStats(long modelHandle){
-            return PtrToStringUTF8(OLAPlugDLLHelper.YoloGetInferenceStats(OLAObject, modelHandle));
+            var func = OLAPlugDLLHelper.GetFunction<YoloGetInferenceStatsDelegate>("YoloGetInferenceStats");
+            return PtrToStringUTF8(func(OLAObject, modelHandle));
         }
 
         /// <summary>
@@ -11122,7 +14991,8 @@ namespace OLAPlug
         /// <param name="modelHandle">模型句柄</param>
         /// <returns>1 成功, 0 失败</returns>
         public int YoloResetStats(long modelHandle){
-            return OLAPlugDLLHelper.YoloResetStats(OLAObject, modelHandle);
+            var func = OLAPlugDLLHelper.GetFunction<YoloResetStatsDelegate>("YoloResetStats");
+            return func(OLAObject, modelHandle);
         }
 
         /// <summary>
@@ -11133,7 +15003,8 @@ namespace OLAPlug
         /// <br/>1. DLL调用返回字符串指针地址,需要调用 FreeStringPtr接口释放内存
         /// </remarks>
         public string YoloGetLastError(){
-            return PtrToStringUTF8(OLAPlugDLLHelper.YoloGetLastError(OLAObject));
+            var func = OLAPlugDLLHelper.GetFunction<YoloGetLastErrorDelegate>("YoloGetLastError");
+            return PtrToStringUTF8(func(OLAObject));
         }
 
         /// <summary>
@@ -11141,7 +15012,8 @@ namespace OLAPlug
         /// </summary>
         /// <returns>1 成功, 0 失败</returns>
         public int YoloClearError(){
-            return OLAPlugDLLHelper.YoloClearError(OLAObject);
+            var func = OLAPlugDLLHelper.GetFunction<YoloClearErrorDelegate>("YoloClearError");
+            return func(OLAObject);
         }
 
 
