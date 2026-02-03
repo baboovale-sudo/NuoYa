@@ -104,7 +104,13 @@ namespace OLA
                 {
                     if (token.IsCancellationRequested) return;
                     UpdateStatus("启动中...", "0");
-                    if (!LaunchEmulator()) { LogError("启动失败: 请检查日志"); return; }
+
+                    if (!LaunchEmulator())
+                    {
+                        UpdateStatus("启动失败", "0");
+                        return;
+                    }
+
                     UpdateStatus("等待画面10s", "0");
                     try { Task.Delay(10000, token).Wait(); } catch { return; }
 
@@ -120,7 +126,7 @@ namespace OLA
                     }
                 }
 
-                if (parentHwnd == 0) { LogError("启动超时"); return; }
+                if (parentHwnd == 0) { LogError("启动超时，未检测到窗口"); return; }
                 UpdateStatus("等待画面", parentHwnd.ToString());
                 long childHwnd = 0;
                 while (RunState != 4 && childHwnd == 0)
@@ -130,6 +136,8 @@ namespace OLA
                     if (childHwnd != 0) break;
                     Thread.Sleep(1000);
                 }
+
+                EnsureGameRunning();
 
                 int ret = _ola!.BindWindowEx(childHwnd, Form1.OLAConfig.Bind_Display, Form1.OLAConfig.Bind_Mouse, Form1.OLAConfig.Bind_Keypad, "", Form1.OLAConfig.Bind_Mode);
                 if (ret == 1)
@@ -229,24 +237,7 @@ namespace OLA
             return true;
         }
 
-        #region 内部辅助方法 (MuMu 专用修正版)
-
-        public void EnsureGameRunning()
-        {
-            if (EmulatorName.Contains("雷电"))
-            {
-                try
-                {
-                    string indexStr = "0";
-                    if (EmulatorName.Contains("-")) indexStr = EmulatorName.Split('-')[1];
-                    string cmdExe = Path.Combine(EmulatorBasePath, "ldconsole.exe");
-                    if (!File.Exists(cmdExe)) { LogCallback?.Invoke("未找到 ldconsole.exe"); return; }
-                    Process.Start(new ProcessStartInfo { FileName = cmdExe, Arguments = $"launchex --index {indexStr} --packagename {this.PackageName}", UseShellExecute = false, CreateNoWindow = true });
-                    LogCallback?.Invoke($"正在拉起游戏: {this.PackageName}");
-                }
-                catch (Exception ex) { LogCallback?.Invoke($"启动指令失败: {ex.Message}"); }
-            }
-        }
+        #region 内部辅助方法 
 
         private bool CheckLoopState()
         {
@@ -264,12 +255,41 @@ namespace OLA
             _currentToken.ThrowIfCancellationRequested();
         }
 
-        // 保持原样：插件找标题
+        // =========================================================================
+        // 🔥 核心修改：MuMu 窗口标题查找
+        // 逻辑：MuMu列表名为 "MuMu模拟器-1"，实际窗口标题为 "MuMu安卓设备-1"
+        // =========================================================================
         private long FindWindowWithPlugin()
         {
             if (_ola is null) return 0;
+
+            string searchTitle = EmulatorName;
+
+            // MuMu 特殊处理
+            if (EmulatorName.Contains("MuMu"))
+            {
+                // 提取序号，例如 "MuMu模拟器-1" -> "1"
+                string indexStr = "0";
+                if (EmulatorName.Contains("-"))
+                {
+                    indexStr = EmulatorName.Split('-')[^1];
+                }
+
+                // 1. 尝试标准带序号标题 "MuMu安卓设备-1"
+                searchTitle = $"MuMu安卓设备-{indexStr}";
+                long h = _ola.FindWindow(EmulatorClass, searchTitle);
+
+                // 2. 如果是0号或者没找到，尝试无后缀 "MuMu安卓设备" (仿照雷电逻辑)
+                if (h == 0)
+                {
+                    h = _ola.FindWindow(EmulatorClass, "MuMu安卓设备");
+                }
+
+                return h;
+            }
+
+            // 雷电/默认逻辑
             long hwnd = _ola.FindWindow(EmulatorClass, EmulatorName);
-            if (hwnd == 0) hwnd = _ola.FindWindow(EmulatorClass, EmulatorName + "(64)");
             if (hwnd == 0 && EmulatorName.EndsWith("-0"))
             {
                 string altName = EmulatorName.Replace("-0", "");
@@ -277,70 +297,6 @@ namespace OLA
                 if (hwnd == 0) hwnd = _ola.FindWindow(EmulatorClass, altName + "(64)");
             }
             return hwnd;
-        }
-
-        // ----------------------------------------------------------------------------------
-        // [核心修正] MuMuManager 调用逻辑
-        // ----------------------------------------------------------------------------------
-        private string ExecuteMuMuManager(string args)
-        {
-            try
-            {
-                string managerPath = "";
-
-                // 1. 优先尝试拼接 nx_main (针对用户只填了安装根目录的情况)
-                string pathWithSub = Path.Combine(EmulatorBasePath, "nx_main", "MuMuManager.exe");
-
-                // 2. 备选尝试直接拼接 (针对用户已经填了 nx_main 目录的情况)
-                string pathDirect = Path.Combine(EmulatorBasePath, "MuMuManager.exe");
-
-                // 智能判断用哪个
-                if (File.Exists(pathWithSub))
-                {
-                    managerPath = pathWithSub;
-                }
-                else if (File.Exists(pathDirect))
-                {
-                    managerPath = pathDirect;
-                }
-                else
-                {
-                    // 都找不到，打印报错
-                    LogCallback?.Invoke($"[路径错误] 找不到 MuMuManager.exe");
-                    LogCallback?.Invoke($"已尝试: {pathWithSub}");
-                    LogCallback?.Invoke($"已尝试: {pathDirect}");
-                    return "";
-                }
-
-                LogCallback?.Invoke($"[调试] 运行工具: {managerPath} {args}");
-
-                Process p = new Process();
-                p.StartInfo.FileName = managerPath;
-                p.StartInfo.Arguments = args;
-
-                // 强制设置工作目录，防止缺少 DLL
-                p.StartInfo.WorkingDirectory = Path.GetDirectoryName(managerPath);
-
-                p.StartInfo.UseShellExecute = false;
-                p.StartInfo.RedirectStandardOutput = true;
-                p.StartInfo.RedirectStandardError = true; // 抓取错误输出
-                p.StartInfo.CreateNoWindow = true;
-                p.StartInfo.StandardOutputEncoding = System.Text.Encoding.UTF8;
-
-                p.Start();
-                string output = p.StandardOutput.ReadToEnd();
-                string error = p.StandardError.ReadToEnd(); // 看看有没有报错
-                p.WaitForExit();
-
-                if (!string.IsNullOrEmpty(error)) LogCallback?.Invoke($"[CMD报错] {error}");
-
-                return output;
-            }
-            catch (Exception ex)
-            {
-                LogCallback?.Invoke($"CMD异常: {ex.Message}");
-                return "";
-            }
         }
 
         private bool LaunchEmulator()
@@ -353,28 +309,58 @@ namespace OLA
                 if (EmulatorName.Contains("雷电"))
                 {
                     string cmdExe = Path.Combine(EmulatorBasePath, "ldconsole.exe");
-                    string args = $"launchex --index {indexStr} --packagename {this.PackageName}";
                     if (File.Exists(cmdExe))
                     {
-                        Process.Start(new ProcessStartInfo { FileName = cmdExe, Arguments = args, UseShellExecute = false, CreateNoWindow = true });
+                        Process.Start(new ProcessStartInfo { FileName = cmdExe, Arguments = $"launchex --index {indexStr} --packagename {this.PackageName}", UseShellExecute = false, CreateNoWindow = true });
+                        LogCallback?.Invoke($"[雷电] 启动中: {indexStr}");
                         return true;
+                    }
+                    else
+                    {
+                        LogError($"未找到ldconsole.exe，路径:{cmdExe}");
+                        return false;
                     }
                 }
                 else if (EmulatorName.Contains("MuMu"))
                 {
-                    // MuMu 启动：直接发送指令，不判断返回值（防止静默启动误判）
-                    ExecuteMuMuManager($"control -v {indexStr} launch");
-
-                    if (!string.IsNullOrEmpty(this.PackageName))
-                    {
-                        Thread.Sleep(2000);
-                        ExecuteMuMuManager($"control -v {indexStr} app launch -pkg {this.PackageName}");
-                    }
-                    return true;
+                    return ExecuteMuMuManager($"api -v {indexStr} launch_player");
                 }
+
+                LogError($"未知的模拟器类型: {EmulatorName}");
                 return false;
             }
-            catch { return false; }
+            catch (Exception ex)
+            {
+                LogError($"启动异常: {ex.Message}");
+                return false;
+            }
+        }
+
+        public void EnsureGameRunning()
+        {
+            try
+            {
+                string indexStr = "0";
+                if (EmulatorName.Contains("-")) indexStr = EmulatorName.Split('-')[^1];
+
+                if (EmulatorName.Contains("雷电"))
+                {
+                    string cmdExe = Path.Combine(EmulatorBasePath, "ldconsole.exe");
+                    if (File.Exists(cmdExe)) Process.Start(new ProcessStartInfo { FileName = cmdExe, Arguments = $"launchex --index {indexStr} --packagename {this.PackageName}", UseShellExecute = false, CreateNoWindow = true });
+                }
+                else if (EmulatorName.Contains("MuMu"))
+                {
+                    if (!string.IsNullOrEmpty(this.PackageName))
+                    {
+                        ExecuteMuMuManager($"api -v {indexStr} launch_app {this.PackageName}");
+                        LogCallback?.Invoke($"[MuMu] 拉起应用: {this.PackageName}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogCallback?.Invoke($"保活指令失败: {ex.Message}");
+            }
         }
 
         private void CloseEmulator()
@@ -391,10 +377,47 @@ namespace OLA
                 }
                 else if (EmulatorName.Contains("MuMu"))
                 {
-                    ExecuteMuMuManager($"control -v {indexStr} shutdown");
+                    ExecuteMuMuManager($"api -v {indexStr} shutdown_player");
                 }
             }
             catch { }
+        }
+
+        private bool ExecuteMuMuManager(string args)
+        {
+            string[] possiblePaths = new string[]
+            {
+                Path.Combine(EmulatorBasePath, "shell", "MuMuManager.exe"),
+                Path.Combine(EmulatorBasePath, "MuMuManager.exe"),
+                Path.Combine(EmulatorBasePath, "nx_main", "MuMuManager.exe")
+            };
+
+            string managerPath = "";
+            foreach (var p in possiblePaths)
+            {
+                if (File.Exists(p))
+                {
+                    managerPath = p;
+                    break;
+                }
+            }
+
+            if (string.IsNullOrEmpty(managerPath))
+            {
+                LogError($"[错误] 未找到MuMuManager.exe。尝试路径:\n{string.Join("\n", possiblePaths)}");
+                return false;
+            }
+
+            try
+            {
+                Process.Start(new ProcessStartInfo { FileName = managerPath, Arguments = args, UseShellExecute = false, CreateNoWindow = true });
+                return true;
+            }
+            catch (Exception ex)
+            {
+                LogError($"MuMu指令异常: {ex.Message}");
+                return false;
+            }
         }
 
         private void LogError(string msg) { LogCallback?.Invoke($"{msg}"); UpdateStatus("错误", "0"); UpdateException(msg); }
