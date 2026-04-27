@@ -44,10 +44,6 @@ namespace OLA
         }
 
         #region 生命周期控制
-
-        /// <summary>
-        /// 启动任务工作线程，初始化插件并执行监控与业务逻辑
-        /// </summary>
         public void Start()
         {
             if (RunState == 1) return;
@@ -59,9 +55,6 @@ namespace OLA
             Task.Run(() => RunLogicThread(token), token);
         }
 
-        /// <summary>
-        /// 停止任务工作线程，取消当前逻辑的执行
-        /// </summary>
         public void Stop()
         {
             RunState = 4;
@@ -70,33 +63,15 @@ namespace OLA
             UpdateException("");
         }
 
-        /// <summary>
-        /// 暂停当前任务状态，使脚本保持静止
-        /// </summary>
         public void Pause() { if (RunState == 1) { RunState = 2; UpdateStatus("已暂停", ""); } }
-
-        /// <summary>
-        /// 恢复当前任务状态，继续执行被暂停的脚本
-        /// </summary>
         public void Resume() { if (RunState == 2) { RunState = 3; } }
-
-        /// <summary>
-        /// 判断当前模拟器窗口及插件是否存活
-        /// </summary>
-        /// <returns>如果插件实例不为空且能找到目标窗口，则返回true</returns>
         public bool IsAlive() => _ola != null && FindWindowWithPlugin() != 0;
 
-        /// <summary>
-        /// 将当前异常状态标记为正在监控中
-        /// </summary>
         public void MarkAsMonitored()
         {
             if (_lastExceptionMsg.Contains("等待") || _lastExceptionMsg.Contains("监控")) UpdateException("监控中");
         }
 
-        /// <summary>
-        /// 执行模拟器重启操作，通常在检测到掉线或卡死时调用
-        /// </summary>
         public void PerformRestart()
         {
             Task.Run(() =>
@@ -114,16 +89,11 @@ namespace OLA
         #endregion
 
         #region 逻辑线程核心
-
-        /// <summary>
-        /// 核心逻辑线程，负责插件实例化、模拟器启动与绑定、以及调用任务分发逻辑
-        /// </summary>
-        /// <param name="token">取消令牌，用于控制线程中断</param>
         private void RunLogicThread(CancellationToken token)
         {
             try
             {
-                _ola = new OLAPlugServer();
+                _ola = new OLAPlugServer("OLA.dll");
                 if (_ola.OLAObject == 0) { LogError("插件接口创建失败"); return; }
 
                 string imageBasePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Output");
@@ -177,11 +147,6 @@ namespace OLA
             finally { Cleanup(); }
         }
 
-        /// <summary>
-        /// 根据用户配置的任务列表，按顺序执行相应的游戏逻辑
-        /// </summary>
-        /// <param name="token">取消令牌</param>
-        /// <param name="currentHwnd">当前绑定成功的窗口句柄</param>
         private void DoGameLogic(CancellationToken token, long currentHwnd)
         {
             _currentToken = token;
@@ -455,10 +420,6 @@ namespace OLA
         // 4. 内部辅助方法
         // =======================================================================
         #region 内部辅助方法
-
-        /// <summary>
-        /// 检测目标游戏包名是否在运行中，如果未运行则拉起对应的应用包
-        /// </summary>
         public void EnsureGameRunning()
         {
             if (EmulatorName.Contains("雷电"))
@@ -476,20 +437,12 @@ namespace OLA
             }
         }
 
-        /// <summary>
-        /// 检测循环状态，判断是否收到了停止信号或取消请求
-        /// </summary>
-        /// <returns>如果是要求取消或已置为停止状态，则返回true；否则返回false</returns>
         private bool CheckLoopState()
         {
             if (_currentToken.IsCancellationRequested) return true;
             CheckPauseState();
             return RunState == 4;
         }
-
-        /// <summary>
-        /// 持续检测暂停状态，若处于暂停中则阻塞线程，直到恢复运行或取消
-        /// </summary>
         private void CheckPauseState()
         {
             bool wasPaused = false;
@@ -498,11 +451,6 @@ namespace OLA
             if (wasPaused) UpdateStatus("运行中", CurrentBindHwnd.ToString());
             _currentToken.ThrowIfCancellationRequested();
         }
-
-        /// <summary>
-        /// 使用插件查找指定类名和窗口标题的模拟器主窗口句柄
-        /// </summary>
-        /// <returns>找到的窗口句柄，未找到则返回0</returns>
         private long FindWindowWithPlugin()
         {
             if (_ola is null) return 0;
@@ -516,11 +464,6 @@ namespace OLA
             }
             return hwnd;
         }
-
-        /// <summary>
-        /// 启动模拟器实例，支持雷电和MuMu模拟器命令行拉起
-        /// </summary>
-        /// <returns>成功拉起返回true，失败或找不到控制台路径返回false</returns>
         private bool LaunchEmulator()
         {
             try
@@ -542,10 +485,6 @@ namespace OLA
             }
             catch { return false; }
         }
-
-        /// <summary>
-        /// 通过命令行控制台强制关闭当前对应的模拟器实例
-        /// </summary>
         private void CloseEmulator()
         {
             try
@@ -558,25 +497,9 @@ namespace OLA
             }
             catch { }
         }
-
-        /// <summary>
-        /// 记录错误信息，并通过回调更新 UI 状态显示异常
-        /// </summary>
         private void LogError(string msg) { LogCallback?.Invoke($"{msg}"); UpdateStatus("错误", "0"); UpdateException(msg); }
-
-        /// <summary>
-        /// 更新并向 UI 回调发送当前的执行状态信息
-        /// </summary>
         private void UpdateStatus(string status, string hwnd) { if (_lastStatusMsg != status) { _lastStatusMsg = status; StatusCallback?.Invoke(RowIndex, status, hwnd); } }
-
-        /// <summary>
-        /// 更新并向 UI 回调发送当前的异常或监控信息
-        /// </summary>
         private void UpdateException(string msg) { if (_lastExceptionMsg != msg) { _lastExceptionMsg = msg; ExceptionCallback?.Invoke(RowIndex, msg); } }
-
-        /// <summary>
-        /// 任务结束或线程中断时的资源清理，释放对象和窗口解绑
-        /// </summary>
         private void Cleanup() { if (_ola != null) { _ola.UnBindWindow(); _ola.ReleaseObj(); _ola = null; } if (RunState == 4) { UpdateStatus("已停止", "0"); UpdateException(""); } }
         #endregion
     }
