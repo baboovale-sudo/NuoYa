@@ -6,6 +6,9 @@ using OLAPlug;
 
 namespace OLA
 {
+    /// <summary>
+    /// 游戏任务执行类，负责具体游戏业务逻辑分发和调用
+    /// </summary>
     public class GameTask
     {
         private TaskWorker _worker;
@@ -15,6 +18,10 @@ namespace OLA
             _worker = worker;
         }
 
+        /// <summary>
+        /// 根据用户选择的任务名称，分发并执行具体的任务逻辑
+        /// </summary>
+        /// <param name="taskName">任务名称，由列表动态传入</param>
         public void Execute(string taskName)
         {
             switch (taskName)
@@ -31,6 +38,9 @@ namespace OLA
             }
         }
 
+        /// <summary>
+        /// [封装任务] 自动化执行主线流程，涵盖防卡死、寻路、找图与文字识别等行为
+        /// </summary>
         private void MainQuest()
         {
             _worker.StatusCallback?.Invoke(_worker.RowIndex, "启动/检查游戏", _worker.CurrentBindHwnd.ToString());
@@ -108,6 +118,9 @@ namespace OLA
             _worker.StatusCallback?.Invoke(_worker.RowIndex, "主线任务结束", _worker.CurrentBindHwnd.ToString());
         }
 
+        /// <summary>
+        /// [封装任务] 处理每日活跃领取操作
+        /// </summary>
         private void DailyActive()
         {
             _worker.StatusCallback?.Invoke(_worker.RowIndex, "准备日常...", _worker.CurrentBindHwnd.ToString());
@@ -133,6 +146,9 @@ namespace OLA
             }
         }
 
+        /// <summary>
+        /// [封装任务] 进入福利界面完成每日自动签到
+        /// </summary>
         private void AutoSign()
         {
             _worker.StatusCallback?.Invoke(_worker.RowIndex, "自动签到中...", _worker.CurrentBindHwnd.ToString());
@@ -158,6 +174,9 @@ namespace OLA
             else { _worker.LogCallback?.Invoke("⚠️ 未找到签到图标"); }
         }
 
+        /// <summary>
+        /// [封装任务] 循环监测面板并通过OCR执行特定支线任务
+        /// </summary>
         private void SideQuest()
         {
             _worker.StatusCallback?.Invoke(_worker.RowIndex, "执行支线中...", _worker.CurrentBindHwnd.ToString());
@@ -183,6 +202,9 @@ namespace OLA
             }
         }
 
+        /// <summary>
+        /// [封装任务] 执行野外自动寻怪与长时间挂机防掉线检测
+        /// </summary>
         private void AfkTask()
         {
             _worker.StatusCallback?.Invoke(_worker.RowIndex, "开始挂机...", _worker.CurrentBindHwnd.ToString());

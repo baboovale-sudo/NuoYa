@@ -19,10 +19,10 @@ namespace OLA
         public static class OLAConfig
         {
             public const string UserCode = "d841c28403974a56b31a74856542b6b7";
-            public const string SoftCode = "c8285fc70089468f82cb927fee5fdf25";
+            public const string SoftCode = "3392920261284bcca265a3f451ed9709";
             public const string Key = "OLA";
 
-            public const string Bind_Display = "dx";
+            public const string Bind_Display = "gdi";
             public const string Bind_Mouse = "windows";
             public const string Bind_Keypad = "windows";
             public const int Bind_Mode = 0;
